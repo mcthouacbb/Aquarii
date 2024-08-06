@@ -11,6 +11,8 @@ fn main() {
 
     let mut bb = Bitboard::FILE_C | Bitboard::FILE_E;
     let mut bb2 = !bb ^ Bitboard::RANK_3;
+
+    println!("{}\n{}\n", bb, bb2);
     while bb.any() {
         let sq = bb.poplsb();
         println!("{}", sq);

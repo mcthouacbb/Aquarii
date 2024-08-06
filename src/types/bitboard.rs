@@ -1,3 +1,4 @@
+use core::fmt;
 use std::ops;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -140,5 +141,26 @@ impl ops::Not for Bitboard {
 	type Output = Bitboard;
 	fn not(self) -> Self::Output {
 		Bitboard(!self.0)
+	}
+}
+
+fn reverse(mut n: u8) -> u8 {
+    n = (n & 0xF0) >> 4 | (n & 0x0F) << 4;
+    n = (n & 0xCC) >> 2 | (n & 0x33) << 2;
+    n = (n & 0xAA) >> 1 | (n & 0x55) << 1;
+    return n;
+}
+
+impl fmt::Display for Bitboard {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		// this is cursed
+		let mut bb = self.0;
+		let mut rows = [0u8; 8];
+		for i in 0..8 {
+			let row: u64 = bb >> 56;
+			rows[i] = reverse(row as u8);
+			bb <<= 8;
+		}
+		write!(f, "{:08b}\n{:08b}\n{:08b}\n{:08b}\n{:08b}\n{:08b}\n{:08b}\n{:08b}\n", rows[0], rows[1], rows[2], rows[3], rows[4], rows[5], rows[6], rows[7])
 	}
 }
