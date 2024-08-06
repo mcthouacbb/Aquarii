@@ -7,4 +7,5 @@ fn main() {
     println!("{:?} {:?}", Color::White, Color::Black);
     let piece = Piece::new(Color::White, PieceType::King);
     println!("{} {:?} {:?}", piece, piece.color(), piece.piece_type());
+    println!("{:?} {:?}", !Color::White, !Color::Black);
 }
