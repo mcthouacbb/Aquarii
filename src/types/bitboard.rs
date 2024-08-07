@@ -65,11 +65,11 @@ impl Bitboard {
 	}
 
 	pub fn lsb(self) -> Square {
-		Square::new(self.0.trailing_zeros() as u8)
+		Square::from(self.0.trailing_zeros() as u8)
 	}
 
 	pub fn msb(self) -> Square {
-		Square::new((63 - self.0.leading_zeros()) as u8)
+		Square::from((63 - self.0.leading_zeros()) as u8)
 	}
 
 	pub fn popcount(self) -> u32 {

@@ -15,11 +15,11 @@ fn main() {
     println!("{}\n{}\n", bb, bb2);
     while bb.any() {
         let sq = bb.poplsb();
-        println!("{}", sq);
+        println!("{:?}", sq);
     }
 
     while bb2.any() {
         let sq = bb2.poplsb();
-        println!("{}", sq);
+        println!("{:?}", sq);
     }
 }
