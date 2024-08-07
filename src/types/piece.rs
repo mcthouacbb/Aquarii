@@ -45,20 +45,41 @@ impl From<u8> for Color {
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
-pub struct Piece(u8);
+#[repr(u8)]
+pub enum Piece {
+    WhitePawn,
+    BlackPawn,
+    WhiteKnight,
+    BlackKnight,
+    WhiteBishop,
+    BlackBishop,
+    WhiteRook,
+    BlackRook,
+    WhiteQueen,
+    BlackQueen,
+    WhiteKing,
+    BlackKing,
+    None
+}
 
 impl Piece {
-    pub const NONE: Piece = Piece(0);
     pub fn new(c: Color, pt: PieceType) -> Self {
-        Piece((c as u8) | ((pt as u8) << 1))
+        Piece::from((c as u8) | ((pt as u8) << 1))
     }
 
     pub fn color(self) -> Color {
-        Color::from(self.0 & 1)
+        Color::from((self as u8) & 1)
     }
 
     pub fn piece_type(self) -> PieceType {
-        PieceType::from(self.0 >> 1)
+        PieceType::from((self as u8) >> 1)
+    }
+}
+
+impl From<u8> for Piece {
+    fn from(value: u8) -> Self {
+        assert!(value <= Piece::None as u8);
+        unsafe { std::mem::transmute(value) }
     }
 }
 
