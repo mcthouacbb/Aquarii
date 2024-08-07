@@ -1,6 +1,8 @@
 use core::fmt;
 use std::ops;
 
+use super::Square;
+
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Bitboard(u64);
 
@@ -62,20 +64,19 @@ impl Bitboard {
 		self.south().east()
 	}
 
-	// TODO: make squares an actual type
-	pub fn lsb(self) -> u32 {
-		self.0.trailing_zeros()
+	pub fn lsb(self) -> Square {
+		Square::new(self.0.trailing_zeros() as u8)
 	}
 
-	pub fn msb(self) -> u32 {
-		63 - self.0.leading_zeros()
+	pub fn msb(self) -> Square {
+		Square::new((63 - self.0.leading_zeros()) as u8)
 	}
 
 	pub fn popcount(self) -> u32 {
 		self.0.count_ones()
 	}
 
-	pub fn poplsb(&mut self) -> u32 {
+	pub fn poplsb(&mut self) -> Square {
 		let lsb = self.lsb();
 		self.0 &= self.0 - 1;
 		lsb
