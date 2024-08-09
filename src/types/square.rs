@@ -1,3 +1,5 @@
+use std::ops;
+
 #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
 pub enum Square {
 	A1, B1, C1, D1, E1, F1, G1, H1,
@@ -28,5 +30,32 @@ impl From<u8> for Square {
 	fn from(value: u8) -> Self {
 		assert!(value <= Square::H8 as u8);
 		unsafe { std::mem::transmute(value) }
+	}
+}
+
+impl ops::Add<u8> for Square {
+	type Output = Self;
+	fn add(self, rhs: u8) -> Self::Output {
+		return Square::from(self.value() + rhs);
+	}
+}
+
+impl ops::AddAssign<u8> for Square {
+	fn add_assign(&mut self, rhs: u8) {
+		*self = *self + rhs;
+	}
+}
+
+impl ops::Sub<u8> for Square {
+	type Output = Self;
+	fn sub(self, rhs: u8) -> Self::Output {
+		assert!(self.value() >= rhs);
+		return Square::from(self.value() - rhs);
+	}
+}
+
+impl ops::SubAssign<u8> for Square {
+	fn sub_assign(&mut self, rhs: u8) {
+		*self = *self - rhs;
 	}
 }

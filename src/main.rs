@@ -1,7 +1,7 @@
 mod types;
 mod chess;
 
-use types::{Bitboard, PieceType, Color, Piece};
+use types::{Bitboard, PieceType, Color, Piece, Square};
 use chess::{Board};
 
 fn main() {
@@ -24,4 +24,9 @@ fn main() {
         let sq = bb2.poplsb();
         println!("{:?}", sq);
     }
+
+    let sq = Square::from(2);
+    println!("{:?}", sq);
+
+    let board = Board::startpos();
 }

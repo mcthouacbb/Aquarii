@@ -28,6 +28,10 @@ impl Bitboard {
 	pub const EMPTY: Bitboard = Bitboard(0u64);
 	pub const ALL: Bitboard = Bitboard(!0u64);
 
+	pub fn from_square(sq: Square) -> Bitboard {
+		return Bitboard(1 << sq.value());
+	}
+
 	pub fn value(self) -> u64 {
 		self.0
 	}

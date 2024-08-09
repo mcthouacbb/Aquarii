@@ -9,51 +9,53 @@ pub struct Board {
 }
 
 impl Board {
+    const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
     pub fn from_fen(fen: &str) -> Option<Board> {
-        let board = Board::default();
+        let mut board = Board::empty();
         let mut iter = fen.chars();
-        let mut curr = Square::A7;
+        let mut curr = Square::A7 as i32;
         loop {
             let Some(c) = iter.next() else { return None };
             match c {
                 '1'..='9' => {
-                    curr += c as u8
+                    curr += c as i32 - '0' as i32;
                 },
                 'P' => {
-                    board.addPiece(curr, Piece::new(Color::White, PieceType::Pawn))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Pawn))
                 },
                 'N' => {
-                    board.addPiece(curr, Piece::new(Color::White, PieceType::Knight))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Knight))
                 },
                 'B' => {
-                    board.addPiece(curr, Piece::new(Color::White, PieceType::Bishop))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Bishop))
                 },
                 'R' => {
-                    board.addPiece(curr, Piece::new(Color::White, PieceType::Rook))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Rook))
                 },
                 'Q' => {
-                    board.addPiece(curr, Piece::new(Color::White, PieceType::Queen))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Queen))
                 },
                 'K' => {
-                    board.addPiece(curr, Piece::new(Color::White, PieceType::King))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::King))
                 },
                 'p' => {
-                    board.addPiece(curr, Piece::new(Color::White, PieceType::Pawn))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Pawn))
                 },
                 'n' => {
-                    board.addPiece(curr, Piece::new(Color::White, PieceType::Knight))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Knight))
                 },
                 'b' => {
-                    board.addPiece(curr, Piece::new(Color::White, PieceType::Bishop))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Bishop))
                 },
                 'r' => {
-                    board.addPiece(curr, Piece::new(Color::White, PieceType::Rook))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Rook))
                 },
                 'q' => {
-                    board.addPiece(curr, Piece::new(Color::White, PieceType::Queen))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Queen))
                 },
                 'k' => {
-                    board.addPiece(curr, Piece::new(Color::White, PieceType::King))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::King))
                 },
                 '/' => {
                     curr -= 16;
@@ -72,14 +74,19 @@ impl Board {
             Color::Black
         } else {
             return None;
-        }
+        };
 
-        
+        // !TODO
+        // castling rights, ep square, half move clock and full move clock
 
-        board
+        Some(board)
     }
 
-    fn default() -> Board {
+    pub fn startpos() -> Board {
+        return Board::from_fen(Self::STARTPOS_FEN).unwrap();
+    }
+
+    fn empty() -> Board {
         return Board {
             pieces: [Bitboard::EMPTY; 6],
             colors: [Bitboard::EMPTY; 2],
@@ -89,7 +96,9 @@ impl Board {
         };
     }
 
-    fn addPiece(&mut self, sq: Square, piece: Piece) {
-        
+    fn add_piece(&mut self, sq: Square, piece: Piece) {
+        let sq_bb = Bitboard::from_square(sq);
+        self.pieces[piece.piece_type() as usize] |= sq_bb;
+        self.colors[piece.color() as usize] |= sq_bb;
     }
 }
