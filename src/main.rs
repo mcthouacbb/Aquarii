@@ -1,6 +1,8 @@
 mod types;
+mod chess;
 
 use types::{Bitboard, PieceType, Color, Piece};
+use chess::{Board};
 
 fn main() {
     println!("{:?} {:?} {:?} {:?} {:?} {:?}", PieceType::Pawn, PieceType::Knight, PieceType::Bishop, PieceType::Rook, PieceType::Queen, PieceType::King);
