@@ -9,53 +9,66 @@ pub struct Board {
 }
 
 impl Board {
-    const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    const STARTPOS_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     pub fn from_fen(fen: &str) -> Option<Board> {
         let mut board = Board::empty();
         let mut iter = fen.chars();
-        let mut curr = Square::A7 as i32;
+        let mut curr = Square::A8 as i32;
         loop {
             let Some(c) = iter.next() else { return None };
+            println!("{}", curr);
             match c {
                 '1'..='9' => {
                     curr += c as i32 - '0' as i32;
                 },
                 'P' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Pawn))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Pawn));
+                    curr += 1;
                 },
                 'N' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Knight))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Knight));
+                    curr += 1;
                 },
                 'B' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Bishop))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Bishop));
+                    curr += 1;
                 },
                 'R' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Rook))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Rook));
+                    curr += 1;
                 },
                 'Q' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Queen))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Queen));
+                    curr += 1;
                 },
                 'K' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::King))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::King));
+                    curr += 1;
                 },
                 'p' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Pawn))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Pawn));
+                    curr += 1;
                 },
                 'n' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Knight))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Knight));
+                    curr += 1;
                 },
                 'b' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Bishop))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Bishop));
+                    curr += 1;
                 },
                 'r' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Rook))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Rook));
+                    curr += 1;
                 },
                 'q' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Queen))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Queen));
+                    curr += 1;
                 },
                 'k' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::King))
+                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::King));
+                    curr += 1;
                 },
                 '/' => {
                     curr -= 16;
@@ -64,10 +77,7 @@ impl Board {
             };
         }
 
-        if iter.next() == None {
-            return None;
-        };
-        let Some(stm) = iter.next() else { return None };
+        let Some(stm) = iter.next() else { return None; };
         board.stm = if stm == 'w' {
             Color::White
         } else if stm == 'b' {
