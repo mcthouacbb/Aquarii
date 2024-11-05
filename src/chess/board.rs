@@ -1,11 +1,12 @@
 use crate::types::{Square, Color, PieceType, Bitboard, Piece};
+use super::castle_rights::CastleRights;
 use std::fmt;
 
 pub struct Board {
     pieces: [Bitboard; 6],
     colors: [Bitboard; 2],
     stm: Color,
-    castle_rights: u8,
+    castle_rights: CastleRights,
     ep_square: Option<Square>,
 }
 
@@ -14,10 +15,15 @@ impl Board {
 
     pub fn from_fen(fen: &str) -> Option<Board> {
         let mut board = Board::empty();
-        let mut iter = fen.chars();
+
+        let parts: Vec<&str> = fen.split_whitespace().collect();
+        if parts.len() != 6 {
+            return None;
+        }
+
         let mut curr = Square::A8 as i32;
-        loop {
-            let Some(c) = iter.next() else { return None };
+        let mut rows = 0;
+        for c in parts[0].chars() {
             match c {
                 '1'..='9' => {
                     curr += c as i32 - '0' as i32;
@@ -61,16 +67,28 @@ impl Board {
                     board.add_piece(Square::from(curr as u8), Piece::new(Color::Black, PieceType::King))
                 },
                 '/' => {
+                    if curr != 64 - rows * 8 {
+                        return None;
+                    }
+                    rows += 1;
                     curr -= 16;
                     // cancel out extra += 1 at the end
                     curr -= 1;
                 },
-                _ => break,
+                _ => return None,
             };
             curr += 1;
         }
 
-        let Some(stm) = iter.next() else { return None };
+        if curr != 8 || rows != 7 {
+            return None;
+        }
+
+        if parts[1].len() != 1 {
+            return None;
+        }
+
+        let stm = parts[1].chars().next().unwrap();
         board.stm = if stm == 'w' {
             Color::White
         } else if stm == 'b' {
@@ -79,8 +97,38 @@ impl Board {
             return None;
         };
 
+        if parts[2].len() == 0 || parts[2].len() > 4 {
+            return None;
+        }
+
+        for c in parts[2].chars() {
+            match c {
+                'K' => {
+                    board.castle_rights |= CastleRights::WHITE_KING_SIDE;
+                },
+                'Q' => {
+                    board.castle_rights |= CastleRights::WHITE_QUEEN_SIDE;
+                },
+                'k' => {
+                    board.castle_rights |= CastleRights::BLACK_KING_SIDE;
+                },
+                'q' => {
+                    board.castle_rights |= CastleRights::BLACK_QUEEN_SIDE;
+                },
+                '-' => {
+                    if parts[2].len() != 1 {
+                        return None;
+                    }
+                },
+                _ => {
+                    return None;
+                }
+            }
+        }
+
+
         // !TODO
-        // castling rights, ep square, half move clock and full move clock
+        // ep square, half move clock and full move clock
 
         Some(board)
     }
@@ -120,7 +168,7 @@ impl Board {
             pieces: [Bitboard::EMPTY; 6],
             colors: [Bitboard::EMPTY; 2],
             stm: Color::White,
-            castle_rights: 0,
+            castle_rights: CastleRights::NONE,
             ep_square: None
         }
     }
@@ -147,8 +195,10 @@ impl fmt::Display for Board {
                     }
                 }
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
+        writeln!(f, "stm: {}", self.stm)?;
+        writeln!(f, "castling rights: {}", self.castle_rights)?;
         Ok(())
     }
 }
