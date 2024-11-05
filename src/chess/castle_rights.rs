@@ -23,27 +23,27 @@ impl CastleRights {
 	}
 }
 
-impl std::ops::BitAnd for CastleRights {
+impl ops::BitAnd for CastleRights {
 	type Output = CastleRights;
 	fn bitand(self, rhs: Self) -> Self::Output {
 		CastleRights(self.0 & rhs.0)
 	}
 }
 
-impl std::ops::BitAndAssign for CastleRights {
+impl ops::BitAndAssign for CastleRights {
 	fn bitand_assign(&mut self, rhs: Self) {
 		self.0 &= rhs.0;
 	}
 }
 
-impl std::ops::BitOr for CastleRights {
+impl ops::BitOr for CastleRights {
 	type Output = CastleRights;
 	fn bitor(self, rhs: Self) -> Self::Output {
 		CastleRights(self.0 | rhs.0)
 	}
 }
 
-impl std::ops::BitOrAssign for CastleRights {
+impl ops::BitOrAssign for CastleRights {
 	fn bitor_assign(&mut self, rhs: Self) {
 		self.0 |= rhs.0;
 	}

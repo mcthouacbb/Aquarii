@@ -8,6 +8,7 @@ pub struct Board {
     stm: Color,
     castle_rights: CastleRights,
     ep_square: Option<Square>,
+    half_move_clock: u8
 }
 
 impl Board {
@@ -130,6 +131,34 @@ impl Board {
         // !TODO
         // ep square, half move clock and full move clock
 
+        if parts[3].len() == 0 || parts[3].len() > 2 {
+            return None;
+        }
+
+        if parts[3].len() == 1 && parts[3].chars().next().unwrap() != '-' {
+            return None;
+        }
+
+        if parts[3].len() == 2 {
+            // trash
+            let mut iter = parts[3].chars();
+            let file = iter.next().unwrap();
+            let rank = iter.next().unwrap();
+            board.ep_square = Some(Square::from_rank_file(rank as u8 - '1' as u8, file as u8 - 'a' as u8));
+        }
+
+        match parts[4].parse::<u8>() {
+            Ok(n) => {
+                board.half_move_clock = n;
+            }
+            Err(_) => {
+                return None;
+            }
+        }
+        if board.half_move_clock > 100 {
+            return None;
+        }
+
         Some(board)
     }
 
@@ -169,7 +198,8 @@ impl Board {
             colors: [Bitboard::EMPTY; 2],
             stm: Color::White,
             castle_rights: CastleRights::NONE,
-            ep_square: None
+            ep_square: None,
+            half_move_clock: 0
         }
     }
 
@@ -199,6 +229,15 @@ impl fmt::Display for Board {
         }
         writeln!(f, "stm: {}", self.stm)?;
         writeln!(f, "castling rights: {}", self.castle_rights)?;
+        match self.ep_square {
+            Some(sq) => {
+                writeln!(f, "ep square: {}", sq)?;
+            },
+            None => {
+                writeln!(f, "ep square: N/A")?;
+            }
+        }
+        writeln!(f, "half move clock: {}", self.half_move_clock)?;
         Ok(())
     }
 }
