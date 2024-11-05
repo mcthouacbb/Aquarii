@@ -97,7 +97,7 @@ impl Board {
         } else {
             return None;
         };
-        // println!("sq: {:?}, col: {:?}", sq, c);
+
         if self.pieces[PieceType::Pawn as usize].has(sq) {
             Some(Piece::new(c, PieceType::Pawn))
         } else if self.pieces[PieceType::Knight as usize].has(sq) {

@@ -18,6 +18,12 @@ impl From<u8> for PieceType {
     }
 }
 
+impl fmt::Display for PieceType {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{:?}", self)
+	}
+}
+
 #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum Color {
@@ -41,6 +47,12 @@ impl From<u8> for Color {
         assert!(value <= Color::Black as u8);
         unsafe { std::mem::transmute(value) }
     }
+}
+
+impl fmt::Display for Color {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{:?}", self)
+	}
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
@@ -83,6 +95,6 @@ impl From<u8> for Piece {
 
 impl fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}{:?}", self.color(), self.piece_type())
+        write!(f, "{}{}", self.color(), self.piece_type())
     }
 }
