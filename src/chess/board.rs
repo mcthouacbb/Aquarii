@@ -140,21 +140,7 @@ impl fmt::Display for Board {
                 let p = self.piece_at(sq);
                 match p {
                     Some(piece) => {
-                        let c = match piece {
-                            Piece::WhitePawn => 'P',
-                            Piece::BlackPawn => 'p',
-                            Piece::WhiteKnight => 'N',
-                            Piece::BlackKnight => 'n',
-                            Piece::WhiteBishop => 'B',
-                            Piece::BlackBishop => 'b',
-                            Piece::WhiteRook => 'R',
-                            Piece::BlackRook => 'r',
-                            Piece::WhiteQueen => 'Q',
-                            Piece::BlackQueen => 'q',
-                            Piece::WhiteKing => 'K',
-                            Piece::BlackKing => 'k',
-                        };
-                        write!(f, "{}", c)?;
+                        write!(f, "{}", piece.char_repr())?;
                     },
                     None => {
                         write!(f, ".")?;

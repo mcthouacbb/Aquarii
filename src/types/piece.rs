@@ -84,6 +84,13 @@ impl Piece {
     pub fn piece_type(self) -> PieceType {
         PieceType::from((self as u8) >> 1)
     }
+
+    pub fn char_repr(self) -> char {
+        let chars = [
+            'P', 'p', 'N', 'n', 'B', 'b', 'R', 'r', 'Q', 'q', 'K', 'k'
+        ];
+        chars[self as usize]
+    }
 }
 
 impl From<u8> for Piece {
