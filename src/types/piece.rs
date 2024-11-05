@@ -8,13 +8,12 @@ pub enum PieceType {
     Bishop,
     Rook,
     Queen,
-    King,
-    None
+    King
 }
 
 impl From<u8> for PieceType {
     fn from(value: u8) -> Self {
-        assert!(value <= PieceType::None as u8);
+        assert!(value <= PieceType::King as u8);
         unsafe { std::mem::transmute(value) }
     }
 }
@@ -58,8 +57,7 @@ pub enum Piece {
     WhiteQueen,
     BlackQueen,
     WhiteKing,
-    BlackKing,
-    None
+    BlackKing
 }
 
 impl Piece {
@@ -78,7 +76,7 @@ impl Piece {
 
 impl From<u8> for Piece {
     fn from(value: u8) -> Self {
-        assert!(value <= Piece::None as u8);
+        assert!(value <= Piece::BlackKing as u8);
         unsafe { std::mem::transmute(value) }
     }
 }

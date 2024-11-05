@@ -101,6 +101,10 @@ impl Bitboard {
 	pub fn one(self) -> bool {
 		self.any() && !self.multiple()
 	}
+
+	pub fn has(self, sq: Square) -> bool {
+		return ((self.0 >> (sq as u8)) & 1u64) > 0;
+	}
 }
 
 impl ops::BitAnd<Bitboard> for Bitboard {
@@ -160,12 +164,11 @@ impl fmt::Display for Bitboard {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		// this is cursed
 		let mut bb = self.0;
-		let mut rows = [0u8; 8];
 		for i in 0..8 {
 			let row: u64 = bb >> 56;
-			rows[i] = reverse(row as u8);
+			write!(f, "{:08b}\n", reverse(row as u8))?;
 			bb <<= 8;
 		}
-		write!(f, "{:08b}\n{:08b}\n{:08b}\n{:08b}\n{:08b}\n{:08b}\n{:08b}\n{:08b}\n", rows[0], rows[1], rows[2], rows[3], rows[4], rows[5], rows[6], rows[7])
+		Ok(())
 	}
 }

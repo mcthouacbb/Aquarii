@@ -7,7 +7,7 @@ use chess::{Board};
 fn main() {
     println!("{:?} {:?} {:?} {:?} {:?} {:?}", PieceType::Pawn, PieceType::Knight, PieceType::Bishop, PieceType::Rook, PieceType::Queen, PieceType::King);
     println!("{:?} {:?}", Color::White, Color::Black);
-    let piece = Piece::new(Color::White, PieceType::King);
+    let piece = Piece::new(Color::Black, PieceType::Queen);
     println!("{} {:?} {:?}", piece, piece.color(), piece.piece_type());
     println!("{:?} {:?}", !Color::White, !Color::Black);
 
@@ -29,4 +29,5 @@ fn main() {
     println!("{:?}", sq);
 
     let board = Board::startpos();
+    println!("{}", board);
 }

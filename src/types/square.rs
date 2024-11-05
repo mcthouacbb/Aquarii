@@ -13,6 +13,10 @@ pub enum Square {
 }
 
 impl Square {
+	pub fn from_rank_file(rank: u8, file: u8) -> Square {
+		return Square::from(rank * 8 + file)
+	}
+
 	pub fn value(self) -> u8 {
 		self as u8
 	}
