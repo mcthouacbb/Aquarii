@@ -1,5 +1,5 @@
-use crate::types::{Square, Color, PieceType, Bitboard, Piece};
 use super::castle_rights::CastleRights;
+use crate::types::{Bitboard, Color, Piece, PieceType, Square};
 use std::fmt;
 
 pub struct Board {
@@ -8,7 +8,7 @@ pub struct Board {
     stm: Color,
     castle_rights: CastleRights,
     ep_square: Option<Square>,
-    half_move_clock: u8
+    half_move_clock: u8,
 }
 
 impl Board {
@@ -30,43 +30,55 @@ impl Board {
                     curr += c as i32 - '0' as i32;
                     // cancel out extra += 1 at the end
                     curr -= 1;
-                },
-                'P' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Pawn))
-                },
-                'N' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Knight))
-                },
-                'B' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Bishop))
-                },
-                'R' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Rook))
-                },
-                'Q' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::Queen))
-                },
-                'K' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::White, PieceType::King))
-                },
-                'p' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::Black, PieceType::Pawn))
-                },
-                'n' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::Black, PieceType::Knight))
-                },
-                'b' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::Black, PieceType::Bishop))
-                },
-                'r' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::Black, PieceType::Rook))
-                },
-                'q' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::Black, PieceType::Queen))
-                },
-                'k' => {
-                    board.add_piece(Square::from(curr as u8), Piece::new(Color::Black, PieceType::King))
-                },
+                }
+                'P' => board.add_piece(
+                    Square::from(curr as u8),
+                    Piece::new(Color::White, PieceType::Pawn),
+                ),
+                'N' => board.add_piece(
+                    Square::from(curr as u8),
+                    Piece::new(Color::White, PieceType::Knight),
+                ),
+                'B' => board.add_piece(
+                    Square::from(curr as u8),
+                    Piece::new(Color::White, PieceType::Bishop),
+                ),
+                'R' => board.add_piece(
+                    Square::from(curr as u8),
+                    Piece::new(Color::White, PieceType::Rook),
+                ),
+                'Q' => board.add_piece(
+                    Square::from(curr as u8),
+                    Piece::new(Color::White, PieceType::Queen),
+                ),
+                'K' => board.add_piece(
+                    Square::from(curr as u8),
+                    Piece::new(Color::White, PieceType::King),
+                ),
+                'p' => board.add_piece(
+                    Square::from(curr as u8),
+                    Piece::new(Color::Black, PieceType::Pawn),
+                ),
+                'n' => board.add_piece(
+                    Square::from(curr as u8),
+                    Piece::new(Color::Black, PieceType::Knight),
+                ),
+                'b' => board.add_piece(
+                    Square::from(curr as u8),
+                    Piece::new(Color::Black, PieceType::Bishop),
+                ),
+                'r' => board.add_piece(
+                    Square::from(curr as u8),
+                    Piece::new(Color::Black, PieceType::Rook),
+                ),
+                'q' => board.add_piece(
+                    Square::from(curr as u8),
+                    Piece::new(Color::Black, PieceType::Queen),
+                ),
+                'k' => board.add_piece(
+                    Square::from(curr as u8),
+                    Piece::new(Color::Black, PieceType::King),
+                ),
                 '/' => {
                     if curr != 64 - rows * 8 {
                         return None;
@@ -75,7 +87,7 @@ impl Board {
                     curr -= 16;
                     // cancel out extra += 1 at the end
                     curr -= 1;
-                },
+                }
                 _ => return None,
             };
             curr += 1;
@@ -106,27 +118,26 @@ impl Board {
             match c {
                 'K' => {
                     board.castle_rights |= CastleRights::WHITE_KING_SIDE;
-                },
+                }
                 'Q' => {
                     board.castle_rights |= CastleRights::WHITE_QUEEN_SIDE;
-                },
+                }
                 'k' => {
                     board.castle_rights |= CastleRights::BLACK_KING_SIDE;
-                },
+                }
                 'q' => {
                     board.castle_rights |= CastleRights::BLACK_QUEEN_SIDE;
-                },
+                }
                 '-' => {
                     if parts[2].len() != 1 {
                         return None;
                     }
-                },
+                }
                 _ => {
                     return None;
                 }
             }
         }
-
 
         // !TODO
         // ep square, half move clock and full move clock
@@ -144,7 +155,10 @@ impl Board {
             let mut iter = parts[3].chars();
             let file = iter.next().unwrap();
             let rank = iter.next().unwrap();
-            board.ep_square = Some(Square::from_rank_file(rank as u8 - '1' as u8, file as u8 - 'a' as u8));
+            board.ep_square = Some(Square::from_rank_file(
+                rank as u8 - '1' as u8,
+                file as u8 - 'a' as u8,
+            ));
         }
 
         match parts[4].parse::<u8>() {
@@ -162,8 +176,8 @@ impl Board {
         Some(board)
     }
 
-    pub fn startpos() -> Board {
-        Board::from_fen(Self::STARTPOS_FEN).unwrap()
+    pub fn startpos() -> Self {
+        Self::from_fen(Self::STARTPOS_FEN).unwrap()
     }
 
     pub fn to_fen(&self) -> String {
@@ -181,9 +195,7 @@ impl Board {
                         fen.push(piece.char_repr());
                         lastFile = sq as i32 - rank as i32 * 8;
                     }
-                    None => {
-
-                    }
+                    None => {}
                 }
             }
             let diff: i32 = 7 - lastFile;
@@ -195,7 +207,11 @@ impl Board {
             }
         }
 
-        fen += if self.stm == Color::White { " w " } else { " b " };
+        fen += if self.stm == Color::White {
+            " w "
+        } else {
+            " b "
+        };
         fen += format!("{}", self.castle_rights).as_str();
         match self.ep_square {
             Some(sq) => {
@@ -213,7 +229,7 @@ impl Board {
 
     pub fn piece_at(&self, sq: Square) -> Option<Piece> {
         let c = if self.colors[Color::White as usize].has(sq) {
-           Color::White
+            Color::White
         } else if self.colors[Color::Black as usize].has(sq) {
             Color::Black
         } else {
@@ -238,13 +254,13 @@ impl Board {
     }
 
     fn empty() -> Board {
-        Board {
+        Self {
             pieces: [Bitboard::EMPTY; 6],
             colors: [Bitboard::EMPTY; 2],
             stm: Color::White,
             castle_rights: CastleRights::NONE,
             ep_square: None,
-            half_move_clock: 0
+            half_move_clock: 0,
         }
     }
 
@@ -264,7 +280,7 @@ impl fmt::Display for Board {
                 match p {
                     Some(piece) => {
                         write!(f, "{}", piece.char_repr())?;
-                    },
+                    }
                     None => {
                         write!(f, ".")?;
                     }
@@ -277,7 +293,7 @@ impl fmt::Display for Board {
         match self.ep_square {
             Some(sq) => {
                 writeln!(f, "ep square: {}", sq)?;
-            },
+            }
             None => {
                 writeln!(f, "ep square: N/A")?;
             }
