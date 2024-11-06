@@ -63,6 +63,9 @@ impl fmt::Display for CastleRights {
 		if self.has(CastleRights::BLACK_QUEEN_SIDE) {
 			write!(f, "q")?;
 		}
+		if self.0 == 0 {
+			write!(f, "-")?;
+		}
 		Ok(())
 	}
 }

@@ -166,6 +166,51 @@ impl Board {
         Board::from_fen(Self::STARTPOS_FEN).unwrap()
     }
 
+    pub fn to_fen(&self) -> String {
+        let mut fen = String::new();
+        for rank in (0..8).rev() {
+            let mut lastFile = -1;
+            for file in 0..8 {
+                let sq = Square::from_rank_file(rank, file);
+                match self.piece_at(sq) {
+                    Some(piece) => {
+                        let diff = sq as i32 - rank as i32 * 8 - lastFile - 1;
+                        if diff > 0 {
+                            fen.push(std::char::from_digit(diff as u32, 10).unwrap());
+                        }
+                        fen.push(piece.char_repr());
+                        lastFile = sq as i32 - rank as i32 * 8;
+                    }
+                    None => {
+
+                    }
+                }
+            }
+            let diff: i32 = 7 - lastFile;
+            if diff > 0 {
+                fen.push(std::char::from_digit(diff as u32, 10).unwrap());
+            }
+            if rank != 0 {
+                fen.push('/');
+            }
+        }
+
+        fen += if self.stm == Color::White { " w " } else { " b " };
+        fen += format!("{}", self.castle_rights).as_str();
+        match self.ep_square {
+            Some(sq) => {
+                fen += format!(" {} ", sq).to_lowercase().as_str();
+            }
+            None => {
+                fen += " - ";
+            }
+        }
+
+        fen += format!("{} 1", self.half_move_clock).as_str();
+
+        fen
+    }
+
     pub fn piece_at(&self, sq: Square) -> Option<Piece> {
         let c = if self.colors[Color::White as usize].has(sq) {
            Color::White
@@ -238,6 +283,7 @@ impl fmt::Display for Board {
             }
         }
         writeln!(f, "half move clock: {}", self.half_move_clock)?;
+        writeln!(f, "fen: {}", self.to_fen())?;
         Ok(())
     }
 }
