@@ -1,4 +1,4 @@
-use super::castle_rights::CastleRights;
+use super::{CastleRights, Move, MoveKind};
 use crate::types::{Bitboard, Color, Piece, PieceType, Square};
 use std::fmt;
 
@@ -14,8 +14,8 @@ pub struct Board {
 impl Board {
     const STARTPOS_FEN: &'static str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-    pub fn from_fen(fen: &str) -> Option<Board> {
-        let mut board = Board::empty();
+    pub fn from_fen(fen: &str) -> Option<Self> {
+        let mut board = Self::empty();
 
         let parts: Vec<&str> = fen.split_whitespace().collect();
         if parts.len() != 6 {
@@ -139,9 +139,6 @@ impl Board {
             }
         }
 
-        // !TODO
-        // ep square, half move clock and full move clock
-
         if parts[3].len() == 0 || parts[3].len() > 2 {
             return None;
         }
@@ -227,6 +224,40 @@ impl Board {
         fen
     }
 
+    pub fn make_move(&mut self, mv: Move) {
+        let from = mv.from_sq();
+        let to = mv.to_sq();
+        let from_pce = self.piece_at(from).unwrap();
+        match mv.kind() {
+            MoveKind::None => {
+                if let Some(captured) = self.piece_at(to) {
+                    self.remove_piece(to, captured);
+                }
+
+                self.remove_piece(from, from_pce);
+                self.add_piece(to, from_pce);
+
+                if from_pce.piece_type() == PieceType::Pawn {
+                    self.half_move_clock = 0;
+                    if (from - to).abs() == 16 {
+                        self.ep_square = Some()
+                    }
+                }
+            },
+            MoveKind::Promotion => {
+
+            },
+            MoveKind::Enpassant => {
+
+            },
+            MoveKind::Castle => {
+
+            }
+        }
+
+        self.stm = !self.stm;
+    }
+
     pub fn piece_at(&self, sq: Square) -> Option<Piece> {
         let c = if self.colors[Color::White as usize].has(sq) {
             Color::White
@@ -268,6 +299,13 @@ impl Board {
         let sq_bb = Bitboard::from_square(sq);
         self.pieces[piece.piece_type() as usize] |= sq_bb;
         self.colors[piece.color() as usize] |= sq_bb;
+    }
+
+    fn remove_piece(&mut self, sq: Square, piece: Piece) {
+        assert!(self.piece_at(sq).unwrap() == piece);
+        let sq_bb = Bitboard::from_square(sq);
+        self.pieces[piece.piece_type() as usize] ^= sq_bb;
+        self.colors[piece.color() as usize] ^= sq_bb;
     }
 }
 
