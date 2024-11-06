@@ -121,6 +121,13 @@ impl ops::SubAssign<u8> for Square {
     }
 }
 
+impl ops::Sub<Self> for Square {
+    type Output = i32;
+    fn sub(self, rhs: Self) -> Self::Output {
+        self as i32 - rhs as i32
+    }
+}
+
 impl fmt::Display for Square {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)

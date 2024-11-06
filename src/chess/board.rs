@@ -240,7 +240,7 @@ impl Board {
                 if from_pce.piece_type() == PieceType::Pawn {
                     self.half_move_clock = 0;
                     if (from - to).abs() == 16 {
-                        self.ep_square = Some()
+                        self.ep_square = Some(Square::from(((from as i32 + to as i32) / 2) as u8))
                     }
                 }
             },
