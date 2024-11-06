@@ -1,3 +1,4 @@
+use std::fmt;
 use std::ops;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
@@ -13,6 +14,10 @@ pub enum Square {
 }
 
 impl Square {
+	pub fn from_rank_file(rank: u8, file: u8) -> Square {
+		return Square::from(rank * 8 + file)
+	}
+
 	pub fn value(self) -> u8 {
 		self as u8
 	}
@@ -57,5 +62,11 @@ impl ops::Sub<u8> for Square {
 impl ops::SubAssign<u8> for Square {
 	fn sub_assign(&mut self, rhs: u8) {
 		*self = *self - rhs;
+	}
+}
+
+impl fmt::Display for Square {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{:?}", self)
 	}
 }
