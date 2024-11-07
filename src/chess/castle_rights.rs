@@ -11,12 +11,12 @@ impl CastleRights {
     pub const BLACK_KING_SIDE: Self = Self(4);
     pub const BLACK_QUEEN_SIDE: Self = Self(8);
 
-    pub fn new(rights: u8) -> Self {
+    pub const fn new(rights: u8) -> Self {
         assert!(rights < 16, "Invalid castling rights");
         Self(rights)
     }
 
-    pub fn has(self, right: Self) -> bool {
+    pub const fn has(self, right: Self) -> bool {
         assert!(
             right.0 < 16 && (right.0 & (right.0 - 1) == 0),
             "Invalid castling right bit"

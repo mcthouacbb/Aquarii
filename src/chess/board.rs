@@ -32,51 +32,51 @@ impl Board {
                     curr -= 1;
                 }
                 'P' => board.add_piece(
-                    Square::from(curr as u8),
+                    Square::from_raw(curr as u8),
                     Piece::new(Color::White, PieceType::Pawn),
                 ),
                 'N' => board.add_piece(
-                    Square::from(curr as u8),
+                    Square::from_raw(curr as u8),
                     Piece::new(Color::White, PieceType::Knight),
                 ),
                 'B' => board.add_piece(
-                    Square::from(curr as u8),
+                    Square::from_raw(curr as u8),
                     Piece::new(Color::White, PieceType::Bishop),
                 ),
                 'R' => board.add_piece(
-                    Square::from(curr as u8),
+                    Square::from_raw(curr as u8),
                     Piece::new(Color::White, PieceType::Rook),
                 ),
                 'Q' => board.add_piece(
-                    Square::from(curr as u8),
+                    Square::from_raw(curr as u8),
                     Piece::new(Color::White, PieceType::Queen),
                 ),
                 'K' => board.add_piece(
-                    Square::from(curr as u8),
+                    Square::from_raw(curr as u8),
                     Piece::new(Color::White, PieceType::King),
                 ),
                 'p' => board.add_piece(
-                    Square::from(curr as u8),
+                    Square::from_raw(curr as u8),
                     Piece::new(Color::Black, PieceType::Pawn),
                 ),
                 'n' => board.add_piece(
-                    Square::from(curr as u8),
+                    Square::from_raw(curr as u8),
                     Piece::new(Color::Black, PieceType::Knight),
                 ),
                 'b' => board.add_piece(
-                    Square::from(curr as u8),
+                    Square::from_raw(curr as u8),
                     Piece::new(Color::Black, PieceType::Bishop),
                 ),
                 'r' => board.add_piece(
-                    Square::from(curr as u8),
+                    Square::from_raw(curr as u8),
                     Piece::new(Color::Black, PieceType::Rook),
                 ),
                 'q' => board.add_piece(
-                    Square::from(curr as u8),
+                    Square::from_raw(curr as u8),
                     Piece::new(Color::Black, PieceType::Queen),
                 ),
                 'k' => board.add_piece(
-                    Square::from(curr as u8),
+                    Square::from_raw(curr as u8),
                     Piece::new(Color::Black, PieceType::King),
                 ),
                 '/' => {
@@ -180,22 +180,22 @@ impl Board {
     pub fn to_fen(&self) -> String {
         let mut fen = String::new();
         for rank in (0..8).rev() {
-            let mut lastFile = -1;
+            let mut last_file = -1;
             for file in 0..8 {
                 let sq = Square::from_rank_file(rank, file);
                 match self.piece_at(sq) {
                     Some(piece) => {
-                        let diff = sq as i32 - rank as i32 * 8 - lastFile - 1;
+                        let diff = sq as i32 - rank as i32 * 8 - last_file - 1;
                         if diff > 0 {
                             fen.push(std::char::from_digit(diff as u32, 10).unwrap());
                         }
                         fen.push(piece.char_repr());
-                        lastFile = sq as i32 - rank as i32 * 8;
+                        last_file = sq as i32 - rank as i32 * 8;
                     }
                     None => {}
                 }
             }
-            let diff: i32 = 7 - lastFile;
+            let diff: i32 = 7 - last_file;
             if diff > 0 {
                 fen.push(std::char::from_digit(diff as u32, 10).unwrap());
             }
@@ -240,19 +240,14 @@ impl Board {
                 if from_pce.piece_type() == PieceType::Pawn {
                     self.half_move_clock = 0;
                     if (from - to).abs() == 16 {
-                        self.ep_square = Some(Square::from(((from as i32 + to as i32) / 2) as u8))
+                        self.ep_square =
+                            Some(Square::from_raw(((from as i32 + to as i32) / 2) as u8))
                     }
                 }
-            },
-            MoveKind::Promotion => {
-
-            },
-            MoveKind::Enpassant => {
-
-            },
-            MoveKind::Castle => {
-
             }
+            MoveKind::Promotion => {}
+            MoveKind::Enpassant => {}
+            MoveKind::Castle => {}
         }
 
         self.stm = !self.stm;

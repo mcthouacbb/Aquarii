@@ -11,8 +11,8 @@ pub enum PieceType {
     King,
 }
 
-impl From<u8> for PieceType {
-    fn from(value: u8) -> Self {
+impl PieceType {
+    pub const fn from_raw(value: u8) -> Self {
         assert!(value <= Self::King as u8);
         unsafe { std::mem::transmute(value) }
     }
@@ -31,6 +31,13 @@ pub enum Color {
     Black,
 }
 
+impl Color {
+    pub const fn from_raw(value: u8) -> Self {
+        assert!(value <= Self::Black as u8);
+        unsafe { std::mem::transmute(value) }
+    }
+}
+
 impl std::ops::Not for Color {
     type Output = Self;
 
@@ -39,13 +46,6 @@ impl std::ops::Not for Color {
             Self::White => Self::Black,
             Self::Black => Self::White,
         }
-    }
-}
-
-impl From<u8> for Color {
-    fn from(value: u8) -> Self {
-        assert!(value <= Self::Black as u8);
-        unsafe { std::mem::transmute(value) }
     }
 }
 
@@ -73,28 +73,26 @@ pub enum Piece {
 }
 
 impl Piece {
-    pub fn new(c: Color, pt: PieceType) -> Self {
-        Self::from((c as u8) | ((pt as u8) << 1))
-    }
-
-    pub fn color(self) -> Color {
-        Color::from((self as u8) & 1)
-    }
-
-    pub fn piece_type(self) -> PieceType {
-        PieceType::from((self as u8) >> 1)
-    }
-
-    pub fn char_repr(self) -> char {
-        let chars = ['P', 'p', 'N', 'n', 'B', 'b', 'R', 'r', 'Q', 'q', 'K', 'k'];
-        chars[self as usize]
-    }
-}
-
-impl From<u8> for Piece {
-    fn from(value: u8) -> Self {
+    pub const fn from_raw(value: u8) -> Self {
         assert!(value <= Self::BlackKing as u8);
         unsafe { std::mem::transmute(value) }
+    }
+
+    pub const fn new(c: Color, pt: PieceType) -> Self {
+        Self::from_raw((c as u8) | ((pt as u8) << 1))
+    }
+
+    pub const fn color(self) -> Color {
+        Color::from_raw((self as u8) & 1)
+    }
+
+    pub const fn piece_type(self) -> PieceType {
+        PieceType::from_raw((self as u8) >> 1)
+    }
+
+    pub const fn char_repr(self) -> char {
+        let chars = ['P', 'p', 'N', 'n', 'B', 'b', 'R', 'r', 'Q', 'q', 'K', 'k'];
+        chars[self as usize]
     }
 }
 
