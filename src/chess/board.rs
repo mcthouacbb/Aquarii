@@ -251,6 +251,8 @@ impl Board {
             MoveKind::Castle => {}
         }
 
+        
+
         self.stm = !self.stm;
     }
 
@@ -275,7 +277,12 @@ impl Board {
     }
 
     pub fn king_sq(&self, color: Color) -> Square {
-        self.colored_pieces(Piece::new(color, PieceType::King)).lsb()
+        self.colored_pieces(Piece::new(color, PieceType::King))
+            .lsb()
+    }
+
+    pub fn castling_rights(&self) -> CastleRights {
+        self.castle_rights
     }
 
     pub fn piece_at(&self, sq: Square) -> Option<Piece> {

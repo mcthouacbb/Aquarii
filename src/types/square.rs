@@ -39,29 +39,28 @@ impl Square {
     }
 }
 
-impl ops::Add<u8> for Square {
+impl ops::Add<i32> for Square {
     type Output = Self;
-    fn add(self, rhs: u8) -> Self::Output {
-        return Square::from_raw(self.value() + rhs);
+    fn add(self, rhs: i32) -> Self::Output {
+        return Square::from_raw((self.value() as i32 + rhs) as u8);
     }
 }
 
-impl ops::AddAssign<u8> for Square {
-    fn add_assign(&mut self, rhs: u8) {
+impl ops::AddAssign<i32> for Square {
+    fn add_assign(&mut self, rhs: i32) {
         *self = *self + rhs;
     }
 }
 
-impl ops::Sub<u8> for Square {
+impl ops::Sub<i32> for Square {
     type Output = Self;
-    fn sub(self, rhs: u8) -> Self::Output {
-        assert!(self.value() >= rhs);
-        return Self::from_raw(self.value() - rhs);
+    fn sub(self, rhs: i32) -> Self::Output {
+        return Self::from_raw((self.value() as i32 - rhs) as u8);
     }
 }
 
-impl ops::SubAssign<u8> for Square {
-    fn sub_assign(&mut self, rhs: u8) {
+impl ops::SubAssign<i32> for Square {
+    fn sub_assign(&mut self, rhs: i32) {
         *self = *self - rhs;
     }
 }

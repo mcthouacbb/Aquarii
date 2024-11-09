@@ -1,7 +1,7 @@
 mod chess;
 mod types;
 
-use chess::{Board, Move, movegen::movegen};
+use chess::{movegen::movegen, Board, Move};
 
 fn perft<const ROOT: bool>(board: &Board, depth: i32) -> u64 {
     if depth == 0 {
