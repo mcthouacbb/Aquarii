@@ -25,7 +25,7 @@ impl Bitboard {
     pub const RANK_7: Self = Self(0x00FF000000000000u64);
     pub const RANK_8: Self = Self(0xFF00000000000000u64);
 
-    pub const EMPTY: Self = Self(0u64);
+    pub const NONE: Self = Self(0u64);
     pub const ALL: Self = Self(!0u64);
 
     pub const fn from_square(sq: Square) -> Self {
@@ -45,11 +45,11 @@ impl Bitboard {
     }
 
     pub const fn west(self) -> Self {
-        Self((self.value() >> 1) & Self::FILE_A.value())
+        Self((self.value() >> 1) & !Self::FILE_H.value())
     }
 
     pub const fn east(self) -> Self {
-        Self((self.value() << 1) & Self::FILE_H.value())
+        Self((self.value() << 1) & !Self::FILE_A.value())
     }
 
     pub const fn north_west(self) -> Self {

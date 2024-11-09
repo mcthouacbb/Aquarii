@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::types::{PieceType, Square};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -63,5 +65,11 @@ impl Move {
 
     pub const fn promo_piece(&self) -> PieceType {
         PieceType::from_raw(((self.data >> 14) + PieceType::Knight as u16) as u8)
+    }
+}
+
+impl fmt::Display for Move {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.from_sq(), self.to_sq())
     }
 }

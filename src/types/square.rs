@@ -75,6 +75,6 @@ impl ops::Sub<Self> for Square {
 
 impl fmt::Display for Square {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{}", format!("{:?}", self).to_lowercase())
     }
 }

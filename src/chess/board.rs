@@ -2,6 +2,7 @@ use super::{CastleRights, Move, MoveKind};
 use crate::types::{Bitboard, Color, Piece, PieceType, Square};
 use std::fmt;
 
+#[derive(Clone)]
 pub struct Board {
     pieces: [Bitboard; 6],
     colors: [Bitboard; 2],
@@ -253,6 +254,30 @@ impl Board {
         self.stm = !self.stm;
     }
 
+    pub fn stm(&self) -> Color {
+        self.stm
+    }
+
+    pub fn colors(&self, color: Color) -> Bitboard {
+        self.colors[color as usize]
+    }
+
+    pub fn occ(&self) -> Bitboard {
+        self.colors(Color::White) | self.colors(Color::Black)
+    }
+
+    pub fn pieces(&self, piece: PieceType) -> Bitboard {
+        self.pieces[piece as usize]
+    }
+
+    pub fn colored_pieces(&self, piece: Piece) -> Bitboard {
+        self.colors(piece.color()) & self.pieces(piece.piece_type())
+    }
+
+    pub fn king_sq(&self, color: Color) -> Square {
+        self.colored_pieces(Piece::new(color, PieceType::King)).lsb()
+    }
+
     pub fn piece_at(&self, sq: Square) -> Option<Piece> {
         let c = if self.colors[Color::White as usize].has(sq) {
             Color::White
@@ -281,8 +306,8 @@ impl Board {
 
     fn empty() -> Board {
         Self {
-            pieces: [Bitboard::EMPTY; 6],
-            colors: [Bitboard::EMPTY; 2],
+            pieces: [Bitboard::NONE; 6],
+            colors: [Bitboard::NONE; 2],
             stm: Color::White,
             castle_rights: CastleRights::NONE,
             ep_square: None,
