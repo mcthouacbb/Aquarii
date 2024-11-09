@@ -151,11 +151,11 @@ pub fn bishop_attacks(sq: Square, occ: Bitboard) -> Bitboard {
 		attacks &= !ray_bb(blockers.lsb(), Direction::NorthWest);
 	}
 	
-	let ray = ray_bb(sq, Direction::SouthWest);
+	let ray = ray_bb(sq, Direction::SouthEast);
 	attacks |= ray;
 	let blockers = ray & occ;
 	if blockers.any() {
-		attacks &= !ray_bb(blockers.msb(), Direction::SouthWest);
+		attacks &= !ray_bb(blockers.msb(), Direction::SouthEast);
 	}
 	
 	let ray = ray_bb(sq, Direction::SouthWest);
