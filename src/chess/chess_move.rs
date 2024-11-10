@@ -13,7 +13,7 @@ pub enum MoveKind {
 
 impl MoveKind {
     pub const fn from_raw(value: u8) -> Self {
-        assert!(value <= MoveKind::Promotion as u8);
+        debug_assert!(value <= MoveKind::Promotion as u8);
         unsafe { std::mem::transmute(value) }
     }
 }

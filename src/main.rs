@@ -185,7 +185,9 @@ pub fn run_perft_tests() {
         println!("fen: {}", test.fen);
         for d in 1..=6 {
             // skip the ones that take really long
-            if test.depths[(d - 1) as usize] > 100_000_000 {
+            if test.depths[(d - 1) as usize] > 1_000_000_000
+            /* || test.depths[(d - 1) as usize] < 1_000_000*/
+            {
                 continue;
             }
             let nodes = perft::<false>(&board, d);
@@ -215,8 +217,11 @@ pub fn run_perft_tests() {
 }
 
 fn main() {
-    // let mut board = Board::from_fen("4k3/8/8/8/8/8/8/4K2R w K - 0 1").unwrap();
-    // board.make_move(Move::normal(types::Square::E1, types::Square::D2));
-    // perft::<true>(&board, 6);
+    // let mut board = Board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+    // board.make_move(Move::normal(types::Square::D2, types::Square::D3));
+    // board.make_move(Move::normal(types::Square::H7, types::Square::H6));
+    // board.make_move(Move::normal(types::Square::C1, types::Square::H6));
+    // println!("{}", board);
+    // perft::<true>(&board, 1);
     run_perft_tests();
 }

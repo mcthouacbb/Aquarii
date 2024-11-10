@@ -236,14 +236,14 @@ impl Board {
         let to = mv.to_sq();
         let from_pce = self.piece_at(from).unwrap();
         self.ep_square = None;
+
         match mv.kind() {
             MoveKind::None => {
-                if let Some(captured) = self.piece_at(to) {
-                    self.remove_piece(to, captured);
+                if self.piece_at(to).is_some() {
+                    self.remove_piece(to);
                 }
 
-                self.remove_piece(from, from_pce);
-                self.add_piece(to, from_pce);
+                self.move_piece(from, to);
 
                 if from_pce.piece_type() == PieceType::Pawn {
                     self.half_move_clock = 0;
@@ -254,27 +254,25 @@ impl Board {
                 }
             }
             MoveKind::Promotion => {
-                if let Some(captured) = self.piece_at(to) {
-                    self.remove_piece(to, captured);
+                if self.piece_at(to).is_some() {
+                    self.remove_piece(to);
                 }
-                self.remove_piece(from, from_pce);
+                self.remove_piece(from);
                 self.add_piece(to, Piece::new(self.stm, mv.promo_piece()))
             }
             MoveKind::Enpassant => {
-                self.remove_piece(from, from_pce);
-                self.add_piece(to, from_pce);
+                self.move_piece(from, to);
 
                 let cap_sq = if self.stm == Color::White {
                     to - 8
                 } else {
                     to + 8
                 };
-                self.remove_piece(cap_sq, self.piece_at(cap_sq).unwrap());
+                self.remove_piece(cap_sq);
             }
             MoveKind::Castle => {
                 // from = king_sq, to = rook_sq
                 // should just construct the piece here instead of looking up
-                let rook = self.piece_at(to).unwrap();
                 if to > from {
                     // king side
                     let king_to = if self.stm == Color::White {
@@ -288,10 +286,8 @@ impl Board {
                         Square::F8
                     };
 
-                    self.remove_piece(from, from_pce);
-                    self.remove_piece(to, rook);
-                    self.add_piece(king_to, from_pce);
-                    self.add_piece(rook_to, rook);
+                    self.move_piece(from, king_to);
+                    self.move_piece(to, rook_to);
                 } else {
                     // queen side
                     let king_to = if self.stm == Color::White {
@@ -305,10 +301,8 @@ impl Board {
                         Square::D8
                     };
 
-                    self.remove_piece(from, from_pce);
-                    self.remove_piece(to, rook);
-                    self.add_piece(king_to, from_pce);
-                    self.add_piece(rook_to, rook);
+                    self.move_piece(from, king_to);
+                    self.move_piece(to, rook_to);
                 }
             }
         }
@@ -394,8 +388,7 @@ impl Board {
         let occ = self.occ() ^ self.colored_pieces(Piece::new(!c, PieceType::King));
 
         (attacks::pawn_attacks(!c, sq) & pawns).any()
-            || (attacks::knight_attacks(sq) & knights)
-                .any()
+            || (attacks::knight_attacks(sq) & knights).any()
             || (attacks::king_attacks(sq) & king).any()
             || (attacks::bishop_attacks(sq, occ) & diags).any()
             || (attacks::rook_attacks(sq, occ) & hvs).any()
@@ -459,12 +452,21 @@ impl Board {
         self.squares[sq.value() as usize] = Some(piece);
     }
 
-    fn remove_piece(&mut self, sq: Square, piece: Piece) {
-        assert!(self.piece_at(sq).unwrap() == piece);
+    fn remove_piece(&mut self, sq: Square) {
+        let piece = self.piece_at(sq).unwrap();
         let sq_bb = Bitboard::from_square(sq);
         self.pieces[piece.piece_type() as usize] ^= sq_bb;
         self.colors[piece.color() as usize] ^= sq_bb;
         self.squares[sq.value() as usize] = None;
+    }
+
+    fn move_piece(&mut self, from: Square, to: Square) {
+        let piece = self.piece_at(from).unwrap();
+        let bb = Bitboard::from_square(from) | Bitboard::from_square(to);
+        self.pieces[piece.piece_type() as usize] ^= bb;
+        self.colors[piece.color() as usize] ^= bb;
+        self.squares[from.value() as usize] = None;
+        self.squares[to.value() as usize] = Some(piece);
     }
 
     fn update_check_info(&mut self) {

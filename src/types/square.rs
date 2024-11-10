@@ -17,12 +17,12 @@ pub enum Square {
 
 impl Square {
     pub const fn from_rank_file(rank: u8, file: u8) -> Self {
-        assert!(rank <= 7 && file <= 7);
+        debug_assert!(rank <= 7 && file <= 7);
         return Self::from_raw(rank * 8 + file);
     }
 
     pub const fn from_raw(value: u8) -> Self {
-        assert!(value <= Self::H8 as u8);
+        debug_assert!(value <= Self::H8 as u8);
         unsafe { std::mem::transmute(value) }
     }
 

@@ -13,7 +13,7 @@ pub enum PieceType {
 
 impl PieceType {
     pub const fn from_raw(value: u8) -> Self {
-        assert!(value <= Self::King as u8);
+        debug_assert!(value <= Self::King as u8);
         unsafe { std::mem::transmute(value) }
     }
 }
@@ -33,7 +33,7 @@ pub enum Color {
 
 impl Color {
     pub const fn from_raw(value: u8) -> Self {
-        assert!(value <= Self::Black as u8);
+        debug_assert!(value <= Self::Black as u8);
         unsafe { std::mem::transmute(value) }
     }
 }
@@ -74,7 +74,7 @@ pub enum Piece {
 
 impl Piece {
     pub const fn from_raw(value: u8) -> Self {
-        assert!(value <= Self::BlackKing as u8);
+        debug_assert!(value <= Self::BlackKing as u8);
         unsafe { std::mem::transmute(value) }
     }
 

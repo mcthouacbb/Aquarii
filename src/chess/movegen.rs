@@ -7,11 +7,12 @@ pub type MoveList = ArrayVec<Move, 256>;
 pub fn movegen(board: &Board, moves: &mut MoveList) {
     let checkers = board.checkers();
     if !checkers.multiple() {
-        let move_mask = if checkers.any() {
-            attacks::line_between(board.king_sq(board.stm()), checkers.lsb()) | checkers
-        } else {
-            Bitboard::ALL
-        };
+        let move_mask = !board.colors(board.stm())
+            & if checkers.any() {
+                attacks::line_between(board.king_sq(board.stm()), checkers.lsb()) | checkers
+            } else {
+                Bitboard::ALL
+            };
         gen_pawn_moves(board, move_mask, moves);
         gen_knight_moves(board, move_mask, moves);
         gen_bishop_moves(board, move_mask, moves);
@@ -190,7 +191,6 @@ fn gen_rook_moves(board: &Board, move_mask: Bitboard, moves: &mut MoveList) {
         if board.hv_pinned().has(sq) {
             attacks &= attacks::line_through(board.king_sq(board.stm()), sq);
         }
-        attacks &= !board.colors(board.stm());
         while attacks.any() {
             moves.push(Move::normal(sq, attacks.poplsb()));
         }
@@ -206,7 +206,6 @@ fn gen_queen_moves(board: &Board, move_mask: Bitboard, moves: &mut MoveList) {
         if board.pinned().has(sq) {
             attacks &= attacks::line_through(board.king_sq(board.stm()), sq);
         }
-        attacks &= !board.colors(board.stm());
         while attacks.any() {
             moves.push(Move::normal(sq, attacks.poplsb()));
         }
