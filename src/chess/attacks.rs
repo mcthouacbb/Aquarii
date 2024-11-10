@@ -47,63 +47,63 @@ pub enum Direction {
     SouthWest,
 }
 
-const RAYS: [[Bitboard; 64]; 8] = {
-    let mut result: [[Bitboard; 64]; 8] = [[Bitboard::NONE; 64]; 8];
+const RAYS: [[Bitboard; 8]; 64] = {
+    let mut result: [[Bitboard; 8]; 64] = [[Bitboard::NONE; 8]; 64];
     let mut sq: usize = 0;
     while sq < 64 {
         let bb = Bitboard::from_square(Square::from_raw(sq as u8));
         let mut tmp = bb;
         while tmp.any() {
             tmp = tmp.north();
-            result[Direction::North as usize][sq] =
-                result[Direction::North as usize][sq].bit_or(tmp);
+            result[sq][Direction::North as usize] =
+                result[sq][Direction::North as usize].bit_or(tmp);
         }
 
         tmp = bb;
         while tmp.any() {
             tmp = tmp.south();
-            result[Direction::South as usize][sq] =
-                result[Direction::South as usize][sq].bit_or(tmp);
+            result[sq][Direction::South as usize] =
+                result[sq][Direction::South as usize].bit_or(tmp);
         }
 
         tmp = bb;
         while tmp.any() {
             tmp = tmp.east();
-            result[Direction::East as usize][sq] = result[Direction::East as usize][sq].bit_or(tmp);
+            result[sq][Direction::East as usize] = result[sq][Direction::East as usize].bit_or(tmp);
         }
 
         tmp = bb;
         while tmp.any() {
             tmp = tmp.west();
-            result[Direction::West as usize][sq] = result[Direction::West as usize][sq].bit_or(tmp);
+            result[sq][Direction::West as usize] = result[sq][Direction::West as usize].bit_or(tmp);
         }
 
         tmp = bb;
         while tmp.any() {
             tmp = tmp.north_east();
-            result[Direction::NorthEast as usize][sq] =
-                result[Direction::NorthEast as usize][sq].bit_or(tmp);
+            result[sq][Direction::NorthEast as usize] =
+                result[sq][Direction::NorthEast as usize].bit_or(tmp);
         }
 
         tmp = bb;
         while tmp.any() {
             tmp = tmp.north_west();
-            result[Direction::NorthWest as usize][sq] =
-                result[Direction::NorthWest as usize][sq].bit_or(tmp);
+            result[sq][Direction::NorthWest as usize] =
+                result[sq][Direction::NorthWest as usize].bit_or(tmp);
         }
 
         tmp = bb;
         while tmp.any() {
             tmp = tmp.south_east();
-            result[Direction::SouthEast as usize][sq] =
-                result[Direction::SouthEast as usize][sq].bit_or(tmp);
+            result[sq][Direction::SouthEast as usize] =
+                result[sq][Direction::SouthEast as usize].bit_or(tmp);
         }
 
         tmp = bb;
         while tmp.any() {
             tmp = tmp.south_west();
-            result[Direction::SouthWest as usize][sq] =
-                result[Direction::SouthWest as usize][sq].bit_or(tmp);
+            result[sq][Direction::SouthWest as usize] =
+                result[sq][Direction::SouthWest as usize].bit_or(tmp);
         }
 
         sq += 1;
@@ -119,37 +119,37 @@ const LINE_BETWEEN: [[Bitboard; 64]; 64] = {
     while sq1 < 64 {
         let mut sq2 = 0usize;
         while sq2 < 64 {
-            if RAYS[Direction::North as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::North as usize][sq1]
-                    .bit_and(RAYS[Direction::South as usize][sq2]);
+            if RAYS[sq1][Direction::North as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::North as usize]
+                    .bit_and(RAYS[sq2][Direction::South as usize]);
             }
-            if RAYS[Direction::South as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::South as usize][sq1]
-                    .bit_and(RAYS[Direction::North as usize][sq2]);
+            if RAYS[sq1][Direction::South as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::South as usize]
+                    .bit_and(RAYS[sq2][Direction::North as usize]);
             }
-            if RAYS[Direction::East as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::East as usize][sq1]
-                    .bit_and(RAYS[Direction::West as usize][sq2]);
+            if RAYS[sq1][Direction::East as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::East as usize]
+                    .bit_and(RAYS[sq2][Direction::West as usize]);
             }
-            if RAYS[Direction::West as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::West as usize][sq1]
-                    .bit_and(RAYS[Direction::East as usize][sq2]);
+            if RAYS[sq1][Direction::West as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::West as usize]
+                    .bit_and(RAYS[sq2][Direction::East as usize]);
             }
-            if RAYS[Direction::NorthEast as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::NorthEast as usize][sq1]
-                    .bit_and(RAYS[Direction::SouthWest as usize][sq2]);
+            if RAYS[sq1][Direction::NorthEast as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::NorthEast as usize]
+                    .bit_and(RAYS[sq2][Direction::SouthWest as usize]);
             }
-            if RAYS[Direction::NorthWest as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::NorthWest as usize][sq1]
-                    .bit_and(RAYS[Direction::SouthEast as usize][sq2]);
+            if RAYS[sq1][Direction::NorthWest as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::NorthWest as usize]
+                    .bit_and(RAYS[sq2][Direction::SouthEast as usize]);
             }
-            if RAYS[Direction::SouthEast as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::SouthEast as usize][sq1]
-                    .bit_and(RAYS[Direction::NorthWest as usize][sq2]);
+            if RAYS[sq1][Direction::SouthEast as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::SouthEast as usize]
+                    .bit_and(RAYS[sq2][Direction::NorthWest as usize]);
             }
-            if RAYS[Direction::SouthWest as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::SouthWest as usize][sq1]
-                    .bit_and(RAYS[Direction::NorthEast as usize][sq2]);
+            if RAYS[sq1][Direction::SouthWest as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::SouthWest as usize]
+                    .bit_and(RAYS[sq2][Direction::NorthEast as usize]);
             }
             sq2 += 1;
         }
@@ -166,37 +166,37 @@ const LINE_THROUGH: [[Bitboard; 64]; 64] = {
     while sq1 < 64 {
         let mut sq2 = 0usize;
         while sq2 < 64 {
-            if RAYS[Direction::North as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::North as usize][sq1]
-                    .bit_or(RAYS[Direction::South as usize][sq2]);
+            if RAYS[sq1][Direction::North as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::North as usize]
+                    .bit_or(RAYS[sq2][Direction::South as usize]);
             }
-            if RAYS[Direction::South as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::South as usize][sq1]
-                    .bit_or(RAYS[Direction::North as usize][sq2]);
+            if RAYS[sq1][Direction::South as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::South as usize]
+                    .bit_or(RAYS[sq2][Direction::North as usize]);
             }
-            if RAYS[Direction::East as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] =
-                    RAYS[Direction::East as usize][sq1].bit_or(RAYS[Direction::West as usize][sq2]);
+            if RAYS[sq1][Direction::East as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::East as usize]
+                    .bit_or(RAYS[sq2][Direction::West as usize]);
             }
-            if RAYS[Direction::West as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] =
-                    RAYS[Direction::West as usize][sq1].bit_or(RAYS[Direction::East as usize][sq2]);
+            if RAYS[sq1][Direction::West as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::West as usize]
+                    .bit_or(RAYS[sq2][Direction::East as usize]);
             }
-            if RAYS[Direction::NorthEast as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::NorthEast as usize][sq1]
-                    .bit_or(RAYS[Direction::SouthWest as usize][sq2]);
+            if RAYS[sq1][Direction::NorthEast as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::NorthEast as usize]
+                    .bit_or(RAYS[sq2][Direction::SouthWest as usize]);
             }
-            if RAYS[Direction::NorthWest as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::NorthWest as usize][sq1]
-                    .bit_or(RAYS[Direction::SouthEast as usize][sq2]);
+            if RAYS[sq1][Direction::NorthWest as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::NorthWest as usize]
+                    .bit_or(RAYS[sq2][Direction::SouthEast as usize]);
             }
-            if RAYS[Direction::SouthEast as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::SouthEast as usize][sq1]
-                    .bit_or(RAYS[Direction::NorthWest as usize][sq2]);
+            if RAYS[sq1][Direction::SouthEast as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::SouthEast as usize]
+                    .bit_or(RAYS[sq2][Direction::NorthWest as usize]);
             }
-            if RAYS[Direction::SouthWest as usize][sq1].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[Direction::SouthWest as usize][sq1]
-                    .bit_or(RAYS[Direction::NorthEast as usize][sq2]);
+            if RAYS[sq1][Direction::SouthWest as usize].has(Square::from_raw(sq2 as u8)) {
+                result[sq1][sq2] = RAYS[sq1][Direction::SouthWest as usize]
+                    .bit_or(RAYS[sq2][Direction::NorthEast as usize]);
             }
             sq2 += 1;
         }
@@ -207,7 +207,7 @@ const LINE_THROUGH: [[Bitboard; 64]; 64] = {
 };
 
 pub fn ray_bb(sq: Square, dir: Direction) -> Bitboard {
-    RAYS[dir as usize][sq.value() as usize]
+    RAYS[sq.value() as usize][dir as usize]
 }
 
 pub fn line_between(sq1: Square, sq2: Square) -> Bitboard {
