@@ -125,6 +125,29 @@ fn gen_pawn_moves(board: &Board, move_mask: Bitboard, moves: &mut Vec<Move>) {
         moves.push(Move::promo(sq - push_offset - 1, sq, PieceType::Rook));
         moves.push(Move::promo(sq - push_offset - 1, sq, PieceType::Queen));
     }
+
+    if let Some(ep_square) = board.ep_square() {
+        let mut caps = pawns & attacks::pawn_attacks(!board.stm(), ep_square);
+        while caps.any() {
+            let from = caps.poplsb();
+
+            let ep_occ = board.occ()
+                ^ Bitboard::from_square(from)
+                ^ Bitboard::from_square(ep_square)
+                ^ Bitboard::from_square(ep_square - push_offset);
+
+            let hvs = board.colored_pieces(Piece::new(!board.stm(), PieceType::Rook))
+                | board.colored_pieces(Piece::new(!board.stm(), PieceType::Queen));
+            let diags = board.colored_pieces(Piece::new(!board.stm(), PieceType::Bishop))
+                | board.colored_pieces(Piece::new(!board.stm(), PieceType::Queen));
+
+            if (attacks::rook_attacks(king_sq, ep_occ) & hvs).empty()
+                && (attacks::bishop_attacks(king_sq, ep_occ) & diags).empty()
+            {
+                moves.push(Move::enpassant(from, ep_square));
+            }
+        }
+    }
 }
 
 fn gen_knight_moves(board: &Board, move_mask: Bitboard, moves: &mut Vec<Move>) {
@@ -228,8 +251,21 @@ fn gen_king_moves(board: &Board, moves: &mut Vec<Move>) {
         let block_squares =
             attacks::line_between(sq, king_dst) | attacks::line_between(rook_sq, rook_dst);
 
+        let mut check_squares =
+            attacks::line_between(sq, king_dst) | Bitboard::from_square(king_dst);
+
         if (board.occ() & block_squares).empty() {
-            moves.push(Move::castle(sq, rook_sq));
+            'through_check: {
+                while check_squares.any() {
+                    if board
+                        .colored_attackers_to(check_squares.poplsb(), !board.stm())
+                        .any()
+                    {
+                        break 'through_check;
+                    }
+                }
+                moves.push(Move::castle(sq, rook_sq));
+            }
         }
     }
 
@@ -259,8 +295,21 @@ fn gen_king_moves(board: &Board, moves: &mut Vec<Move>) {
         let block_squares =
             attacks::line_between(sq, king_dst) | attacks::line_between(rook_sq, rook_dst);
 
+        let mut check_squares =
+            attacks::line_between(sq, king_dst) | Bitboard::from_square(king_dst);
+
         if (board.occ() & block_squares).empty() {
-            moves.push(Move::castle(sq, rook_sq));
+            'through_check: {
+                while check_squares.any() {
+                    if board
+                        .colored_attackers_to(check_squares.poplsb(), !board.stm())
+                        .any()
+                    {
+                        break 'through_check;
+                    }
+                }
+                moves.push(Move::castle(sq, rook_sq));
+            }
         }
     }
 }

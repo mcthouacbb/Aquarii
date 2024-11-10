@@ -29,7 +29,7 @@ impl Bitboard {
     pub const ALL: Self = Self(!0u64);
 
     pub const fn file(file: u8) -> Bitboard {
-        Self(Self::RANK_1.value() << file)
+        Self(Self::FILE_A.value() << file)
     }
 
     pub const fn from_square(sq: Square) -> Self {

@@ -234,6 +234,7 @@ impl Board {
         let from = mv.from_sq();
         let to = mv.to_sq();
         let from_pce = self.piece_at(from).unwrap();
+        self.ep_square = None;
         match mv.kind() {
             MoveKind::None => {
                 if let Some(captured) = self.piece_at(to) {
@@ -251,9 +252,63 @@ impl Board {
                     }
                 }
             }
-            MoveKind::Promotion => {}
-            MoveKind::Enpassant => {}
-            MoveKind::Castle => {}
+            MoveKind::Promotion => {
+                if let Some(captured) = self.piece_at(to) {
+                    self.remove_piece(to, captured);
+                }
+                self.remove_piece(from, from_pce);
+                self.add_piece(to, Piece::new(self.stm, mv.promo_piece()))
+            }
+            MoveKind::Enpassant => {
+                self.remove_piece(from, from_pce);
+                self.add_piece(to, from_pce);
+
+                let cap_sq = if self.stm == Color::White {
+                    to - 8
+                } else {
+                    to + 8
+                };
+                self.remove_piece(cap_sq, self.piece_at(cap_sq).unwrap());
+            }
+            MoveKind::Castle => {
+                // from = king_sq, to = rook_sq
+                let rook = self.piece_at(to).unwrap();
+                if to > from {
+                    // king side
+                    let king_to = if self.stm == Color::White {
+                        Square::G1
+                    } else {
+                        Square::G8
+                    };
+                    let rook_to = if self.stm == Color::White {
+                        Square::F1
+                    } else {
+                        Square::F8
+                    };
+
+                    self.remove_piece(from, from_pce);
+                    self.remove_piece(to, rook);
+                    self.add_piece(king_to, from_pce);
+                    self.add_piece(rook_to, rook);
+                } else {
+                    // queen side
+                    let king_to = if self.stm == Color::White {
+                        Square::C1
+                    } else {
+                        Square::C8
+                    };
+                    let rook_to = if self.stm == Color::White {
+                        Square::D1
+                    } else {
+                        Square::D8
+                    };
+
+                    self.remove_piece(from, from_pce);
+                    self.remove_piece(to, rook);
+                    self.add_piece(king_to, from_pce);
+                    self.add_piece(rook_to, rook);
+                }
+            }
         }
 
         self.stm = !self.stm;
@@ -323,8 +378,8 @@ impl Board {
         let bpawns = self.colored_pieces(Piece::new(Color::White, PieceType::Pawn));
         (attacks::king_attacks(sq) & self.pieces(PieceType::King))
             | (attacks::knight_attacks(sq) & self.pieces(PieceType::Knight))
-            | (attacks::bishop_attacks(sq, self.occ()) & diags)
-            | (attacks::rook_attacks(sq, self.occ()) & hvs)
+            | (attacks::bishop_attacks(sq, self.occ() ^ self.pieces(PieceType::King)) & diags)
+            | (attacks::rook_attacks(sq, self.occ() ^ self.pieces(PieceType::King)) & hvs)
             | (attacks::pawn_attacks(Color::White, sq) & wpawns)
             | (attacks::pawn_attacks(Color::Black, sq) & bpawns)
     }
@@ -347,6 +402,10 @@ impl Board {
 
     pub fn hv_pinned(&self) -> Bitboard {
         self.hv_pinned
+    }
+
+    pub fn ep_square(&self) -> Option<Square> {
+        self.ep_square
     }
 
     fn empty() -> Board {
