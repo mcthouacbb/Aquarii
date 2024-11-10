@@ -5,7 +5,6 @@ use arrayvec::ArrayVec;
 pub type MoveList = ArrayVec<Move, 256>;
 
 pub fn movegen(board: &Board, moves: &mut MoveList) {
-
     let checkers = board.checkers();
     if !checkers.multiple() {
         let move_mask = if checkers.any() {
@@ -220,7 +219,7 @@ fn gen_king_moves(board: &Board, moves: &mut MoveList) {
     attacks &= !board.colors(board.stm());
     while attacks.any() {
         let dst = attacks.poplsb();
-        if board.colored_attackers_to(dst, !board.stm()).empty() {
+        if !board.attacked_by(dst, !board.stm()) {
             moves.push(Move::normal(sq, dst));
         }
     }
@@ -257,10 +256,7 @@ fn gen_king_moves(board: &Board, moves: &mut MoveList) {
         if (board.occ() & block_squares).empty() {
             'through_check: {
                 while check_squares.any() {
-                    if board
-                        .colored_attackers_to(check_squares.poplsb(), !board.stm())
-                        .any()
-                    {
+                    if board.attacked_by(check_squares.poplsb(), !board.stm()) {
                         break 'through_check;
                     }
                 }
@@ -301,10 +297,7 @@ fn gen_king_moves(board: &Board, moves: &mut MoveList) {
         if (board.occ() & block_squares).empty() {
             'through_check: {
                 while check_squares.any() {
-                    if board
-                        .colored_attackers_to(check_squares.poplsb(), !board.stm())
-                        .any()
-                    {
+                    if board.attacked_by(check_squares.poplsb(), !board.stm()) {
                         break 'through_check;
                     }
                 }

@@ -6,6 +6,7 @@ use std::fmt;
 pub struct Board {
     pieces: [Bitboard; 6],
     colors: [Bitboard; 2],
+    squares: [Option<Piece>; 64],
     checkers: Bitboard,
     diag_pinned: Bitboard,
     hv_pinned: Bitboard,
@@ -380,47 +381,40 @@ impl Board {
     }
 
     pub fn piece_at(&self, sq: Square) -> Option<Piece> {
-        let c = if self.colors[Color::White as usize].has(sq) {
-            Color::White
-        } else if self.colors[Color::Black as usize].has(sq) {
-            Color::Black
-        } else {
-            return None;
-        };
-
-        if self.pieces[PieceType::Pawn as usize].has(sq) {
-            Some(Piece::new(c, PieceType::Pawn))
-        } else if self.pieces[PieceType::Knight as usize].has(sq) {
-            Some(Piece::new(c, PieceType::Knight))
-        } else if self.pieces[PieceType::Bishop as usize].has(sq) {
-            Some(Piece::new(c, PieceType::Bishop))
-        } else if self.pieces[PieceType::Rook as usize].has(sq) {
-            Some(Piece::new(c, PieceType::Rook))
-        } else if self.pieces[PieceType::Queen as usize].has(sq) {
-            Some(Piece::new(c, PieceType::Queen))
-        } else if self.pieces[PieceType::King as usize].has(sq) {
-            Some(Piece::new(c, PieceType::King))
-        } else {
-            unreachable!();
-        }
+        self.squares[sq.value() as usize]
     }
 
-    pub fn attackers_to(&self, sq: Square) -> Bitboard {
-        let diags = self.pieces(PieceType::Bishop) | self.pieces(PieceType::Queen);
-        let hvs = self.pieces(PieceType::Rook) | self.pieces(PieceType::Queen);
-        let wpawns = self.colored_pieces(Piece::new(Color::Black, PieceType::Pawn));
-        let bpawns = self.colored_pieces(Piece::new(Color::White, PieceType::Pawn));
-        let occ = self.occ() ^ self.colored_pieces(Piece::new(self.stm(), PieceType::King));
-        (attacks::king_attacks(sq) & self.pieces(PieceType::King))
-            | (attacks::knight_attacks(sq) & self.pieces(PieceType::Knight))
+    pub fn attacked_by(&self, sq: Square, c: Color) -> bool {
+        let diags =
+            self.colors(c) & (self.pieces(PieceType::Bishop) | self.pieces(PieceType::Queen));
+        let hvs = self.colors(c) & (self.pieces(PieceType::Rook) | self.pieces(PieceType::Queen));
+        let pawns = self.colored_pieces(Piece::new(c, PieceType::Pawn));
+        let knights = self.colored_pieces(Piece::new(c, PieceType::Knight));
+        let king = self.colored_pieces(Piece::new(c, PieceType::King));
+        let occ = self.occ() ^ self.colored_pieces(Piece::new(!c, PieceType::King));
+
+        (attacks::pawn_attacks(!c, sq) & pawns).any()
+            || (attacks::knight_attacks(sq) & knights)
+                .any()
+            || (attacks::king_attacks(sq) & king).any()
+            || (attacks::bishop_attacks(sq, occ) & diags).any()
+            || (attacks::rook_attacks(sq, occ) & hvs).any()
+    }
+
+    pub fn attackers_to(&self, sq: Square, c: Color) -> Bitboard {
+        let diags =
+            self.colors(c) & (self.pieces(PieceType::Bishop) | self.pieces(PieceType::Queen));
+        let hvs = self.colors(c) & (self.pieces(PieceType::Rook) | self.pieces(PieceType::Queen));
+        let pawns = self.colored_pieces(Piece::new(c, PieceType::Pawn));
+        let knights = self.colored_pieces(Piece::new(c, PieceType::Knight));
+        let king = self.colored_pieces(Piece::new(c, PieceType::King));
+        let occ = self.occ() ^ self.colored_pieces(Piece::new(!c, PieceType::King));
+
+        (attacks::pawn_attacks(!c, sq) & pawns)
+            | (attacks::knight_attacks(sq) & knights)
+            | (attacks::king_attacks(sq) & king)
             | (attacks::bishop_attacks(sq, occ) & diags)
             | (attacks::rook_attacks(sq, occ) & hvs)
-            | (attacks::pawn_attacks(Color::White, sq) & wpawns)
-            | (attacks::pawn_attacks(Color::Black, sq) & bpawns)
-    }
-
-    pub fn colored_attackers_to(&self, sq: Square, c: Color) -> Bitboard {
-        self.attackers_to(sq) & self.colors(c)
     }
 
     pub fn checkers(&self) -> Bitboard {
@@ -447,6 +441,7 @@ impl Board {
         Self {
             pieces: [Bitboard::NONE; 6],
             colors: [Bitboard::NONE; 2],
+            squares: [None; 64],
             checkers: Bitboard::NONE,
             diag_pinned: Bitboard::NONE,
             hv_pinned: Bitboard::NONE,
@@ -461,6 +456,7 @@ impl Board {
         let sq_bb = Bitboard::from_square(sq);
         self.pieces[piece.piece_type() as usize] |= sq_bb;
         self.colors[piece.color() as usize] |= sq_bb;
+        self.squares[sq.value() as usize] = Some(piece);
     }
 
     fn remove_piece(&mut self, sq: Square, piece: Piece) {
@@ -468,11 +464,12 @@ impl Board {
         let sq_bb = Bitboard::from_square(sq);
         self.pieces[piece.piece_type() as usize] ^= sq_bb;
         self.colors[piece.color() as usize] ^= sq_bb;
+        self.squares[sq.value() as usize] = None;
     }
 
     fn update_check_info(&mut self) {
         let king_sq = self.king_sq(self.stm());
-        self.checkers = self.colored_attackers_to(king_sq, !self.stm());
+        self.checkers = self.attackers_to(king_sq, !self.stm());
 
         // this includes enemy pieces as pinned but they are ignored so it is fine
         self.diag_pinned = Bitboard::NONE;

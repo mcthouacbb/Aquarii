@@ -1,8 +1,11 @@
 mod chess;
 mod types;
 
+use chess::{
+    movegen::{movegen, MoveList},
+    Board, Move,
+};
 use std::time::{Duration, Instant};
-use chess::{movegen::{movegen, MoveList}, Board, Move};
 
 fn perft<const ROOT: bool>(board: &Board, depth: i32) -> u64 {
     if depth == 0 {
@@ -204,10 +207,16 @@ pub fn run_perft_tests() {
 
     println!("nodes: {}", total_nodes);
     println!("time: {}", start.elapsed().as_secs_f64());
-    println!("nps: {}", total_nodes as f64 / start.elapsed().as_secs_f64());
+    println!(
+        "nps: {}",
+        total_nodes as f64 / start.elapsed().as_secs_f64()
+    );
     println!("passed {} out of {}", passed, failed + passed);
 }
 
 fn main() {
+    // let mut board = Board::from_fen("4k3/8/8/8/8/8/8/4K2R w K - 0 1").unwrap();
+    // board.make_move(Move::normal(types::Square::E1, types::Square::D2));
+    // perft::<true>(&board, 6);
     run_perft_tests();
 }
