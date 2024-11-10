@@ -235,26 +235,22 @@ impl Board {
         let from = mv.from_sq();
         let to = mv.to_sq();
         let from_pce = self.piece_at(from).unwrap();
+        let mut captured: Option<Piece> = None;
         self.ep_square = None;
+        self.half_move_clock += 1;
 
         match mv.kind() {
             MoveKind::None => {
-                if self.piece_at(to).is_some() {
+                captured = self.piece_at(to);
+                if captured.is_some() {
                     self.remove_piece(to);
                 }
 
                 self.move_piece(from, to);
-
-                if from_pce.piece_type() == PieceType::Pawn {
-                    self.half_move_clock = 0;
-                    if (from - to).abs() == 16 {
-                        self.ep_square =
-                            Some(Square::from_raw(((from as i32 + to as i32) / 2) as u8))
-                    }
-                }
             }
             MoveKind::Promotion => {
-                if self.piece_at(to).is_some() {
+                captured = self.piece_at(to);
+                if captured.is_some() {
                     self.remove_piece(to);
                 }
                 self.remove_piece(from);
@@ -268,75 +264,31 @@ impl Board {
                 } else {
                     to + 8
                 };
+                captured = self.piece_at(cap_sq);
                 self.remove_piece(cap_sq);
             }
             MoveKind::Castle => {
-                // from = king_sq, to = rook_sq
-                // should just construct the piece here instead of looking up
-                if to > from {
-                    // king side
-                    let king_to = if self.stm == Color::White {
-                        Square::G1
-                    } else {
-                        Square::G8
-                    };
-                    let rook_to = if self.stm == Color::White {
-                        Square::F1
-                    } else {
-                        Square::F8
-                    };
-
-                    self.move_piece(from, king_to);
-                    self.move_piece(to, rook_to);
-                } else {
-                    // queen side
-                    let king_to = if self.stm == Color::White {
-                        Square::C1
-                    } else {
-                        Square::C8
-                    };
-                    let rook_to = if self.stm == Color::White {
-                        Square::D1
-                    } else {
-                        Square::D8
-                    };
-
-                    self.move_piece(from, king_to);
-                    self.move_piece(to, rook_to);
-                }
+                let king_side = to > from;
+                self.move_piece(from, CastlingRooks::king_to(king_side, self.stm()));
+                self.move_piece(to, CastlingRooks::rook_to(king_side, self.stm()));
             }
         }
-
-        let our_rooks = self.castling_rooks.color_mut(self.stm);
 
         if from_pce.piece_type() == PieceType::King {
-            our_rooks.king_side = None;
-            our_rooks.queen_side = None;
-        }
-
-        if let Some(rook_sq) = our_rooks.king_side {
-            if rook_sq == from {
-                our_rooks.king_side = None;
+            self.castling_rooks.color_mut(self.stm).remove_both();
+        } else if from_pce.piece_type() == PieceType::Rook {
+            self.castling_rooks.color_mut(self.stm).remove(from);
+        } else if from_pce.piece_type() == PieceType::Pawn {
+            self.half_move_clock = 0;
+            if (from - to).abs() == 16 {
+                self.ep_square = Some(Square::from_raw(((from as i32 + to as i32) / 2) as u8));
             }
         }
 
-        if let Some(rook_sq) = our_rooks.queen_side {
-            if rook_sq == from {
-                our_rooks.queen_side = None;
-            }
-        }
-
-        let their_rooks = self.castling_rooks.color_mut(!self.stm);
-
-        if let Some(rook_sq) = their_rooks.king_side {
-            if rook_sq == to {
-                their_rooks.king_side = None;
-            }
-        }
-
-        if let Some(rook_sq) = their_rooks.queen_side {
-            if rook_sq == to {
-                their_rooks.queen_side = None;
+        if let Some(cap) = captured {
+            self.half_move_clock = 0;
+            if cap.piece_type() == PieceType::Rook {
+                self.castling_rooks.color_mut(!self.stm()).remove(to);
             }
         }
 

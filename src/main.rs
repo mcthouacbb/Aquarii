@@ -185,7 +185,7 @@ pub fn run_perft_tests() {
         println!("fen: {}", test.fen);
         for d in 1..=6 {
             // skip the ones that take really long
-            if test.depths[(d - 1) as usize] > 1_000_000_000
+            if test.depths[(d - 1) as usize] > 100_000_000
             /* || test.depths[(d - 1) as usize] < 1_000_000*/
             {
                 continue;

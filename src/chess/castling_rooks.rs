@@ -9,12 +9,17 @@ pub struct RookPair {
 }
 
 impl RookPair {
-    pub fn has_king_side(&self) -> bool {
-        self.king_side.is_some()
+    pub fn remove(&mut self, sq: Square) {
+        if self.king_side == Some(sq) {
+            self.king_side = None;
+        } else if self.queen_side == Some(sq) {
+            self.queen_side = None;
+        }
     }
 
-    pub fn has_queen_side(&self) -> bool {
-        self.queen_side.is_some()
+    pub fn remove_both(&mut self) {
+        self.king_side = None;
+        self.queen_side = None;
     }
 }
 
@@ -61,6 +66,14 @@ impl CastlingRooks {
 
     pub fn color_mut(&mut self, c: Color) -> &mut RookPair {
         &mut self.rooks[c as usize]
+    }
+
+    pub const fn king_to(king_side: bool, c: Color) -> Square {
+        [[Square::C1, Square::C8], [Square::G1, Square::G8]][king_side as usize][c as usize]
+    }
+
+    pub const fn rook_to(king_side: bool, c: Color) -> Square {
+        [[Square::D1, Square::D8], [Square::F1, Square::F8]][king_side as usize][c as usize]
     }
 }
 
