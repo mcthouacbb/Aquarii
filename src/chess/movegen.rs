@@ -1,4 +1,4 @@
-use super::{attacks, Board, CastleRights, Move};
+use super::{attacks, Board, Move};
 use crate::types::{Bitboard, Color, Piece, PieceType, Square};
 
 pub fn movegen(board: &Board) -> Vec<Move> {
@@ -151,18 +151,7 @@ fn gen_king_moves(board: &Board, moves: &mut Vec<Move>) {
 
     // if in check return
 
-    let king_side = if board.stm() == Color::White {
-        CastleRights::WHITE_KING_SIDE
-    } else {
-        CastleRights::BLACK_KING_SIDE
-    };
-    let queen_side = if board.stm() == Color::White {
-        CastleRights::WHITE_QUEEN_SIDE
-    } else {
-        CastleRights::BLACK_QUEEN_SIDE
-    };
-
-    if board.castling_rights().has(king_side) {
+    if board.castling_rooks().color(board.stm()).king_side.is_some() {
         let king_dst = if board.stm() == Color::White {
             Square::G1
         } else {
@@ -174,15 +163,17 @@ fn gen_king_moves(board: &Board, moves: &mut Vec<Move>) {
             Square::F8
         };
 
+		let rook_sq = board.castling_rooks().color(board.stm()).king_side.unwrap();
+
         if (board.occ()
-            & (attacks::line_between(sq, king_dst) | attacks::line_between(rook_dst + 2, rook_dst)))
+            & (attacks::line_between(sq, king_dst) | attacks::line_between(rook_sq, rook_dst)))
         .empty()
         {
             moves.push(Move::castle(sq, king_dst));
         }
     }
 
-    if board.castling_rights().has(queen_side) {
+    if board.castling_rooks().color(board.stm()).queen_side.is_some() {
         let king_dst = if board.stm() == Color::White {
             Square::C1
         } else {
@@ -194,8 +185,10 @@ fn gen_king_moves(board: &Board, moves: &mut Vec<Move>) {
             Square::D8
         };
 
+		let rook_sq = board.castling_rooks().color(board.stm()).queen_side.unwrap();
+
         if (board.occ()
-            & (attacks::line_between(sq, king_dst) | attacks::line_between(rook_dst - 3, rook_dst)))
+            & (attacks::line_between(sq, king_dst) | attacks::line_between(rook_sq, rook_dst)))
         .empty()
         {
             moves.push(Move::castle(sq, king_dst));

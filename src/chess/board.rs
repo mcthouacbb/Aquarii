@@ -1,4 +1,4 @@
-use super::{CastleRights, Move, MoveKind};
+use super::{CastlingRooks, Move, MoveKind};
 use crate::types::{Bitboard, Color, Piece, PieceType, Square};
 use std::fmt;
 
@@ -7,7 +7,7 @@ pub struct Board {
     pieces: [Bitboard; 6],
     colors: [Bitboard; 2],
     stm: Color,
-    castle_rights: CastleRights,
+    castling_rooks: CastlingRooks,
     ep_square: Option<Square>,
     half_move_clock: u8,
 }
@@ -118,16 +118,16 @@ impl Board {
         for c in parts[2].chars() {
             match c {
                 'K' => {
-                    board.castle_rights |= CastleRights::WHITE_KING_SIDE;
+                    board.castling_rooks.color_mut(Color::White).king_side = Some(Square::H1);
                 }
                 'Q' => {
-                    board.castle_rights |= CastleRights::WHITE_QUEEN_SIDE;
+                    board.castling_rooks.color_mut(Color::White).queen_side = Some(Square::A1);
                 }
                 'k' => {
-                    board.castle_rights |= CastleRights::BLACK_KING_SIDE;
+                    board.castling_rooks.color_mut(Color::Black).king_side = Some(Square::H8);
                 }
                 'q' => {
-                    board.castle_rights |= CastleRights::BLACK_QUEEN_SIDE;
+                    board.castling_rooks.color_mut(Color::Black).queen_side = Some(Square::A8);
                 }
                 '-' => {
                     if parts[2].len() != 1 {
@@ -210,7 +210,7 @@ impl Board {
         } else {
             " b "
         };
-        fen += format!("{}", self.castle_rights).as_str();
+        fen += format!("{}", self.castling_rooks).as_str();
         match self.ep_square {
             Some(sq) => {
                 fen += format!(" {} ", sq).to_lowercase().as_str();
@@ -251,7 +251,7 @@ impl Board {
             MoveKind::Castle => {}
         }
 
-        
+
 
         self.stm = !self.stm;
     }
@@ -281,8 +281,8 @@ impl Board {
             .lsb()
     }
 
-    pub fn castling_rights(&self) -> CastleRights {
-        self.castle_rights
+    pub fn castling_rooks(&self) -> CastlingRooks {
+        self.castling_rooks
     }
 
     pub fn piece_at(&self, sq: Square) -> Option<Piece> {
@@ -316,7 +316,7 @@ impl Board {
             pieces: [Bitboard::NONE; 6],
             colors: [Bitboard::NONE; 2],
             stm: Color::White,
-            castle_rights: CastleRights::NONE,
+            castling_rooks: CastlingRooks::DEFAULT,
             ep_square: None,
             half_move_clock: 0,
         }
@@ -354,7 +354,7 @@ impl fmt::Display for Board {
             writeln!(f)?;
         }
         writeln!(f, "stm: {}", self.stm)?;
-        writeln!(f, "castling rights: {}", self.castle_rights)?;
+        writeln!(f, "castling rights: {}", self.castling_rooks)?;
         match self.ep_square {
             Some(sq) => {
                 writeln!(f, "ep square: {}", sq)?;
