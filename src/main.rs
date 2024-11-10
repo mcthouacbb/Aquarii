@@ -13,6 +13,10 @@ fn perft<const ROOT: bool>(board: &Board, depth: i32) -> u64 {
     // !TODO
     let moves: Vec<Move> = movegen(board);
 
+    if !ROOT && depth == 1 {
+        return moves.len() as u64;
+    }
+
     for mv in moves {
         let mut new_board = board.clone();
         new_board.make_move(mv);
@@ -166,14 +170,23 @@ pub fn run_perft_tests() {
         PerftTest { fen: "n1n5/PPPk4/8/8/8/8/4Kppp/5N1N b - - 0 1", depths: [24, 496, 9483, 182838, 3605103, 71179139] },
     ];
 
+    let mut passed = 0;
+    let mut failed = 0;
+
     for test in perft_tests {
         let board = Board::from_fen(test.fen).unwrap();
         println!("fen: {}", test.fen);
         for d in 1..=6 {
+            // skip the ones that take really long
+            // if test.depths[(d - 1) as usize] > 100_000_000 {
+                // continue;
+            // }
             let nodes = perft::<false>(&board, d);
             if test.depths[(d - 1) as usize] == nodes {
+                passed += 1;
                 println!("    passed depth {}", d);
             } else {
+                failed += 1;
                 println!(
                     "    failed depth {} expected {} got {}",
                     d,
@@ -183,10 +196,10 @@ pub fn run_perft_tests() {
             }
         }
     }
+
+    println!("passed {} out of {}", passed, failed + passed);
 }
 
 fn main() {
-    // let board = Board::from_fen("rnbqkbnr/2pppppp/p7/Pp6/8/8/1PPPPPPP/RNBQKBNR w KQkq b6 0 3").unwrap();
-    // perft::<true>(&board, 2);
     run_perft_tests();
 }

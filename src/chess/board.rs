@@ -272,6 +272,7 @@ impl Board {
             }
             MoveKind::Castle => {
                 // from = king_sq, to = rook_sq
+                // should just construct the piece here instead of looking up
                 let rook = self.piece_at(to).unwrap();
                 if to > from {
                     // king side
@@ -308,6 +309,39 @@ impl Board {
                     self.add_piece(king_to, from_pce);
                     self.add_piece(rook_to, rook);
                 }
+            }
+        }
+
+        let our_rooks = self.castling_rooks.color_mut(self.stm);
+
+        if from_pce.piece_type() == PieceType::King {
+            our_rooks.king_side = None;
+            our_rooks.queen_side = None;
+        }
+
+        if let Some(rook_sq) = our_rooks.king_side {
+            if rook_sq == from {
+                our_rooks.king_side = None;
+            }
+        }
+
+        if let Some(rook_sq) = our_rooks.queen_side {
+            if rook_sq == from {
+                our_rooks.queen_side = None;
+            }
+        }
+
+        let their_rooks = self.castling_rooks.color_mut(!self.stm);
+
+        if let Some(rook_sq) = their_rooks.king_side {
+            if rook_sq == to {
+                their_rooks.king_side = None;
+            }
+        }
+
+        if let Some(rook_sq) = their_rooks.queen_side {
+            if rook_sq == to {
+                their_rooks.queen_side = None;
             }
         }
 
@@ -376,10 +410,11 @@ impl Board {
         let hvs = self.pieces(PieceType::Rook) | self.pieces(PieceType::Queen);
         let wpawns = self.colored_pieces(Piece::new(Color::Black, PieceType::Pawn));
         let bpawns = self.colored_pieces(Piece::new(Color::White, PieceType::Pawn));
+        let occ = self.occ() ^ self.colored_pieces(Piece::new(self.stm(), PieceType::King));
         (attacks::king_attacks(sq) & self.pieces(PieceType::King))
             | (attacks::knight_attacks(sq) & self.pieces(PieceType::Knight))
-            | (attacks::bishop_attacks(sq, self.occ() ^ self.pieces(PieceType::King)) & diags)
-            | (attacks::rook_attacks(sq, self.occ() ^ self.pieces(PieceType::King)) & hvs)
+            | (attacks::bishop_attacks(sq, occ) & diags)
+            | (attacks::rook_attacks(sq, occ) & hvs)
             | (attacks::pawn_attacks(Color::White, sq) & wpawns)
             | (attacks::pawn_attacks(Color::Black, sq) & bpawns)
     }
@@ -470,7 +505,7 @@ impl Board {
 
             let between = attacks::line_between(king_sq, attacker) & block_mask;
             if between.one() {
-                self.diag_pinned |= between;
+                self.hv_pinned |= between;
             }
         }
     }
@@ -505,6 +540,7 @@ impl fmt::Display for Board {
         }
         writeln!(f, "half move clock: {}", self.half_move_clock)?;
         writeln!(f, "fen: {}", self.to_fen())?;
+        println!("{}\n{}", self.diag_pinned, self.hv_pinned);
         Ok(())
     }
 }
