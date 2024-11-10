@@ -2,7 +2,7 @@ mod chess;
 mod types;
 
 use std::time::{Duration, Instant};
-use chess::{movegen::movegen, Board, Move};
+use chess::{movegen::{movegen, MoveList}, Board, Move};
 
 fn perft<const ROOT: bool>(board: &Board, depth: i32) -> u64 {
     if depth == 0 {
@@ -12,8 +12,8 @@ fn perft<const ROOT: bool>(board: &Board, depth: i32) -> u64 {
     let mut nodes = 0u64;
 
     // !TODO
-    let moves: Vec<Move> = movegen(board);
-
+    let mut moves = MoveList::new();
+    movegen(board, &mut moves);
     if !ROOT && depth == 1 {
         return moves.len() as u64;
     }

@@ -1,8 +1,10 @@
 use super::{attacks, Board, Move};
 use crate::types::{Bitboard, Color, Piece, PieceType, Square};
+use arrayvec::ArrayVec;
 
-pub fn movegen(board: &Board) -> Vec<Move> {
-    let mut result: Vec<Move> = Vec::new();
+pub type MoveList = ArrayVec<Move, 256>;
+
+pub fn movegen(board: &Board, moves: &mut MoveList) {
 
     let checkers = board.checkers();
     if !checkers.multiple() {
@@ -11,18 +13,16 @@ pub fn movegen(board: &Board) -> Vec<Move> {
         } else {
             Bitboard::ALL
         };
-        gen_pawn_moves(board, move_mask, &mut result);
-        gen_knight_moves(board, move_mask, &mut result);
-        gen_bishop_moves(board, move_mask, &mut result);
-        gen_rook_moves(board, move_mask, &mut result);
-        gen_queen_moves(board, move_mask, &mut result);
+        gen_pawn_moves(board, move_mask, moves);
+        gen_knight_moves(board, move_mask, moves);
+        gen_bishop_moves(board, move_mask, moves);
+        gen_rook_moves(board, move_mask, moves);
+        gen_queen_moves(board, move_mask, moves);
     }
-    gen_king_moves(board, &mut result);
-
-    result
+    gen_king_moves(board, moves);
 }
 
-fn gen_pawn_moves(board: &Board, move_mask: Bitboard, moves: &mut Vec<Move>) {
+fn gen_pawn_moves(board: &Board, move_mask: Bitboard, moves: &mut MoveList) {
     let eighth_rank = if board.stm() == Color::White {
         Bitboard::RANK_8
     } else {
@@ -150,7 +150,7 @@ fn gen_pawn_moves(board: &Board, move_mask: Bitboard, moves: &mut Vec<Move>) {
     }
 }
 
-fn gen_knight_moves(board: &Board, move_mask: Bitboard, moves: &mut Vec<Move>) {
+fn gen_knight_moves(board: &Board, move_mask: Bitboard, moves: &mut MoveList) {
     let mut knights =
         !board.pinned() & board.colored_pieces(Piece::new(board.stm(), PieceType::Knight));
     while knights.any() {
@@ -164,7 +164,7 @@ fn gen_knight_moves(board: &Board, move_mask: Bitboard, moves: &mut Vec<Move>) {
     }
 }
 
-fn gen_bishop_moves(board: &Board, move_mask: Bitboard, moves: &mut Vec<Move>) {
+fn gen_bishop_moves(board: &Board, move_mask: Bitboard, moves: &mut MoveList) {
     let mut bishops =
         !board.hv_pinned() & board.colored_pieces(Piece::new(board.stm(), PieceType::Bishop));
     while bishops.any() {
@@ -181,7 +181,7 @@ fn gen_bishop_moves(board: &Board, move_mask: Bitboard, moves: &mut Vec<Move>) {
     }
 }
 
-fn gen_rook_moves(board: &Board, move_mask: Bitboard, moves: &mut Vec<Move>) {
+fn gen_rook_moves(board: &Board, move_mask: Bitboard, moves: &mut MoveList) {
     let mut rooks =
         !board.diag_pinned() & board.colored_pieces(Piece::new(board.stm(), PieceType::Rook));
     while rooks.any() {
@@ -198,7 +198,7 @@ fn gen_rook_moves(board: &Board, move_mask: Bitboard, moves: &mut Vec<Move>) {
     }
 }
 
-fn gen_queen_moves(board: &Board, move_mask: Bitboard, moves: &mut Vec<Move>) {
+fn gen_queen_moves(board: &Board, move_mask: Bitboard, moves: &mut MoveList) {
     let mut queens = board.colored_pieces(Piece::new(board.stm(), PieceType::Queen));
     while queens.any() {
         let sq = queens.poplsb();
@@ -214,7 +214,7 @@ fn gen_queen_moves(board: &Board, move_mask: Bitboard, moves: &mut Vec<Move>) {
     }
 }
 
-fn gen_king_moves(board: &Board, moves: &mut Vec<Move>) {
+fn gen_king_moves(board: &Board, moves: &mut MoveList) {
     let sq = board.king_sq(board.stm());
     let mut attacks = attacks::king_attacks(sq);
     attacks &= !board.colors(board.stm());
