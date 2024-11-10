@@ -175,12 +175,12 @@ const LINE_THROUGH: [[Bitboard; 64]; 64] = {
                     .bit_or(RAYS[sq2][Direction::North as usize]);
             }
             if RAYS[sq1][Direction::East as usize].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[sq1][Direction::East as usize]
-                    .bit_or(RAYS[sq2][Direction::West as usize]);
+                result[sq1][sq2] =
+                    RAYS[sq1][Direction::East as usize].bit_or(RAYS[sq2][Direction::West as usize]);
             }
             if RAYS[sq1][Direction::West as usize].has(Square::from_raw(sq2 as u8)) {
-                result[sq1][sq2] = RAYS[sq1][Direction::West as usize]
-                    .bit_or(RAYS[sq2][Direction::East as usize]);
+                result[sq1][sq2] =
+                    RAYS[sq1][Direction::West as usize].bit_or(RAYS[sq2][Direction::East as usize]);
             }
             if RAYS[sq1][Direction::NorthEast as usize].has(Square::from_raw(sq2 as u8)) {
                 result[sq1][sq2] = RAYS[sq1][Direction::NorthEast as usize]
