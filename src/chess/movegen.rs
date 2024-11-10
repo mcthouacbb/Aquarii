@@ -253,14 +253,9 @@ fn gen_king_moves(board: &Board, moves: &mut MoveList) {
             attacks::line_between(sq, king_dst) | Bitboard::from_square(king_dst);
 
         if (board.occ() & block_squares).empty() {
-            'through_check: {
-                while check_squares.any() {
-                    if board.attacked_by(check_squares.poplsb(), !board.stm()) {
-                        break 'through_check;
-                    }
-                }
-                moves.push(Move::castle(sq, rook_sq));
-            }
+			if !board.any_attacked_by(check_squares, !board.stm()) {
+				moves.push(Move::castle(sq, rook_sq));
+			}
         }
     }
 
@@ -294,14 +289,9 @@ fn gen_king_moves(board: &Board, moves: &mut MoveList) {
             attacks::line_between(sq, king_dst) | Bitboard::from_square(king_dst);
 
         if (board.occ() & block_squares).empty() {
-            'through_check: {
-                while check_squares.any() {
-                    if board.attacked_by(check_squares.poplsb(), !board.stm()) {
-                        break 'through_check;
-                    }
-                }
-                moves.push(Move::castle(sq, rook_sq));
-            }
+			if !board.any_attacked_by(check_squares, !board.stm()) {
+				moves.push(Move::castle(sq, rook_sq));
+			}
         }
     }
 }

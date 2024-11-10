@@ -346,6 +346,15 @@ impl Board {
             || (attacks::rook_attacks(sq, occ) & hvs).any()
     }
 
+    pub fn any_attacked_by(&self, mut bb: Bitboard, c: Color) -> bool {
+        while bb.any() {
+            if self.attacked_by(bb.poplsb(), c) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     pub fn attackers_to(&self, sq: Square, c: Color) -> Bitboard {
         let diags =
             self.colors(c) & (self.pieces(PieceType::Bishop) | self.pieces(PieceType::Queen));
@@ -491,7 +500,6 @@ impl fmt::Display for Board {
         }
         writeln!(f, "half move clock: {}", self.half_move_clock)?;
         writeln!(f, "fen: {}", self.to_fen())?;
-        println!("{}\n{}", self.diag_pinned, self.hv_pinned);
         Ok(())
     }
 }
