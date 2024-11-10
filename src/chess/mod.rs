@@ -5,5 +5,5 @@ pub mod chess_move;
 pub mod movegen;
 
 pub use board::Board;
-pub use castling_rooks::{RookPair, CastlingRooks};
+pub use castling_rooks::{CastlingRooks, RookPair};
 pub use chess_move::{Move, MoveKind};

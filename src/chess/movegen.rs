@@ -146,12 +146,22 @@ fn gen_king_moves(board: &Board, moves: &mut Vec<Move>) {
     let mut attacks = attacks::king_attacks(sq);
     attacks &= !board.colors(board.stm());
     while attacks.any() {
-        moves.push(Move::normal(sq, attacks.poplsb()));
+        let dst = attacks.poplsb();
+        if board.colored_attackers_to(dst, !board.stm()).empty() {
+            moves.push(Move::normal(sq, dst));
+        }
     }
 
-    // if in check return
+    if board.checkers().any() {
+        return;
+    }
 
-    if board.castling_rooks().color(board.stm()).king_side.is_some() {
+    if board
+        .castling_rooks()
+        .color(board.stm())
+        .king_side
+        .is_some()
+    {
         let king_dst = if board.stm() == Color::White {
             Square::G1
         } else {
@@ -163,17 +173,22 @@ fn gen_king_moves(board: &Board, moves: &mut Vec<Move>) {
             Square::F8
         };
 
-		let rook_sq = board.castling_rooks().color(board.stm()).king_side.unwrap();
+        let rook_sq = board.castling_rooks().color(board.stm()).king_side.unwrap();
 
-        if (board.occ()
-            & (attacks::line_between(sq, king_dst) | attacks::line_between(rook_sq, rook_dst)))
-        .empty()
-        {
-            moves.push(Move::castle(sq, king_dst));
+        let block_squares =
+            attacks::line_between(sq, king_dst) | attacks::line_between(rook_sq, rook_dst);
+
+        if (board.occ() & block_squares).empty() {
+            moves.push(Move::castle(sq, rook_sq));
         }
     }
 
-    if board.castling_rooks().color(board.stm()).queen_side.is_some() {
+    if board
+        .castling_rooks()
+        .color(board.stm())
+        .queen_side
+        .is_some()
+    {
         let king_dst = if board.stm() == Color::White {
             Square::C1
         } else {
@@ -185,13 +200,17 @@ fn gen_king_moves(board: &Board, moves: &mut Vec<Move>) {
             Square::D8
         };
 
-		let rook_sq = board.castling_rooks().color(board.stm()).queen_side.unwrap();
+        let rook_sq = board
+            .castling_rooks()
+            .color(board.stm())
+            .queen_side
+            .unwrap();
 
-        if (board.occ()
-            & (attacks::line_between(sq, king_dst) | attacks::line_between(rook_sq, rook_dst)))
-        .empty()
-        {
-            moves.push(Move::castle(sq, king_dst));
+        let block_squares =
+            attacks::line_between(sq, king_dst) | attacks::line_between(rook_sq, rook_dst);
+
+        if (board.occ() & block_squares).empty() {
+            moves.push(Move::castle(sq, rook_sq));
         }
     }
 }

@@ -1,4 +1,4 @@
-use super::{CastlingRooks, Move, MoveKind};
+use super::{attacks, CastlingRooks, Move, MoveKind};
 use crate::types::{Bitboard, Color, Piece, PieceType, Square};
 use std::fmt;
 
@@ -6,8 +6,9 @@ use std::fmt;
 pub struct Board {
     pieces: [Bitboard; 6],
     colors: [Bitboard; 2],
-    stm: Color,
+    checkers: Bitboard,
     castling_rooks: CastlingRooks,
+    stm: Color,
     ep_square: Option<Square>,
     half_move_clock: u8,
 }
@@ -171,6 +172,8 @@ impl Board {
             return None;
         }
 
+        board.update_check_info();
+
         Some(board)
     }
 
@@ -251,9 +254,9 @@ impl Board {
             MoveKind::Castle => {}
         }
 
-
-
         self.stm = !self.stm;
+
+        self.update_check_info();
     }
 
     pub fn stm(&self) -> Color {
@@ -311,12 +314,34 @@ impl Board {
         }
     }
 
+    pub fn attackers_to(&self, sq: Square) -> Bitboard {
+        let diags = self.pieces(PieceType::Bishop) | self.pieces(PieceType::Queen);
+        let hvs = self.pieces(PieceType::Rook) | self.pieces(PieceType::Queen);
+        let wpawns = self.colored_pieces(Piece::new(Color::Black, PieceType::Pawn));
+        let bpawns = self.colored_pieces(Piece::new(Color::White, PieceType::Pawn));
+        (attacks::king_attacks(sq) & self.pieces(PieceType::King))
+            | (attacks::knight_attacks(sq) & self.pieces(PieceType::Knight))
+            | (attacks::bishop_attacks(sq, self.occ()) & diags)
+            | (attacks::rook_attacks(sq, self.occ()) & hvs)
+            | (attacks::pawn_attacks(Color::White, sq) & wpawns)
+            | (attacks::pawn_attacks(Color::Black, sq) & bpawns)
+    }
+
+    pub fn colored_attackers_to(&self, sq: Square, c: Color) -> Bitboard {
+        self.attackers_to(sq) & self.colors(c)
+    }
+
+    pub fn checkers(&self) -> Bitboard {
+        self.checkers
+    }
+
     fn empty() -> Board {
         Self {
             pieces: [Bitboard::NONE; 6],
             colors: [Bitboard::NONE; 2],
-            stm: Color::White,
+            checkers: Bitboard::NONE,
             castling_rooks: CastlingRooks::DEFAULT,
+            stm: Color::White,
             ep_square: None,
             half_move_clock: 0,
         }
@@ -333,6 +358,11 @@ impl Board {
         let sq_bb = Bitboard::from_square(sq);
         self.pieces[piece.piece_type() as usize] ^= sq_bb;
         self.colors[piece.color() as usize] ^= sq_bb;
+    }
+
+    fn update_check_info(&mut self) {
+        self.checkers = self.colored_attackers_to(self.king_sq(self.stm()), !self.stm());
+        // TODO: pinned pieces
     }
 }
 

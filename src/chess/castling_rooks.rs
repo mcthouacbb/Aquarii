@@ -5,7 +5,7 @@ use crate::types::{Color, Square};
 #[derive(Clone, Copy, Debug)]
 pub struct RookPair {
     pub king_side: Option<Square>,
-    pub queen_side: Option<Square>
+    pub queen_side: Option<Square>,
 }
 
 impl RookPair {
@@ -21,7 +21,7 @@ impl RookPair {
 #[derive(Clone, Copy, Debug)]
 pub struct CastlingRooks {
     pub rooks: [RookPair; 2],
-    pub frc: bool
+    pub frc: bool,
 }
 
 impl CastlingRooks {
@@ -29,14 +29,14 @@ impl CastlingRooks {
         rooks: [
             RookPair {
                 king_side: None,
-                queen_side: None
+                queen_side: None,
             },
             RookPair {
                 king_side: None,
-                queen_side: None
-            }
+                queen_side: None,
+            },
         ],
-        frc: false
+        frc: false,
     };
 
     pub const fn new(wk: Square, wq: Square, bk: Square, bq: Square, frc: bool) -> Self {
@@ -48,10 +48,10 @@ impl CastlingRooks {
                 },
                 RookPair {
                     king_side: Some(bk),
-                    queen_side: Some(bq)
-                }
+                    queen_side: Some(bq),
+                },
             ],
-            frc: frc
+            frc: frc,
         }
     }
 

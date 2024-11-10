@@ -246,6 +246,10 @@ pub fn pawn_attacks_bb(c: Color, bb: Bitboard) -> Bitboard {
     pawn_west_attacks_bb(c, bb) | pawn_east_attacks_bb(c, bb)
 }
 
+pub fn pawn_attacks(c: Color, sq: Square) -> Bitboard {
+    pawn_attacks_bb(c, Bitboard::from_square(sq))
+}
+
 pub fn knight_attacks(sq: Square) -> Bitboard {
     KNIGHT_ATTACKS[sq.value() as usize]
 }
