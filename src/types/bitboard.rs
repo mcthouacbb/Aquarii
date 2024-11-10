@@ -28,6 +28,10 @@ impl Bitboard {
     pub const NONE: Self = Self(0u64);
     pub const ALL: Self = Self(!0u64);
 
+    pub const fn file(file: u8) -> Bitboard {
+        Self(Self::RANK_1.value() << file)
+    }
+
     pub const fn from_square(sq: Square) -> Self {
         return Self(1 << sq.value());
     }
@@ -95,7 +99,7 @@ impl Bitboard {
     }
 
     pub const fn multiple(self) -> bool {
-        (self.value() & (self.value() - 1)) > 0
+        self.any() && (self.value() & (self.value() - 1)) > 0
     }
 
     pub const fn one(self) -> bool {

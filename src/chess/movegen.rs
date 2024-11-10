@@ -4,14 +4,14 @@ use crate::types::{Bitboard, Color, Piece, PieceType, Square};
 pub fn movegen(board: &Board) -> Vec<Move> {
     let mut result: Vec<Move> = Vec::new();
 
-    gen_pawn_moves(board, &mut result);
-    gen_knight_moves(board, &mut result);
-    gen_bishop_moves(board, &mut result);
-    gen_rook_moves(board, &mut result);
-    gen_queen_moves(board, &mut result);
+    if !board.checkers().multiple() {
+        gen_pawn_moves(board, &mut result);
+        gen_knight_moves(board, &mut result);
+        gen_bishop_moves(board, &mut result);
+        gen_rook_moves(board, &mut result);
+        gen_queen_moves(board, &mut result);
+    }
     gen_king_moves(board, &mut result);
-    // replace true with board.is_legal(mv)
-    result.retain(|&mv| true);
 
     result
 }
@@ -29,9 +29,27 @@ fn gen_pawn_moves(board: &Board, moves: &mut Vec<Move>) {
     };
 
     let push_offset = if board.stm() == Color::White { 8 } else { -8 };
+    let west_dir = if board.stm() == Color::White {
+        attacks::Direction::NorthWest
+    } else {
+        attacks::Direction::SouthWest
+    };
+    let east_dir = if board.stm() == Color::White {
+        attacks::Direction::NorthEast
+    } else {
+        attacks::Direction::SouthEast
+    };
 
+    let king_sq = board.king_sq(board.stm());
     let pawns = board.colored_pieces(Piece::new(board.stm(), PieceType::Pawn));
-    let pushes = attacks::pawn_pushes_bb(board.stm(), pawns) & !board.occ();
+    let pinned = pawns & board.pinned();
+    let unpinned = pawns ^ pinned;
+
+    // the pinned file thingy probably be implemented better
+    let pushes = attacks::pawn_pushes_bb(
+        board.stm(),
+        unpinned | (pinned & Bitboard::file(king_sq.file())),
+    ) & !board.occ();
     let mut promo_pushes = pushes & eighth_rank;
     let mut non_promo_pushes = pushes ^ promo_pushes;
 
@@ -56,8 +74,11 @@ fn gen_pawn_moves(board: &Board, moves: &mut Vec<Move>) {
         moves.push(Move::normal(sq - push_offset * 2, sq));
     }
 
-    let mut west_caps =
-        board.colors(!board.stm()) & attacks::pawn_west_attacks_bb(board.stm(), pawns);
+    let mut west_caps = board.colors(!board.stm())
+        & attacks::pawn_west_attacks_bb(
+            board.stm(),
+            unpinned | (pinned & attacks::ray_bb(king_sq, west_dir)),
+        );
     let mut promo_west_caps = west_caps & eighth_rank;
     west_caps ^= promo_west_caps;
 
@@ -74,8 +95,11 @@ fn gen_pawn_moves(board: &Board, moves: &mut Vec<Move>) {
         moves.push(Move::promo(sq - push_offset + 1, sq, PieceType::Queen));
     }
 
-    let mut east_caps =
-        board.colors(!board.stm()) & attacks::pawn_east_attacks_bb(board.stm(), pawns);
+    let mut east_caps = board.colors(!board.stm())
+        & attacks::pawn_east_attacks_bb(
+            board.stm(),
+            unpinned | (pinned & attacks::ray_bb(king_sq, east_dir)),
+        );
     let mut promo_east_caps = east_caps & eighth_rank;
     east_caps ^= promo_east_caps;
 
@@ -94,7 +118,8 @@ fn gen_pawn_moves(board: &Board, moves: &mut Vec<Move>) {
 }
 
 fn gen_knight_moves(board: &Board, moves: &mut Vec<Move>) {
-    let mut knights = board.colored_pieces(Piece::new(board.stm(), PieceType::Knight));
+    let mut knights =
+        !board.pinned() & board.colored_pieces(Piece::new(board.stm(), PieceType::Knight));
     while knights.any() {
         let sq = knights.poplsb();
         let mut attacks = attacks::knight_attacks(sq);
@@ -106,10 +131,14 @@ fn gen_knight_moves(board: &Board, moves: &mut Vec<Move>) {
 }
 
 fn gen_bishop_moves(board: &Board, moves: &mut Vec<Move>) {
-    let mut bishops = board.colored_pieces(Piece::new(board.stm(), PieceType::Bishop));
+    let mut bishops =
+        !board.hv_pinned() & board.colored_pieces(Piece::new(board.stm(), PieceType::Bishop));
     while bishops.any() {
         let sq = bishops.poplsb();
         let mut attacks = attacks::bishop_attacks(sq, board.occ());
+        if board.diag_pinned().has(sq) {
+            attacks &= attacks::line_through(board.king_sq(board.stm()), sq);
+        }
         attacks &= !board.colors(board.stm());
         while attacks.any() {
             moves.push(Move::normal(sq, attacks.poplsb()));
@@ -118,10 +147,14 @@ fn gen_bishop_moves(board: &Board, moves: &mut Vec<Move>) {
 }
 
 fn gen_rook_moves(board: &Board, moves: &mut Vec<Move>) {
-    let mut rooks = board.colored_pieces(Piece::new(board.stm(), PieceType::Rook));
+    let mut rooks =
+        !board.diag_pinned() & board.colored_pieces(Piece::new(board.stm(), PieceType::Rook));
     while rooks.any() {
         let sq = rooks.poplsb();
         let mut attacks = attacks::rook_attacks(sq, board.occ());
+        if board.hv_pinned().has(sq) {
+            attacks &= attacks::line_through(board.king_sq(board.stm()), sq);
+        }
         attacks &= !board.colors(board.stm());
         while attacks.any() {
             moves.push(Move::normal(sq, attacks.poplsb()));
@@ -134,6 +167,9 @@ fn gen_queen_moves(board: &Board, moves: &mut Vec<Move>) {
     while queens.any() {
         let sq = queens.poplsb();
         let mut attacks = attacks::queen_attacks(sq, board.occ());
+        if board.pinned().has(sq) {
+            attacks &= attacks::line_through(board.king_sq(board.stm()), sq);
+        }
         attacks &= !board.colors(board.stm());
         while attacks.any() {
             moves.push(Move::normal(sq, attacks.poplsb()));

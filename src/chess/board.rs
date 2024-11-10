@@ -7,6 +7,8 @@ pub struct Board {
     pieces: [Bitboard; 6],
     colors: [Bitboard; 2],
     checkers: Bitboard,
+    diag_pinned: Bitboard,
+    hv_pinned: Bitboard,
     castling_rooks: CastlingRooks,
     stm: Color,
     ep_square: Option<Square>,
@@ -335,11 +337,25 @@ impl Board {
         self.checkers
     }
 
+    pub fn pinned(&self) -> Bitboard {
+        self.hv_pinned | self.diag_pinned
+    }
+
+    pub fn diag_pinned(&self) -> Bitboard {
+        self.diag_pinned
+    }
+
+    pub fn hv_pinned(&self) -> Bitboard {
+        self.hv_pinned
+    }
+
     fn empty() -> Board {
         Self {
             pieces: [Bitboard::NONE; 6],
             colors: [Bitboard::NONE; 2],
             checkers: Bitboard::NONE,
+            diag_pinned: Bitboard::NONE,
+            hv_pinned: Bitboard::NONE,
             castling_rooks: CastlingRooks::DEFAULT,
             stm: Color::White,
             ep_square: None,
@@ -361,8 +377,43 @@ impl Board {
     }
 
     fn update_check_info(&mut self) {
-        self.checkers = self.colored_attackers_to(self.king_sq(self.stm()), !self.stm());
-        // TODO: pinned pieces
+        let king_sq = self.king_sq(self.stm());
+        self.checkers = self.colored_attackers_to(king_sq, !self.stm());
+
+        // this includes enemy pieces as pinned but they are ignored so it is fine
+        self.diag_pinned = Bitboard::NONE;
+        self.hv_pinned = Bitboard::NONE;
+
+        let queens = self.colored_pieces(Piece::new(!self.stm(), PieceType::Queen));
+        let rooks = self.colored_pieces(Piece::new(!self.stm(), PieceType::Rook));
+        let bishops = self.colored_pieces(Piece::new(!self.stm(), PieceType::Bishop));
+
+        let mut diag_attackers =
+            attacks::bishop_attacks(king_sq, Bitboard::NONE) & (bishops | queens);
+
+        let block_mask = self.occ() ^ diag_attackers;
+
+        while diag_attackers.any() {
+            let attacker = diag_attackers.poplsb();
+
+            let between = attacks::line_between(king_sq, attacker) & block_mask;
+            if between.one() {
+                self.diag_pinned |= between;
+            }
+        }
+
+        let mut hv_attackers = attacks::rook_attacks(king_sq, Bitboard::NONE) & (rooks | queens);
+
+        let block_mask = self.occ() ^ hv_attackers;
+
+        while hv_attackers.any() {
+            let attacker = hv_attackers.poplsb();
+
+            let between = attacks::line_between(king_sq, attacker) & block_mask;
+            if between.one() {
+                self.diag_pinned |= between;
+            }
+        }
     }
 }
 

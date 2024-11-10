@@ -34,11 +34,11 @@ fn main() {
     let mut board = Board::startpos();
     println!("{}\n", board);
 
-    perft::<true>(&board, 1);
+    perft::<true>(&board, 4);
 
-    board = Board::from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1")
-        .unwrap();
+    board =
+        Board::from_fen("rnbqkbnr/pppppppp/8/8/8/2P5/PP1PPPPP/RNBQKBNR b KQkq - 0 1").unwrap();
     println!("{}", board);
 
-    perft::<true>(&board, 1);
+    perft::<true>(&board, 3);
 }

@@ -36,7 +36,7 @@ const KING_ATTACKS: [Bitboard; 64] = {
     result
 };
 
-enum Direction {
+pub enum Direction {
     North,
     South,
     East,
@@ -206,7 +206,7 @@ const LINE_THROUGH: [[Bitboard; 64]; 64] = {
     result
 };
 
-fn ray_bb(sq: Square, dir: Direction) -> Bitboard {
+pub fn ray_bb(sq: Square, dir: Direction) -> Bitboard {
     RAYS[dir as usize][sq.value() as usize]
 }
 
