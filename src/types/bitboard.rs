@@ -28,7 +28,15 @@ impl Bitboard {
     pub const NONE: Self = Self(0u64);
     pub const ALL: Self = Self(!0u64);
 
-    pub const fn file(file: u8) -> Bitboard {
+    pub const fn from_raw(value: u64) -> Self {
+        Self(value)
+    }
+
+    pub const fn rank(rank: u8) -> Self {
+        Self(Self::RANK_1.value() << (rank * 8))
+    }
+
+    pub const fn file(file: u8) -> Self {
         Self(Self::FILE_A.value() << file)
     }
 
@@ -70,6 +78,10 @@ impl Bitboard {
 
     pub const fn south_east(self) -> Self {
         self.south().east()
+    }
+
+    pub const fn swap_bytes(self) -> Self {
+        Self(self.0.swap_bytes())
     }
 
     pub const fn lsb(self) -> Square {

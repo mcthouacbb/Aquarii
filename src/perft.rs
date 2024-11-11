@@ -2,7 +2,7 @@ use crate::chess::{
     movegen::{movegen, MoveList},
     Board,
 };
-use std::time::{Instant};
+use std::time::Instant;
 
 fn perft<const ROOT: bool>(board: &Board, depth: i32) -> u64 {
     if depth == 0 {
@@ -181,8 +181,7 @@ pub fn run_perft_tests() {
         println!("fen: {}", test.fen);
         for d in 1..=6 {
             // skip the ones that take really long
-            if test.depths[(d - 1) as usize] > 100_000_000
-            {
+            if test.depths[(d - 1) as usize] > 100_000_000 {
                 continue;
             }
             let nodes = perft::<false>(&board, d);
