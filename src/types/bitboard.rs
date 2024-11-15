@@ -4,6 +4,7 @@ use std::ops;
 use super::Square;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[repr(C)]
 pub struct Bitboard(u64);
 
 impl Bitboard {

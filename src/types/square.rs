@@ -1,5 +1,6 @@
 use std::fmt;
 use std::ops;
+use std::str::FromStr;
 
 #[rustfmt::skip]
 #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
@@ -75,5 +76,38 @@ impl ops::Sub<Self> for Square {
 impl fmt::Display for Square {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", format!("{:?}", self).to_lowercase())
+    }
+}
+
+pub struct SquareParseErr;
+
+impl FromStr for Square {
+    type Err = SquareParseErr;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut chrs = s.trim().chars();
+        let Some(mut file) = chrs.next() else {
+            return Err(SquareParseErr);
+        };
+
+        file = file.to_ascii_lowercase();
+
+        let Some(rank) = chrs.next() else {
+            return Err(SquareParseErr);
+        };
+
+        if file.is_ascii_alphabetic()
+            && file <= 'h'
+            && rank.is_ascii_digit()
+            && rank >= '1'
+            && rank <= '8'
+        {
+            return Ok(Square::from_rank_file(
+                rank as u8 - '1' as u8,
+                file as u8 - 'a' as u8,
+            ));
+        }
+
+        Err(SquareParseErr)
     }
 }
