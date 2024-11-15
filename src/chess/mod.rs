@@ -1,5 +1,9 @@
+pub mod attacks;
 pub mod board;
-pub mod castle_rights;
+pub mod castling_rooks;
 pub mod chess_move;
+pub mod movegen;
+
 pub use board::Board;
-pub use chess_move::Move;
+pub use castling_rooks::{CastlingRooks, RookPair};
+pub use chess_move::{Move, MoveKind};

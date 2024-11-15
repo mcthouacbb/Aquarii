@@ -25,59 +25,75 @@ impl Bitboard {
     pub const RANK_7: Self = Self(0x00FF000000000000u64);
     pub const RANK_8: Self = Self(0xFF00000000000000u64);
 
-    pub const EMPTY: Self = Self(0u64);
+    pub const NONE: Self = Self(0u64);
     pub const ALL: Self = Self(!0u64);
 
-    pub fn from_square(sq: Square) -> Self {
+    pub const fn from_raw(value: u64) -> Self {
+        Self(value)
+    }
+
+    pub const fn rank(rank: u8) -> Self {
+        Self(Self::RANK_1.value() << (rank * 8))
+    }
+
+    pub const fn file(file: u8) -> Self {
+        Self(Self::FILE_A.value() << file)
+    }
+
+    pub const fn from_square(sq: Square) -> Self {
         return Self(1 << sq.value());
     }
 
-    pub fn value(self) -> u64 {
+    pub const fn value(self) -> u64 {
         self.0
     }
 
-    pub fn north(self) -> Self {
-        Self(self.0 << 8)
+    pub const fn north(self) -> Self {
+        Self(self.value() << 8)
     }
 
-    pub fn south(self) -> Self {
-        Self(self.0 >> 8)
+    pub const fn south(self) -> Self {
+        Self(self.value() >> 8)
     }
 
-    pub fn west(self) -> Self {
-        Self(self.0 >> 1) & !Self::FILE_A
+    pub const fn west(self) -> Self {
+        Self((self.value() >> 1) & !Self::FILE_H.value())
     }
 
-    pub fn east(self) -> Self {
-        Self(self.0 << 1) & !Self::FILE_H
+    pub const fn east(self) -> Self {
+        Self((self.value() << 1) & !Self::FILE_A.value())
     }
 
-    pub fn north_west(self) -> Self {
+    pub const fn north_west(self) -> Self {
         self.north().west()
     }
 
-    pub fn north_east(self) -> Self {
+    pub const fn north_east(self) -> Self {
         self.north().east()
     }
 
-    pub fn south_west(self) -> Self {
+    pub const fn south_west(self) -> Self {
         self.south().west()
     }
 
-    pub fn south_east(self) -> Self {
+    pub const fn south_east(self) -> Self {
         self.south().east()
     }
 
-    pub fn lsb(self) -> Square {
-        Square::from(self.0.trailing_zeros() as u8)
+    pub const fn swap_bytes(self) -> Self {
+        Self(self.0.swap_bytes())
     }
 
-    pub fn msb(self) -> Square {
-        Square::from((63 - self.0.leading_zeros()) as u8)
+    pub const fn lsb(self) -> Square {
+        Square::from_raw(self.0.trailing_zeros() as u8)
     }
 
-    pub fn popcount(self) -> u32 {
-        self.0.count_ones()
+    pub const fn msb(self) -> Square {
+        Square::from_raw((63 - self.0.leading_zeros()) as u8)
+    }
+
+    pub const fn popcount(self) -> u32 {
+        self.value().count_ones()
     }
 
     pub fn poplsb(&mut self) -> Square {
@@ -86,70 +102,86 @@ impl Bitboard {
         lsb
     }
 
-    pub fn any(self) -> bool {
-        self.0 > 0
+    pub const fn any(self) -> bool {
+        self.value() > 0
     }
 
-    pub fn empty(self) -> bool {
-        self.0 == 0
+    pub const fn empty(self) -> bool {
+        self.value() == 0
     }
 
-    pub fn multiple(self) -> bool {
-        (self.0 & (self.0 - 1)) > 0
+    pub const fn multiple(self) -> bool {
+        self.any() && (self.value() & (self.value() - 1)) > 0
     }
 
-    pub fn one(self) -> bool {
+    pub const fn one(self) -> bool {
         self.any() && !self.multiple()
     }
 
-    pub fn has(self, sq: Square) -> bool {
-        return ((self.0 >> (sq as u8)) & 1u64) > 0;
+    pub const fn has(self, sq: Square) -> bool {
+        return ((self.value() >> (sq as u8)) & 1u64) > 0;
+    }
+
+    pub const fn bit_and(self, rhs: Self) -> Self {
+        Self(self.value() & rhs.value())
+    }
+
+    pub const fn bit_or(self, rhs: Self) -> Self {
+        Self(self.value() | rhs.value())
+    }
+
+    pub const fn bit_xor(self, rhs: Self) -> Self {
+        Self(self.value() ^ rhs.value())
+    }
+
+    pub const fn bit_not(self) -> Self {
+        Self(!self.value())
     }
 }
 
 impl ops::BitAnd for Bitboard {
     type Output = Self;
     fn bitand(self, rhs: Self) -> Self::Output {
-        Self(self.0 & rhs.0)
+        self.bit_and(rhs)
     }
 }
 
 impl ops::BitAndAssign for Bitboard {
     fn bitand_assign(&mut self, rhs: Self) {
-        *self = *self & rhs;
+        *self = self.bit_and(rhs);
     }
 }
 
 impl ops::BitOr for Bitboard {
     type Output = Self;
     fn bitor(self, rhs: Self) -> Self::Output {
-        Self(self.0 | rhs.0)
+        self.bit_or(rhs)
     }
 }
 
 impl ops::BitOrAssign for Bitboard {
     fn bitor_assign(&mut self, rhs: Self) {
-        *self = *self | rhs;
+        *self = self.bit_or(rhs);
     }
 }
 
 impl ops::BitXor for Bitboard {
     type Output = Self;
     fn bitxor(self, rhs: Self) -> Self::Output {
-        Self(self.0 ^ rhs.0)
+        self.bit_xor(rhs)
     }
 }
 
 impl ops::BitXorAssign for Bitboard {
     fn bitxor_assign(&mut self, rhs: Self) {
-        *self = *self ^ rhs;
+        *self = self.bit_xor(rhs)
     }
 }
 
 impl ops::Not for Bitboard {
     type Output = Self;
     fn not(self) -> Self::Output {
-        Self(!self.0)
+        self.bit_not()
     }
 }
 
@@ -163,7 +195,7 @@ fn reverse(mut n: u8) -> u8 {
 impl fmt::Display for Bitboard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // this is cursed
-        let mut bb = self.0;
+        let mut bb = self.value();
         for _ in 0..8 {
             let row: u64 = bb >> 56;
             write!(f, "{:08b}\n", reverse(row as u8))?;
