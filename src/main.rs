@@ -95,7 +95,7 @@ fn main() {
             Some("go") => {
                 let mut moves = MoveList::new();
                 movegen(&board, &mut moves);
-                let mv = moves[rng.gen_range((0..moves.len()))];
+                let mv = moves[rng.gen_range(0..moves.len())];
                 println!("bestmove {}", mv);
             }
             Some("quit") => {
