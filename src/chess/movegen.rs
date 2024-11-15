@@ -249,7 +249,7 @@ fn gen_king_moves(board: &Board, moves: &mut MoveList) {
         let block_squares =
             attacks::line_between(sq, king_dst) | attacks::line_between(rook_sq, rook_dst);
 
-        let mut check_squares =
+        let check_squares =
             attacks::line_between(sq, king_dst) | Bitboard::from_square(king_dst);
 
         if (board.occ() & block_squares).empty() {
@@ -285,7 +285,7 @@ fn gen_king_moves(board: &Board, moves: &mut MoveList) {
         let block_squares =
             attacks::line_between(sq, king_dst) | attacks::line_between(rook_sq, rook_dst);
 
-        let mut check_squares =
+        let check_squares =
             attacks::line_between(sq, king_dst) | Bitboard::from_square(king_dst);
 
         if (board.occ() & block_squares).empty() {
