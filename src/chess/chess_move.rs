@@ -1,6 +1,6 @@
 use std::{fmt, str::FromStr};
 
-use crate::types::{PieceType, Square};
+use crate::types::{Color, Piece, PieceType, Square};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
@@ -72,7 +72,17 @@ impl Move {
 
 impl fmt::Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", self.from_sq(), self.to_sq())
+        write!(
+            f,
+            "{}{}{}",
+            self.from_sq(),
+            self.to_sq(),
+            if self.kind() == MoveKind::Promotion {
+                Piece::new(Color::Black, self.promo_piece()).char_repr()
+            } else {
+                ' '
+            }
+        )
     }
 }
 
