@@ -3,8 +3,9 @@ use std::{ops::Range, time::Instant};
 use crate::{
     chess::{
         movegen::{movegen, MoveList},
-        Board, Move,
+        Board, Move, ZobristKey,
     },
+    position::Position,
     types::{Color, Piece, PieceType},
 };
 
@@ -61,8 +62,8 @@ fn sigmoid_inv(x: f32, scale: f32) -> f32 {
 pub struct MCTS {
     nodes: Vec<Node>,
     iters: u32,
-    root_board: Board,
-    board: Board,
+    root_position: Position,
+    position: Position,
     selection: Vec<u32>,
 }
 
@@ -74,8 +75,8 @@ impl MCTS {
         Self {
             nodes: Vec::with_capacity(max_nodes as usize),
             iters: 0,
-            root_board: Board::startpos(),
-            board: Board::startpos(),
+            root_position: Position::new(),
+            position: Position::new(),
             selection: Vec::new(),
         }
     }
@@ -112,7 +113,7 @@ impl MCTS {
 
                 node_idx = best_child_idx;
                 let child = &self.nodes[best_child_idx as usize];
-                self.board.make_move(child.parent_move);
+                self.position.make_move(child.parent_move);
                 self.selection.push(node_idx);
             }
         }
@@ -120,15 +121,18 @@ impl MCTS {
 
     pub fn expand_node(&mut self, node_idx: u32) {
         let mut moves = MoveList::new();
-        movegen(&self.board, &mut moves);
+        movegen(self.position.board(), &mut moves);
 
         if moves.len() == 0 {
             let node = &mut self.nodes[node_idx as usize];
-            node.result = if self.board.checkers().any() {
+            node.result = if self.position.board().checkers().any() {
                 GameResult::Mated
             } else {
                 GameResult::Drawn
             };
+        } else if self.position.is_drawn() {
+            let node = &mut self.nodes[node_idx as usize];
+            node.result = GameResult::Drawn;
         } else {
             let first_child_idx = self.nodes.len() as u32;
             let node = &mut self.nodes[node_idx as usize];
@@ -141,22 +145,22 @@ impl MCTS {
     }
 
     pub fn eval_wdl(&self) -> f32 {
-        let stm = self.board.stm();
+        let board = self.position.board();
+        let stm = board.stm();
         let material: i32 = 100
-            * (self.board.piece_count(stm, PieceType::Pawn)
-                - self.board.piece_count(!stm, PieceType::Pawn))
+            * (board.piece_count(stm, PieceType::Pawn) - board.piece_count(!stm, PieceType::Pawn))
             + 300
-                * (self.board.piece_count(stm, PieceType::Knight)
-                    - self.board.piece_count(!stm, PieceType::Knight))
+                * (board.piece_count(stm, PieceType::Knight)
+                    - board.piece_count(!stm, PieceType::Knight))
             + 300
-                * (self.board.piece_count(stm, PieceType::Bishop)
-                    - self.board.piece_count(!stm, PieceType::Bishop))
+                * (board.piece_count(stm, PieceType::Bishop)
+                    - board.piece_count(!stm, PieceType::Bishop))
             + 500
-                * (self.board.piece_count(stm, PieceType::Rook)
-                    - self.board.piece_count(!stm, PieceType::Rook))
+                * (board.piece_count(stm, PieceType::Rook)
+                    - board.piece_count(!stm, PieceType::Rook))
             + 900
-                * (self.board.piece_count(stm, PieceType::Queen)
-                    - self.board.piece_count(!stm, PieceType::Queen));
+                * (board.piece_count(stm, PieceType::Queen)
+                    - board.piece_count(!stm, PieceType::Queen));
 
         sigmoid(material as f32, Self::EVAL_SCALE)
     }
@@ -182,7 +186,7 @@ impl MCTS {
     }
 
     pub fn perform_one_iter(&mut self) {
-        self.board = self.root_board.clone();
+        self.position = self.root_position.clone();
         self.select_leaf();
 
         let leaf_idx = *self.selection.last().unwrap();
@@ -223,9 +227,9 @@ impl MCTS {
         }
     }
 
-    pub fn run(&mut self, iters: u32, report: bool, board: &Board) -> Move {
-        self.root_board = board.clone();
-        self.board = self.root_board.clone();
+    pub fn run(&mut self, iters: u32, report: bool, position: &Position) -> Move {
+        self.root_position = position.clone();
+        self.position = self.root_position.clone();
 
         self.nodes.clear();
         self.iters = 0;

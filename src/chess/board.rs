@@ -395,6 +395,28 @@ impl Board {
             | (attacks::rook_attacks(sq, occ) & hvs)
     }
 
+    pub fn is_drawn(&self, keys: &Vec<ZobristKey>) -> bool {
+        if self.half_move_clock >= 100 {
+            return true;
+        }
+        let mut count = 1;
+        for &hash in keys
+            .iter()
+            .rev()
+            .take(self.half_move_clock as usize + 1)
+            .skip(3)
+            .step_by(2)
+        {
+            if hash == self.zkey() {
+                count += 1;
+                if count == 3 {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     pub fn checkers(&self) -> Bitboard {
         self.checkers
     }

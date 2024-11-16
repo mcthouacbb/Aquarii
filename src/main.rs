@@ -2,14 +2,15 @@ use std::{io, str::SplitWhitespace};
 
 mod chess;
 mod perft;
+mod position;
 mod search;
 mod types;
 
 use chess::{
     movegen::{movegen, MoveList},
-    Board, Move, MoveKind,
+    Board, Move, MoveKind, ZobristKey,
 };
-use rand::Rng;
+use position::Position;
 
 fn move_from_str(board: &Board, mv_str: &str) -> Option<Move> {
     let parsed = mv_str.parse::<Move>().unwrap_or(Move::NULL);
@@ -34,20 +35,18 @@ fn move_from_str(board: &Board, mv_str: &str) -> Option<Move> {
     None
 }
 
-fn parse_position(tokens: &mut SplitWhitespace, board: &mut Board) {
+fn parse_position(tokens: &mut SplitWhitespace, position: &mut Position) {
     match tokens.next() {
         Some("fen") => {
             let fen = tokens.clone().take(6).collect::<Vec<&str>>().join(" ");
             tokens.nth(5);
-            if let Some(fen_board) = Board::from_fen(fen.as_str()) {
-                *board = fen_board;
-            } else {
+            if !position.parse_fen(fen.as_str()) {
                 println!("info string invalid fen");
                 return;
             }
         }
         Some("startpos") => {
-            *board = Board::startpos();
+            position.set_startpos();
         }
         _ => {
             println!("info string invalid position");
@@ -56,18 +55,17 @@ fn parse_position(tokens: &mut SplitWhitespace, board: &mut Board) {
 
     if tokens.next() == Some("moves") {
         while let Some(mv_str) = tokens.next() {
-            let Some(mv) = move_from_str(board, mv_str) else {
+            let Some(mv) = move_from_str(position.board(), mv_str) else {
                 println!("invalid move {}", mv_str);
                 return;
             };
-            board.make_move(mv);
+            position.make_move(mv);
         }
     }
 }
 
 fn main() {
-    let mut board = Board::startpos();
-    let mut rng = rand::thread_rng();
+    let mut pos = Position::new();
     let mut searcher = search::MCTS::new(1000000);
     loop {
         let mut cmd = String::new();
@@ -91,7 +89,7 @@ fn main() {
                 println!("readyok");
             }
             Some("position") => {
-                parse_position(&mut tokens, &mut board);
+                parse_position(&mut tokens, &mut pos);
             }
             Some("go") => {
                 let mut max_nodes = 5000;
@@ -100,7 +98,7 @@ fn main() {
                         max_nodes = nodes;
                     }
                 }
-                let mv = searcher.run(max_nodes, true, &board);
+                let mv = searcher.run(max_nodes, true, &pos);
                 println!("bestmove {}", mv);
             }
             Some("tree") => {
