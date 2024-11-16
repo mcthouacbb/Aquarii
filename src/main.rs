@@ -2,6 +2,7 @@ use std::{io, str::SplitWhitespace};
 
 mod chess;
 mod perft;
+mod search;
 mod types;
 
 use chess::{
@@ -67,6 +68,7 @@ fn parse_position(tokens: &mut SplitWhitespace, board: &mut Board) {
 fn main() {
     let mut board = Board::startpos();
     let mut rng = rand::thread_rng();
+    let mut searcher = search::MCTS::new(1000000);
     loop {
         let mut cmd = String::new();
 
@@ -90,13 +92,16 @@ fn main() {
             }
             Some("position") => {
                 parse_position(&mut tokens, &mut board);
-                println!("{}", board);
             }
             Some("go") => {
-                let mut moves = MoveList::new();
-                movegen(&board, &mut moves);
-                let mv = moves[rng.gen_range(0..moves.len())];
+                // let mut moves = MoveList::new();
+                // movegen(&board, &mut moves);
+                // let mv = moves[rng.gen_range(0..moves.len())];
+                let mv = searcher.run(50000, true, &board);
                 println!("bestmove {}", mv);
+            }
+            Some("tree") => {
+                searcher.display_tree();
             }
             Some("quit") => {
                 return;

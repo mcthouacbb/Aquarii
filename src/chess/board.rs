@@ -317,6 +317,10 @@ impl Board {
         self.colors(piece.color()) & self.pieces(piece.piece_type())
     }
 
+    pub fn piece_count(&self, c: Color, pt: PieceType) -> i32 {
+        self.colored_pieces(Piece::new(c, pt)).popcount() as i32
+    }
+
     pub fn king_sq(&self, color: Color) -> Square {
         self.colored_pieces(Piece::new(color, PieceType::King))
             .lsb()
