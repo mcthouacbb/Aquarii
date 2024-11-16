@@ -94,10 +94,13 @@ fn main() {
                 parse_position(&mut tokens, &mut board);
             }
             Some("go") => {
-                // let mut moves = MoveList::new();
-                // movegen(&board, &mut moves);
-                // let mv = moves[rng.gen_range(0..moves.len())];
-                let mv = searcher.run(50000, true, &board);
+                let mut max_nodes = 5000;
+                if tokens.next() == Some("nodes") {
+                    if let Ok(nodes) = tokens.next().unwrap().parse::<u32>() {
+                        max_nodes = nodes;
+                    }
+                }
+                let mv = searcher.run(max_nodes, true, &board);
                 println!("bestmove {}", mv);
             }
             Some("tree") => {

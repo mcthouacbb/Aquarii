@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{ops::Range, time::Instant};
 
 use crate::{
     chess::{
@@ -237,20 +237,29 @@ impl MCTS {
         let mut total_depth = 0;
         let mut prev_depth = 0;
 
+        let mut nodes = 0;
+
+        let start_time = Instant::now();
+
         while self.iters < iters {
             self.perform_one_iter();
 
             total_depth += (self.selection.len() - 1) as u32;
             self.iters += 1;
 
+            nodes += self.selection.len();
+
             let curr_depth = total_depth / self.iters;
             if curr_depth > prev_depth {
                 prev_depth = curr_depth;
                 if report {
+                    let elapsed = start_time.elapsed().as_secs_f64();
                     println!(
-                        "info depth {} nodes {} score cp {} pv {}",
+                        "info depth {} nodes {} time {} nps {} score cp {} pv {}",
                         curr_depth,
-                        self.iters,
+                        nodes,
+                        elapsed,
+                        (nodes as f64 / elapsed as f64) as u64,
                         sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE),
                         self.get_best_move()
                     );
@@ -259,10 +268,13 @@ impl MCTS {
         }
 
         let curr_depth = total_depth / self.iters;
+        let elapsed = start_time.elapsed().as_secs_f64();
         println!(
-            "info depth {} nodes {} score cp {} pv {}",
+            "info depth {} nodes {} time {} nps {} score cp {} pv {}",
             curr_depth,
-            self.iters,
+            nodes,
+            elapsed,
+            (nodes as f64 / elapsed as f64) as u64,
             sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE),
             self.get_best_move()
         );
