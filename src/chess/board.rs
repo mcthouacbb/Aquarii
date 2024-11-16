@@ -1,4 +1,4 @@
-use super::{attacks, CastlingRooks, Move, MoveKind};
+use super::{attacks, CastlingRooks, Move, MoveKind, ZobristKey};
 use crate::types::{Bitboard, Color, Piece, PieceType, Square};
 use std::fmt;
 
@@ -14,6 +14,7 @@ pub struct Board {
     stm: Color,
     ep_square: Option<Square>,
     half_move_clock: u8,
+    zkey: ZobristKey,
 }
 
 impl Board {
@@ -176,6 +177,14 @@ impl Board {
         }
 
         board.update_check_info();
+        board.zkey.toggle_castle_rights(board.castling_rooks());
+        if let Some(ep_square) = board.ep_square() {
+            board.zkey.toggle_ep_square(ep_square);
+        }
+
+        if board.stm() == Color::Black {
+            board.zkey.toggle_stm();
+        }
 
         Some(board)
     }
@@ -232,6 +241,11 @@ impl Board {
     }
 
     pub fn make_move(&mut self, mv: Move) {
+        if let Some(ep_square) = self.ep_square() {
+            self.zkey.toggle_ep_square(ep_square);
+        }
+        self.zkey.toggle_castle_rights(self.castling_rooks);
+
         let from = mv.from_sq();
         let to = mv.to_sq();
         let from_pce = self.piece_at(from).unwrap();
@@ -293,6 +307,12 @@ impl Board {
         }
 
         self.stm = !self.stm;
+
+        if let Some(ep_square) = self.ep_square() {
+            self.zkey.toggle_ep_square(ep_square);
+        }
+        self.zkey.toggle_castle_rights(self.castling_rooks);
+        self.zkey.toggle_stm();
 
         self.update_check_info();
     }
@@ -395,6 +415,28 @@ impl Board {
         self.ep_square
     }
 
+    pub fn zkey(&self) -> ZobristKey {
+        self.zkey
+    }
+
+    pub fn recompute_zkey(&self) -> ZobristKey {
+        let mut key = ZobristKey::new();
+        for i in 0..64 {
+            let sq = Square::from_raw(i);
+            if let Some(piece) = self.piece_at(sq) {
+                key.toggle_piece(piece, sq);
+            }
+        }
+        key.toggle_castle_rights(self.castling_rooks);
+        if let Some(ep_square) = self.ep_square() {
+            key.toggle_ep_square(ep_square);
+        }
+        if self.stm() == Color::Black {
+            key.toggle_stm();
+        }
+        key
+    }
+
     fn empty() -> Board {
         Self {
             pieces: [Bitboard::NONE; 6],
@@ -407,6 +449,7 @@ impl Board {
             stm: Color::White,
             ep_square: None,
             half_move_clock: 0,
+            zkey: ZobristKey::new(),
         }
     }
 
@@ -415,6 +458,8 @@ impl Board {
         self.pieces[piece.piece_type() as usize] |= sq_bb;
         self.colors[piece.color() as usize] |= sq_bb;
         self.squares[sq.value() as usize] = Some(piece);
+
+        self.zkey.toggle_piece(piece, sq);
     }
 
     fn remove_piece(&mut self, sq: Square) {
@@ -423,6 +468,8 @@ impl Board {
         self.pieces[piece.piece_type() as usize] ^= sq_bb;
         self.colors[piece.color() as usize] ^= sq_bb;
         self.squares[sq.value() as usize] = None;
+
+        self.zkey.toggle_piece(piece, sq);
     }
 
     fn move_piece(&mut self, from: Square, to: Square) {
@@ -432,6 +479,9 @@ impl Board {
         self.colors[piece.color() as usize] ^= bb;
         self.squares[from.value() as usize] = None;
         self.squares[to.value() as usize] = Some(piece);
+
+        self.zkey.toggle_piece(piece, from);
+        self.zkey.toggle_piece(piece, to);
     }
 
     fn update_check_info(&mut self) {

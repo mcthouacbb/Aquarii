@@ -68,6 +68,23 @@ impl CastlingRooks {
         &mut self.rooks[c as usize]
     }
 
+    pub fn right_bits(&self) -> u32 {
+        let mut rights = 0;
+        if self.color(Color::White).king_side.is_some() {
+            rights |= 1;
+        }
+        if self.color(Color::White).queen_side.is_some() {
+            rights |= 2;
+        }
+        if self.color(Color::Black).king_side.is_some() {
+            rights |= 4;
+        }
+        if self.color(Color::Black).queen_side.is_some() {
+            rights |= 8;
+        }
+        rights
+    }
+
     pub const fn king_to(king_side: bool, c: Color) -> Square {
         [[Square::C1, Square::C8], [Square::G1, Square::G8]][king_side as usize][c as usize]
     }

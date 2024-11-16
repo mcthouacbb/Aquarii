@@ -34,6 +34,23 @@ fn perft<const ROOT: bool>(board: &Board, depth: i32) -> u64 {
     nodes
 }
 
+fn test_zobrist_key(board: &Board, depth: i32) {
+    assert!(board.zkey() == board.recompute_zkey());
+
+    if depth == 0 {
+        return;
+    }
+
+    let mut moves = MoveList::new();
+    movegen(board, &mut moves);
+
+    for mv in moves {
+        let mut new_board = board.clone();
+        new_board.make_move(mv);
+        test_zobrist_key(&new_board, depth - 1);
+    }
+}
+
 struct PerftTest {
     fen: &'static str,
     depths: [u64; 6],
