@@ -3,10 +3,10 @@ use std::{ops::Range, time::Instant};
 use crate::{
     chess::{
         movegen::{movegen, MoveList},
-        Board, Move, ZobristKey,
+        Move,
     },
     position::Position,
-    types::{Color, Piece, PieceType},
+    types::PieceType,
 };
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -131,8 +131,9 @@ impl MCTS {
                         // 1 - child q because child q is from opposite perspective of current node
                         1.0 - child.q()
                     };
-                    let expl = ((node.visits as f32).ln() / (child.visits + 1) as f32).sqrt();
-                    let uct = q + Self::CUCT * expl;
+                    let policy = 1.0 / node.child_count as f32;
+                    let expl = (node.visits as f32).sqrt() / (1 + child.visits) as f32;
+                    let uct = q + Self::CUCT * policy * expl;
 
                     if uct > best_uct {
                         best_child_idx = child_idx;
