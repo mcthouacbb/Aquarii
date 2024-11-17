@@ -1,14 +1,16 @@
-use std::{io, str::SplitWhitespace};
+use std::{env, io, str::SplitWhitespace};
 
+mod bench;
 mod chess;
 mod perft;
 mod position;
 mod search;
 mod types;
 
+use bench::run_bench;
 use chess::{
     movegen::{movegen, MoveList},
-    Board, Move, MoveKind, ZobristKey,
+    Board, Move, MoveKind,
 };
 use position::Position;
 use search::SearchLimits;
@@ -67,6 +69,12 @@ fn parse_position(tokens: &mut SplitWhitespace, position: &mut Position) {
 }
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+    if args.len() == 2 && args[1] == "bench" {
+        run_bench();
+        return;
+    }
+
     let mut pos = Position::new();
     let mut searcher = search::MCTS::new(1000000);
     loop {
@@ -92,6 +100,12 @@ fn main() {
             }
             Some("position") => {
                 parse_position(&mut tokens, &mut pos);
+            }
+            Some("bench") => {
+                run_bench();
+            }
+            Some("d") => {
+                println!("{}", pos.board());
             }
             Some("go") => {
                 let mut limits = SearchLimits::new();
@@ -167,8 +181,8 @@ fn main() {
                         }
                     }
                 }
-                let mv = searcher.run(limits, true, &pos);
-                println!("bestmove {}", mv);
+                let results: search::SearchResults = searcher.run(limits, true, &pos);
+                println!("bestmove {}", results.best_move);
             }
             Some("tree") => {
                 searcher.display_tree();

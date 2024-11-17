@@ -69,6 +69,12 @@ pub struct SearchLimits {
     pub max_nodes: i32,
 }
 
+#[derive(Copy, Clone)]
+pub struct SearchResults {
+    pub best_move: Move,
+    pub nodes: u64,
+}
+
 impl SearchLimits {
     pub fn new() -> Self {
         Self {
@@ -250,7 +256,12 @@ impl MCTS {
         }
     }
 
-    pub fn run(&mut self, limits: SearchLimits, report: bool, position: &Position) -> Move {
+    pub fn run(
+        &mut self,
+        limits: SearchLimits,
+        report: bool,
+        position: &Position,
+    ) -> SearchResults {
         self.root_position = position.clone();
         self.position = self.root_position.clone();
 
@@ -264,7 +275,7 @@ impl MCTS {
         let mut total_depth = 0;
         let mut prev_depth = 0;
 
-        let mut nodes = 0;
+        let mut nodes = 0u64;
 
         let start_time = Instant::now();
 
@@ -274,7 +285,7 @@ impl MCTS {
             total_depth += (self.selection.len() - 1) as u32;
             self.iters += 1;
 
-            nodes += self.selection.len();
+            nodes += self.selection.len() as u64;
 
             let curr_depth = total_depth / self.iters;
             if curr_depth > prev_depth {
@@ -290,7 +301,7 @@ impl MCTS {
                         nodes,
                         (elapsed * 1000.0) as u64,
                         (nodes as f64 / elapsed as f64) as u64,
-                        sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE),
+                        sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE).round(),
                         self.get_best_move()
                     );
                 }
@@ -310,18 +321,23 @@ impl MCTS {
             }
         }
 
-        let curr_depth = total_depth / self.iters;
-        let elapsed = start_time.elapsed().as_secs_f64();
-        println!(
-            "info depth {} nodes {} time {} nps {} score cp {} pv {}",
-            curr_depth,
-            nodes,
-            (elapsed * 1000.0) as u64,
-            (nodes as f64 / elapsed as f64) as u64,
-            sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE),
-            self.get_best_move()
-        );
+        if report {
+            let curr_depth = total_depth / self.iters;
+            let elapsed = start_time.elapsed().as_secs_f64();
+            println!(
+                "info depth {} nodes {} time {} nps {} score cp {} pv {}",
+                curr_depth,
+                nodes,
+                (elapsed * 1000.0) as u64,
+                (nodes as f64 / elapsed as f64) as u64,
+                sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE).round(),
+                self.get_best_move()
+            );
+        }
 
-        self.get_best_move()
+        SearchResults {
+            best_move: self.get_best_move(),
+            nodes: nodes,
+        }
     }
 }
