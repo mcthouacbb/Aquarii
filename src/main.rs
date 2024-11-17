@@ -11,6 +11,8 @@ use chess::{
     Board, Move, MoveKind, ZobristKey,
 };
 use position::Position;
+use search::SearchLimits;
+use types::Color;
 
 fn move_from_str(board: &Board, mv_str: &str) -> Option<Move> {
     let parsed = mv_str.parse::<Move>().unwrap_or(Move::NULL);
@@ -92,13 +94,80 @@ fn main() {
                 parse_position(&mut tokens, &mut pos);
             }
             Some("go") => {
-                let mut max_nodes = 5000;
-                if tokens.next() == Some("nodes") {
-                    if let Ok(nodes) = tokens.next().unwrap().parse::<u32>() {
-                        max_nodes = nodes;
+                let mut limits = SearchLimits::new();
+                loop {
+                    match tokens.next() {
+                        Some("infinite") => {
+                            limits = SearchLimits::new();
+                            break;
+                        }
+                        Some("nodes") => {
+                            if let Some(nodes_str) = tokens.next() {
+                                if let Ok(nodes) = nodes_str.parse::<i32>() {
+                                    limits.max_nodes = nodes;
+                                }
+                            }
+                        }
+                        Some("movetime") => {
+                            if let Some(time_str) = tokens.next() {
+                                if let Ok(time) = time_str.parse::<i32>() {
+                                    limits.max_time = time;
+                                }
+                            }
+                        }
+                        Some("depth") => {
+                            if let Some(depth_str) = tokens.next() {
+                                if let Ok(depth) = depth_str.parse::<i32>() {
+                                    limits.max_depth = depth;
+                                }
+                            }
+                        }
+                        Some("wtime") => {
+                            if let Some(time_str) = tokens.next() {
+                                if let Ok(time) = time_str.parse::<i32>() {
+                                    if pos.board().stm() == Color::White {
+                                        limits.use_clock = true;
+                                        limits.time = time;
+                                    }
+                                }
+                            }
+                        }
+                        Some("btime") => {
+                            if let Some(time_str) = tokens.next() {
+                                if let Ok(time) = time_str.parse::<i32>() {
+                                    if pos.board().stm() == Color::Black {
+                                        limits.use_clock = true;
+                                        limits.time = time;
+                                    }
+                                }
+                            }
+                        }
+                        Some("winc") => {
+                            if let Some(inc_str) = tokens.next() {
+                                if let Ok(inc) = inc_str.parse::<i32>() {
+                                    if pos.board().stm() == Color::White {
+                                        limits.use_clock = true;
+                                        limits.inc = inc;
+                                    }
+                                }
+                            }
+                        }
+                        Some("binc") => {
+                            if let Some(inc_str) = tokens.next() {
+                                if let Ok(inc) = inc_str.parse::<i32>() {
+                                    if pos.board().stm() == Color::Black {
+                                        limits.use_clock = true;
+                                        limits.inc = inc;
+                                    }
+                                }
+                            }
+                        }
+                        _ => {
+                            break;
+                        }
                     }
                 }
-                let mv = searcher.run(max_nodes, true, &pos);
+                let mv = searcher.run(limits, true, &pos);
                 println!("bestmove {}", mv);
             }
             Some("tree") => {

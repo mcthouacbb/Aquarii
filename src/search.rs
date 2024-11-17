@@ -59,6 +59,29 @@ fn sigmoid_inv(x: f32, scale: f32) -> f32 {
     scale * (x / (1.0 - x)).ln()
 }
 
+#[derive(Copy, Clone)]
+pub struct SearchLimits {
+    pub use_clock: bool,
+    pub time: i32,
+    pub inc: i32,
+    pub max_depth: i32,
+    pub max_time: i32,
+    pub max_nodes: i32,
+}
+
+impl SearchLimits {
+    pub fn new() -> Self {
+        Self {
+            use_clock: false,
+            time: -1,
+            inc: -1,
+            max_depth: -1,
+            max_time: -1,
+            max_nodes: -1,
+        }
+    }
+}
+
 pub struct MCTS {
     nodes: Vec<Node>,
     iters: u32,
@@ -227,7 +250,7 @@ impl MCTS {
         }
     }
 
-    pub fn run(&mut self, iters: u32, report: bool, position: &Position) -> Move {
+    pub fn run(&mut self, limits: SearchLimits, report: bool, position: &Position) -> Move {
         self.root_position = position.clone();
         self.position = self.root_position.clone();
 
@@ -245,7 +268,7 @@ impl MCTS {
 
         let start_time = Instant::now();
 
-        while self.iters < iters {
+        while limits.max_nodes < 0 || self.iters <= limits.max_nodes as u32 {
             self.perform_one_iter();
 
             total_depth += (self.selection.len() - 1) as u32;
@@ -255,6 +278,9 @@ impl MCTS {
 
             let curr_depth = total_depth / self.iters;
             if curr_depth > prev_depth {
+                if limits.max_depth > 0 && curr_depth >= limits.max_depth as u32 {
+                    break;
+                }
                 prev_depth = curr_depth;
                 if report {
                     let elapsed = start_time.elapsed().as_secs_f64();
@@ -262,11 +288,24 @@ impl MCTS {
                         "info depth {} nodes {} time {} nps {} score cp {} pv {}",
                         curr_depth,
                         nodes,
-                        elapsed,
+                        (elapsed * 1000.0) as u64,
                         (nodes as f64 / elapsed as f64) as u64,
                         sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE),
                         self.get_best_move()
                     );
+                }
+            }
+
+            // don't check every iter
+            if self.iters % 512 == 0 {
+                let elapsed = start_time.elapsed().as_secs_f64();
+                let elapsed_ms = (elapsed * 1000.0) as i32;
+                if limits.max_time >= 0 && elapsed_ms >= limits.max_time {
+                    break;
+                }
+
+                if limits.use_clock && elapsed_ms >= limits.time / 20 + limits.inc / 2 {
+                    break;
                 }
             }
         }
@@ -277,7 +316,7 @@ impl MCTS {
             "info depth {} nodes {} time {} nps {} score cp {} pv {}",
             curr_depth,
             nodes,
-            elapsed,
+            (elapsed * 1000.0) as u64,
             (nodes as f64 / elapsed as f64) as u64,
             sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE),
             self.get_best_move()
