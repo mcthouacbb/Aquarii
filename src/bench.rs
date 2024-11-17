@@ -76,5 +76,5 @@ pub fn run_bench() {
 
     let elapsed = start_time.elapsed().as_secs_f64();
     let nps = nodes as f64 / elapsed;
-    println!("nodes {} nps {}", nodes, nps.round());
+    println!("{} nodes {} nps", nodes, nps.round());
 }
