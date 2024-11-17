@@ -123,9 +123,9 @@ fn main() {
                             }
                         }
                         Some("wtime") => {
-                            if pos.board().stm() == Color::White {
-                                if let Some(time_str) = tokens.next() {
-                                    if let Ok(time) = time_str.parse::<i32>() {
+                            if let Some(time_str) = tokens.next() {
+                                if let Ok(time) = time_str.parse::<i32>() {
+                                    if pos.board().stm() == Color::White {
                                         limits.use_clock = true;
                                         limits.time = time;
                                     }
@@ -133,9 +133,9 @@ fn main() {
                             }
                         }
                         Some("btime") => {
-                            if pos.board().stm() == Color::Black {
-                                if let Some(time_str) = tokens.next() {
-                                    if let Ok(time) = time_str.parse::<i32>() {
+                            if let Some(time_str) = tokens.next() {
+                                if let Ok(time) = time_str.parse::<i32>() {
+                                    if pos.board().stm() == Color::Black {
                                         limits.use_clock = true;
                                         limits.time = time;
                                     }
@@ -143,9 +143,9 @@ fn main() {
                             }
                         }
                         Some("winc") => {
-                            if pos.board().stm() == Color::White {
-                                if let Some(inc_str) = tokens.next() {
-                                    if let Ok(inc) = inc_str.parse::<i32>() {
+                            if let Some(inc_str) = tokens.next() {
+                                if let Ok(inc) = inc_str.parse::<i32>() {
+                                    if pos.board().stm() == Color::White {
                                         limits.use_clock = true;
                                         limits.inc = inc;
                                     }
@@ -153,16 +153,18 @@ fn main() {
                             }
                         }
                         Some("binc") => {
-                            if pos.board().stm() == Color::Black {
-                                if let Some(inc_str) = tokens.next() {
-                                    if let Ok(inc) = inc_str.parse::<i32>() {
+                            if let Some(inc_str) = tokens.next() {
+                                if let Ok(inc) = inc_str.parse::<i32>() {
+                                    if pos.board().stm() == Color::Black {
                                         limits.use_clock = true;
                                         limits.inc = inc;
                                     }
                                 }
                             }
                         }
-                        _ => { break; }
+                        _ => {
+                            break;
+                        }
                     }
                 }
                 let mv = searcher.run(limits, true, &pos);

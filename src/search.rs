@@ -66,7 +66,7 @@ pub struct SearchLimits {
     pub inc: i32,
     pub max_depth: i32,
     pub max_time: i32,
-    pub max_nodes: i32
+    pub max_nodes: i32,
 }
 
 impl SearchLimits {
@@ -77,7 +77,7 @@ impl SearchLimits {
             inc: -1,
             max_depth: -1,
             max_time: -1,
-            max_nodes: -1
+            max_nodes: -1,
         }
     }
 }
