@@ -1,5 +1,7 @@
 use std::{ops::Range, time::Instant};
 
+use arrayvec::ArrayVec;
+
 use crate::{
     chess::{
         movegen::{movegen, MoveList},
@@ -22,17 +24,19 @@ struct Node {
     child_count: u8,
     parent_move: Move,
     result: GameResult,
+    policy: f32,
     wins: f32,
     visits: u32,
 }
 
 impl Node {
-    fn new(mv: Move) -> Self {
+    fn new(mv: Move, policy: f32) -> Self {
         Node {
             first_child_idx: 0,
             child_count: 0,
             parent_move: mv,
             result: GameResult::NonTerminal,
+            policy: policy,
             wins: 0.0,
             visits: 0,
         }
@@ -131,7 +135,7 @@ impl MCTS {
                         // 1 - child q because child q is from opposite perspective of current node
                         1.0 - child.q()
                     };
-                    let policy = 1.0 / node.child_count as f32;
+                    let policy = child.policy;
                     let expl = (node.visits as f32).sqrt() / (1 + child.visits) as f32;
                     let uct = q + Self::CUCT * policy * expl;
 
@@ -164,12 +168,40 @@ impl MCTS {
             let node = &mut self.nodes[node_idx as usize];
             node.result = GameResult::Drawn;
         } else {
+            let mut policies = ArrayVec::<f32, 256>::new();
+            let mut max_policy = 0f32;
+            for mv in moves.iter() {
+                let captured_piece = self.position.board().piece_at(mv.to_sq());
+                let policy = if let Some(p) = captured_piece {
+                    match p.piece_type() {
+                        PieceType::Pawn => 0.7f32,
+                        PieceType::Knight => 2f32,
+                        PieceType::Bishop => 2f32,
+                        PieceType::Rook => 3f32,
+                        PieceType::Queen => 4.5f32,
+                        _ => 0f32,
+                    }
+                } else {
+                    0f32
+                };
+                max_policy = max_policy.max(policy);
+                policies.push(policy);
+            }
+
+            let mut exp_sum = 0f32;
+
+            for p in policies.iter_mut() {
+                *p = p.exp();
+                exp_sum += *p;
+            }
+
             let first_child_idx = self.nodes.len() as u32;
             let node = &mut self.nodes[node_idx as usize];
             node.first_child_idx = first_child_idx;
             node.child_count = moves.len() as u8;
-            for mv in moves.iter() {
-                self.nodes.push(Node::new(*mv));
+
+            for (i, mv) in moves.iter().enumerate() {
+                self.nodes.push(Node::new(*mv, policies[i] / exp_sum));
             }
         }
     }
@@ -268,7 +300,7 @@ impl MCTS {
 
         self.nodes.clear();
         self.iters = 0;
-        self.nodes.push(Node::new(Move::NULL));
+        self.nodes.push(Node::new(Move::NULL, 0f32));
         self.expand_node(0);
         self.nodes[0].visits += 1;
         self.nodes[0].wins += self.eval_wdl();
