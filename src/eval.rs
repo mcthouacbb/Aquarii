@@ -1,6 +1,6 @@
 use crate::{
     chess::Board,
-    types::{piece, Piece, PieceType},
+    types::{Piece, PieceType},
 };
 
 #[derive(Clone, Copy)]
@@ -9,6 +9,7 @@ struct ScorePair {
     eg: i16,
 }
 
+#[allow(non_snake_case)]
 const fn S(mg: i16, eg: i16) -> ScorePair {
     ScorePair { mg: mg, eg: eg }
 }
