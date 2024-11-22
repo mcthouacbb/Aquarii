@@ -2,6 +2,8 @@ use std::fmt;
 use std::ops;
 use std::str::FromStr;
 
+use super::Color;
+
 #[rustfmt::skip]
 #[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
 #[repr(u8)]
@@ -37,6 +39,17 @@ impl Square {
 
     pub const fn file(self) -> u8 {
         self.value() % 8
+    }
+
+    pub const fn relative_sq(self, c: Color) -> Self {
+        match c {
+            Color::White => self,
+            Color::Black => self.flip(),
+        }
+    }
+
+    pub const fn flip(self) -> Self {
+        Self::from_raw(self.value() ^ 56)
     }
 }
 
