@@ -63,6 +63,17 @@ fn sigmoid_inv(x: f32, scale: f32) -> f32 {
     scale * (x / (1.0 - x)).ln()
 }
 
+fn softmax(vals: &mut ArrayVec<f32, 256>, max_val: f32) {
+    let mut exp_sum = 0.0;
+    for v in vals.iter_mut() {
+        *v = (*v - max_val).exp();
+        exp_sum += *v;
+    }
+    for v in vals.iter_mut() {
+        *v /= exp_sum;
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct SearchLimits {
     pub use_clock: bool,
@@ -153,6 +164,21 @@ impl MCTS {
         }
     }
 
+    pub fn get_policy(&self, mv: Move) -> f32 {
+        let captured_piece = self.position.board().piece_at(mv.to_sq());
+        if let Some(captured) = captured_piece {
+            return match captured.piece_type() {
+                PieceType::Pawn => 0.7,
+                PieceType::Knight => 2.0,
+                PieceType::Bishop => 2.0,
+                PieceType::Rook => 3.0,
+                PieceType::Queen => 4.5,
+                _ => 0.0,
+            };
+        }
+        return 0.0;
+    }
+
     pub fn expand_node(&mut self, node_idx: u32) {
         let mut moves = MoveList::new();
         movegen(self.position.board(), &mut moves);
@@ -171,29 +197,12 @@ impl MCTS {
             let mut policies = ArrayVec::<f32, 256>::new();
             let mut max_policy = 0f32;
             for mv in moves.iter() {
-                let captured_piece = self.position.board().piece_at(mv.to_sq());
-                let policy = if let Some(p) = captured_piece {
-                    match p.piece_type() {
-                        PieceType::Pawn => 0.7f32,
-                        PieceType::Knight => 2f32,
-                        PieceType::Bishop => 2f32,
-                        PieceType::Rook => 3f32,
-                        PieceType::Queen => 4.5f32,
-                        _ => 0f32,
-                    }
-                } else {
-                    0f32
-                };
+                let policy = self.get_policy(*mv);
                 max_policy = max_policy.max(policy);
                 policies.push(policy);
             }
 
-            let mut exp_sum = 0f32;
-
-            for p in policies.iter_mut() {
-                *p = p.exp();
-                exp_sum += *p;
-            }
+            softmax(&mut policies, max_policy);
 
             let first_child_idx = self.nodes.len() as u32;
             let node = &mut self.nodes[node_idx as usize];
@@ -201,7 +210,7 @@ impl MCTS {
             node.child_count = moves.len() as u8;
 
             for (i, mv) in moves.iter().enumerate() {
-                self.nodes.push(Node::new(*mv, policies[i] / exp_sum));
+                self.nodes.push(Node::new(*mv, policies[i]));
             }
         }
     }
