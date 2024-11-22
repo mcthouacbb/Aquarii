@@ -264,8 +264,8 @@ impl MCTS {
         let mut best_move = Move::NULL;
         for child_idx in root_node.child_indices() {
             let child_node = &self.nodes[child_idx as usize];
-            if child_node.q() > best_q {
-                best_q = child_node.q();
+            if 1.0 - child_node.q() > best_q {
+                best_q = 1.0 - child_node.q();
                 best_move = child_node.parent_move;
             }
         }
