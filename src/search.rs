@@ -7,7 +7,7 @@ use crate::{
         movegen::{movegen, MoveList},
         Move,
     },
-    eval,
+    eval::{self, psqt_bonus},
     position::Position,
     types::PieceType,
 };
@@ -167,17 +167,17 @@ impl MCTS {
 
     pub fn get_policy(&self, mv: Move) -> f32 {
         let captured_piece = self.position.board().piece_at(mv.to_sq());
-        if let Some(captured) = captured_piece {
-            return match captured.piece_type() {
+        let capture_bonus = if let Some(captured) = captured_piece {
+            match captured.piece_type() {
                 PieceType::Pawn => 0.7,
                 PieceType::Knight => 2.0,
                 PieceType::Bishop => 2.0,
                 PieceType::Rook => 3.0,
                 PieceType::Queen => 4.5,
                 _ => 0.0,
-            };
-        }
-        return 0.0;
+            }
+        } else { 0.0 };
+        capture_bonus + psqt_bonus(self.position.board(), mv) as f32 / 120.0
     }
 
     pub fn expand_node(&mut self, node_idx: u32) {

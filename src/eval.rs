@@ -1,5 +1,5 @@
 use crate::{
-    chess::Board,
+    chess::{Board, Move},
     types::{Piece, PieceType},
 };
 
@@ -88,6 +88,19 @@ const PSQT: [[ScorePair; 64]; 6] = [
         S(  91,  -83), S( 114,  -64), S(  88,  -45), S( -11,  -27), S(  53,  -52), S(  14,  -29), S(  95,  -55), S(  96,  -83),
     ],
 ];
+
+pub fn psqt_bonus(board: &Board, mv: Move) -> i32 {
+    let pt = board.piece_at(mv.from_sq()).unwrap().piece_type();
+    let mg_bonus= PSQT[pt as usize][mv.to_sq().value() as usize].mg - PSQT[pt as usize][mv.from_sq().value() as usize].mg;
+    let eg_bonus = PSQT[pt as usize][mv.to_sq().value() as usize].eg - PSQT[pt as usize][mv.from_sq().value() as usize].eg;
+    
+    let phase = (4 * board.pieces(PieceType::Queen).popcount()
+        + 2 * board.pieces(PieceType::Rook).popcount()
+        + board.pieces(PieceType::Bishop).popcount()
+        + board.pieces(PieceType::Knight).popcount()) as i16;
+
+    ((mg_bonus * phase.min(24) + eg_bonus * (24 - phase.min(24))) / 24) as i32
+}
 
 pub fn eval(board: &Board) -> i32 {
     let stm = board.stm();
