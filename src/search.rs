@@ -7,6 +7,7 @@ use crate::{
         movegen::{movegen, MoveList},
         Move,
     },
+    eval,
     position::Position,
     types::PieceType,
 };
@@ -217,23 +218,9 @@ impl MCTS {
 
     pub fn eval_wdl(&self) -> f32 {
         let board = self.position.board();
-        let stm = board.stm();
-        let material: i32 = 100
-            * (board.piece_count(stm, PieceType::Pawn) - board.piece_count(!stm, PieceType::Pawn))
-            + 300
-                * (board.piece_count(stm, PieceType::Knight)
-                    - board.piece_count(!stm, PieceType::Knight))
-            + 300
-                * (board.piece_count(stm, PieceType::Bishop)
-                    - board.piece_count(!stm, PieceType::Bishop))
-            + 500
-                * (board.piece_count(stm, PieceType::Rook)
-                    - board.piece_count(!stm, PieceType::Rook))
-            + 900
-                * (board.piece_count(stm, PieceType::Queen)
-                    - board.piece_count(!stm, PieceType::Queen));
+        let eval = eval::eval(board);
 
-        sigmoid(material as f32, Self::EVAL_SCALE)
+        sigmoid(eval as f32, Self::EVAL_SCALE)
     }
 
     pub fn simulate(&self) -> f32 {

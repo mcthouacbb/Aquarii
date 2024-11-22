@@ -2,6 +2,7 @@ use std::{env, io, str::SplitWhitespace};
 
 mod bench;
 mod chess;
+mod eval;
 mod perft;
 mod position;
 mod search;
