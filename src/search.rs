@@ -126,12 +126,15 @@ impl MCTS {
         }
     }
 
-    pub fn select_leaf(&mut self) {
+    fn select_leaf(&mut self) {
         self.selection.clear();
         let mut node_idx = 0u32;
         self.selection.push(node_idx);
 
         loop {
+            if self.nodes[node_idx as usize].child_count == 0 && self.nodes[node_idx as usize].visits == 1 {
+                self.expand_node(node_idx);
+            }
             let node = &self.nodes[node_idx as usize];
             if node.is_terminal() || node.child_count == 0 {
                 break;
@@ -165,7 +168,7 @@ impl MCTS {
         }
     }
 
-    pub fn get_policy(&self, mv: Move) -> f32 {
+    fn get_policy(&self, mv: Move) -> f32 {
         let captured_piece = self.position.board().piece_at(mv.to_sq());
         if let Some(captured) = captured_piece {
             return match captured.piece_type() {
@@ -180,59 +183,61 @@ impl MCTS {
         return 0.0;
     }
 
-    pub fn expand_node(&mut self, node_idx: u32) {
+    fn expand_node(&mut self, node_idx: u32) {
         let mut moves = MoveList::new();
         movegen(self.position.board(), &mut moves);
 
-        if moves.len() == 0 {
-            let node = &mut self.nodes[node_idx as usize];
-            node.result = if self.position.board().checkers().any() {
-                GameResult::Mated
-            } else {
-                GameResult::Drawn
-            };
-        } else if self.position.is_drawn() {
-            let node = &mut self.nodes[node_idx as usize];
-            node.result = GameResult::Drawn;
-        } else {
-            let mut policies = ArrayVec::<f32, 256>::new();
-            let mut max_policy = 0f32;
-            for mv in moves.iter() {
-                let policy = self.get_policy(*mv);
-                max_policy = max_policy.max(policy);
-                policies.push(policy);
-            }
+        let mut policies = ArrayVec::<f32, 256>::new();
+        let mut max_policy = 0f32;
+        for mv in moves.iter() {
+            let policy = self.get_policy(*mv);
+            max_policy = max_policy.max(policy);
+            policies.push(policy);
+        }
 
-            softmax(&mut policies, max_policy);
+        softmax(&mut policies, max_policy);
 
-            let first_child_idx = self.nodes.len() as u32;
-            let node = &mut self.nodes[node_idx as usize];
-            node.first_child_idx = first_child_idx;
-            node.child_count = moves.len() as u8;
+        let first_child_idx = self.nodes.len() as u32;
+        let node = &mut self.nodes[node_idx as usize];
+        node.first_child_idx = first_child_idx;
+        node.child_count = moves.len() as u8;
 
-            for (i, mv) in moves.iter().enumerate() {
-                self.nodes.push(Node::new(*mv, policies[i]));
-            }
+        for (i, mv) in moves.iter().enumerate() {
+            self.nodes.push(Node::new(*mv, policies[i]));
         }
     }
 
-    pub fn eval_wdl(&self) -> f32 {
+    fn eval_wdl(&self) -> f32 {
         let board = self.position.board();
         let eval = eval::eval(board);
 
         sigmoid(eval as f32, Self::EVAL_SCALE)
     }
 
-    pub fn simulate(&self) -> f32 {
-        let leaf = &self.nodes[*self.selection.last().unwrap() as usize];
-        match leaf.result {
-            GameResult::Drawn => 0.5,
-            GameResult::Mated => 0.0,
-            GameResult::NonTerminal => self.eval_wdl(),
+    fn simulate(&self) -> (f32, GameResult) {
+        let mut moves = MoveList::new();
+        movegen(self.position.board(), &mut moves);
+
+        let result = if moves.len() == 0 {
+            if self.position.board().checkers().any() {
+                GameResult::Mated
+            } else {
+                GameResult::Drawn
+            }
+        } else if self.position.is_drawn() {
+            GameResult::Drawn
+        } else {
+            GameResult::NonTerminal
+        };
+
+        match result {
+            GameResult::Drawn => (0.5, result),
+            GameResult::Mated => (0.0, result),
+            GameResult::NonTerminal => (self.eval_wdl(), result),
         }
     }
 
-    pub fn backprop(&mut self, mut result: f32) {
+    fn backprop(&mut self, mut result: f32) {
         for node_idx in self.selection.iter().rev() {
             let node = &mut self.nodes[*node_idx as usize];
 
@@ -243,22 +248,20 @@ impl MCTS {
         }
     }
 
-    pub fn perform_one_iter(&mut self) {
+    fn perform_one_iter(&mut self) {
         self.position = self.root_position.clone();
         self.select_leaf();
 
+        let (score, game_result) = self.simulate();
+
         let leaf_idx = *self.selection.last().unwrap();
-        let leaf = &self.nodes[leaf_idx as usize];
-        if leaf.child_count == 0 {
-            self.expand_node(leaf_idx);
-        }
+        let leaf = &mut self.nodes[leaf_idx as usize];
+        leaf.result = game_result;
 
-        let result = self.simulate();
-
-        self.backprop(result);
+        self.backprop(score);
     }
 
-    pub fn get_best_move(&self) -> Move {
+    fn get_best_move(&self) -> Move {
         let root_node = &self.nodes[0];
         let mut best_q = 0.0;
         let mut best_move = Move::NULL;
