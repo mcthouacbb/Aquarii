@@ -7,7 +7,7 @@ use crate::{
         movegen::{movegen, MoveList},
         Move,
     },
-    eval,
+    eval::{self, psqt_score},
     position::Position,
     types::PieceType,
 };
@@ -132,7 +132,9 @@ impl MCTS {
         self.selection.push(node_idx);
 
         loop {
-            if self.nodes[node_idx as usize].child_count == 0 && self.nodes[node_idx as usize].visits == 1 {
+            if self.nodes[node_idx as usize].child_count == 0
+                && self.nodes[node_idx as usize].visits == 1
+            {
                 self.expand_node(node_idx);
             }
             let node = &self.nodes[node_idx as usize];
@@ -170,7 +172,7 @@ impl MCTS {
 
     fn get_policy(&self, mv: Move) -> f32 {
         let captured_piece = self.position.board().piece_at(mv.to_sq());
-        if let Some(captured) = captured_piece {
+        let mvv = if let Some(captured) = captured_piece {
             return match captured.piece_type() {
                 PieceType::Pawn => 0.7,
                 PieceType::Knight => 2.0,
@@ -179,8 +181,17 @@ impl MCTS {
                 PieceType::Queen => 4.5,
                 _ => 0.0,
             };
-        }
-        return 0.0;
+        } else {
+            0.0
+        };
+        let moving_piece = self.position.board().piece_at(mv.from_sq()).unwrap();
+        let psqt = psqt_score(self.position.board(), moving_piece.piece_type(), mv.to_sq())
+            - psqt_score(
+                self.position.board(),
+                moving_piece.piece_type(),
+                mv.from_sq(),
+            );
+        mvv + psqt as f32 / 120.0
     }
 
     fn expand_node(&mut self, node_idx: u32) {

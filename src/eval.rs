@@ -1,6 +1,6 @@
 use crate::{
     chess::Board,
-    types::{Piece, PieceType},
+    types::{Piece, PieceType, Square},
 };
 
 #[derive(Clone, Copy)]
@@ -88,6 +88,17 @@ const PSQT: [[ScorePair; 64]; 6] = [
         S(  91,  -83), S( 114,  -64), S(  88,  -45), S( -11,  -27), S(  53,  -52), S(  14,  -29), S(  95,  -55), S(  96,  -83),
     ],
 ];
+
+pub fn psqt_score(board: &Board, pt: PieceType, sq: Square) -> i32 {
+    let phase = (4 * board.pieces(PieceType::Queen).popcount()
+        + 2 * board.pieces(PieceType::Rook).popcount()
+        + board.pieces(PieceType::Bishop).popcount()
+        + board.pieces(PieceType::Knight).popcount()) as i32;
+
+    (PSQT[pt as usize][sq as usize].mg as i32 * phase.min(24)
+        + PSQT[pt as usize][sq as usize].eg as i32 * (24 - phase.min(24)))
+        / 24
+}
 
 pub fn eval(board: &Board) -> i32 {
     let stm = board.stm();
