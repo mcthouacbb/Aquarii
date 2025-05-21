@@ -4,7 +4,9 @@ use arrayvec::ArrayVec;
 
 use crate::{
     chess::{
-        attacks, movegen::{movegen, MoveList}, Move
+        attacks,
+        movegen::{movegen, MoveList},
+        Move,
     },
     eval,
     position::Position,
@@ -131,7 +133,9 @@ impl MCTS {
         self.selection.push(node_idx);
 
         loop {
-            if self.nodes[node_idx as usize].child_count == 0 && self.nodes[node_idx as usize].visits == 1 {
+            if self.nodes[node_idx as usize].child_count == 0
+                && self.nodes[node_idx as usize].visits == 1
+            {
                 self.expand_node(node_idx);
             }
             let node = &self.nodes[node_idx as usize];
@@ -197,7 +201,7 @@ impl MCTS {
         } else {
             0.0
         };
-        
+
         cap_bonus - pawn_protected_penalty
     }
 
