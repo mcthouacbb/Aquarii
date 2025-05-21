@@ -6,7 +6,7 @@ use crate::{
     chess::{
         attacks,
         movegen::{movegen, MoveList},
-        Move,
+        Move, MoveKind,
     },
     eval,
     position::Position,
@@ -202,7 +202,17 @@ impl MCTS {
             0.0
         };
 
-        cap_bonus - pawn_protected_penalty
+        let promo_bonus = if mv.kind() == MoveKind::Promotion {
+            match mv.promo_piece() {
+                PieceType::Knight => 0.2,
+                PieceType::Queen => 4.5,
+                _ => 0.0
+            }
+        } else {
+            0.0
+        };
+
+        cap_bonus + promo_bonus - pawn_protected_penalty
     }
 
     fn expand_node(&mut self, node_idx: u32) {
