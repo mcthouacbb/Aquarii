@@ -1,6 +1,6 @@
 use crate::{
-    chess::Board,
-    types::{Piece, PieceType},
+    chess::{attacks, Board},
+    types::{Color, Piece, PieceType},
 };
 
 #[derive(Clone, Copy)]
@@ -89,6 +89,27 @@ const PSQT: [[ScorePair; 64]; 6] = [
     ],
 ];
 
+const PAWN_THREAT: [ScorePair; 6] = [
+    S(   0,    0), S(  66,   29), S(  60,   60), S(  81,   24), S(  72,   -2), S(   0,    0)
+];
+
+pub fn eval_threats(board: &Board, color: Color) -> ScorePair {
+    let mut eval = S(0, 0);
+
+    let our_pawns = board.colored_pieces(Piece::new(color, PieceType::Pawn));
+    let pawn_attacks = attacks::pawn_attacks_bb(color, our_pawns);
+
+    let mut pawn_threats = pawn_attacks & board.colors(!color) & !board.pieces(PieceType::Pawn);
+    while pawn_threats.any() {
+        let sq = pawn_threats.poplsb();
+        let piece = board.piece_at(sq).unwrap().piece_type();
+        eval.mg += PAWN_THREAT[piece as usize].mg;
+        eval.eg += PAWN_THREAT[piece as usize].eg;
+    }
+
+    eval
+}
+
 pub fn eval(board: &Board) -> i32 {
     let stm = board.stm();
     let mut eval_mg = 0;
@@ -122,6 +143,12 @@ pub fn eval(board: &Board) -> i32 {
             eval_eg -= PSQT[pt as usize][sq.value() as usize].eg as i32;
         }
     }
+
+    let stm_threats = eval_threats(board, stm);
+    let nstm_threats = eval_threats(board, !stm);
+
+    eval_mg += (stm_threats.mg - nstm_threats.mg) as i32;
+    eval_eg += (stm_threats.eg - nstm_threats.eg) as i32;
 
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
         + 2 * board.pieces(PieceType::Rook).popcount()
