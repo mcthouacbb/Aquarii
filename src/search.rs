@@ -4,12 +4,13 @@ use arrayvec::ArrayVec;
 
 use crate::{
     chess::{
+        attacks,
         movegen::{movegen, MoveList},
         Move,
     },
     eval,
     position::Position,
-    types::PieceType,
+    types::{Piece, PieceType},
 };
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -132,7 +133,9 @@ impl MCTS {
         self.selection.push(node_idx);
 
         loop {
-            if self.nodes[node_idx as usize].child_count == 0 && self.nodes[node_idx as usize].visits == 1 {
+            if self.nodes[node_idx as usize].child_count == 0
+                && self.nodes[node_idx as usize].visits == 1
+            {
                 self.expand_node(node_idx);
             }
             let node = &self.nodes[node_idx as usize];
@@ -169,18 +172,37 @@ impl MCTS {
     }
 
     fn get_policy(&self, mv: Move) -> f32 {
-        let captured_piece = self.position.board().piece_at(mv.to_sq());
-        if let Some(captured) = captured_piece {
-            return match captured.piece_type() {
+        let board = self.position.board();
+        let opp_pawns = board.colored_pieces(Piece::new(!board.stm(), PieceType::Pawn));
+        let pawn_protected = attacks::pawn_attacks_bb(!board.stm(), opp_pawns);
+        let moving_piece = board.piece_at(mv.from_sq()).unwrap();
+        let captured_piece = board.piece_at(mv.to_sq());
+        let cap_bonus = if let Some(captured) = captured_piece {
+            match captured.piece_type() {
                 PieceType::Pawn => 0.7,
                 PieceType::Knight => 2.0,
                 PieceType::Bishop => 2.0,
                 PieceType::Rook => 3.0,
                 PieceType::Queen => 4.5,
                 _ => 0.0,
-            };
-        }
-        return 0.0;
+            }
+        } else {
+            0.0
+        };
+        let pawn_protected_penalty = if pawn_protected.has(mv.to_sq()) {
+            match moving_piece.piece_type() {
+                PieceType::Pawn => 0.6,
+                PieceType::Knight => 1.9,
+                PieceType::Bishop => 1.9,
+                PieceType::Rook => 2.8,
+                PieceType::Queen => 4.2,
+                _ => 0.0,
+            }
+        } else {
+            0.0
+        };
+
+        cap_bonus - pawn_protected_penalty
     }
 
     fn expand_node(&mut self, node_idx: u32) {
