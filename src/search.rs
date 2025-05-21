@@ -172,11 +172,11 @@ impl MCTS {
         let captured_piece = self.position.board().piece_at(mv.to_sq());
         if let Some(captured) = captured_piece {
             return match captured.piece_type() {
-                PieceType::Pawn => 0.7,
-                PieceType::Knight => 2.0,
-                PieceType::Bishop => 2.0,
-                PieceType::Rook => 3.0,
-                PieceType::Queen => 4.5,
+                PieceType::Pawn => 0.3,
+                PieceType::Knight => 0.8,
+                PieceType::Bishop => 0.8,
+                PieceType::Rook => 1.6,
+                PieceType::Queen => 2.3,
                 _ => 0.0,
             };
         }
