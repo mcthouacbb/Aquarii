@@ -375,7 +375,11 @@ impl MCTS {
 
         for (iter, old_child_idx) in old_node.child_indices().enumerate() {
             let new_node = &self.nodes[new_node_idx as usize];
-            self.build_tree_impl(old_nodes, old_child_idx, new_node.first_child_idx + iter as u32);
+            self.build_tree_impl(
+                old_nodes,
+                old_child_idx,
+                new_node.first_child_idx + iter as u32,
+            );
         }
     }
 
@@ -390,7 +394,7 @@ impl MCTS {
         self.root_position = position.clone();
         self.position = self.root_position.clone();
         self.iters = 0;
-        
+
         if let Some(old_node_idx) = node_idx {
             let mut old_nodes = Vec::with_capacity(self.nodes.capacity());
             swap(&mut old_nodes, &mut self.nodes);
