@@ -1,6 +1,6 @@
 use crate::chess::{Board, Move, ZobristKey};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Position {
     board: Board,
     keys: Vec<ZobristKey>,

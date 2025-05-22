@@ -97,6 +97,7 @@ fn main() {
             }
             Some("ucinewgame") => {
                 // does nothing for now
+                searcher.new_game();
             }
             Some("isready") => {
                 println!("readyok");

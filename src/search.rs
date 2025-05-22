@@ -1,4 +1,4 @@
-use std::{ops::Range, time::Instant};
+use std::{mem::swap, ops::Range, time::Instant};
 
 use arrayvec::ArrayVec;
 
@@ -21,6 +21,7 @@ enum GameResult {
     Drawn,
 }
 
+#[derive(Clone)]
 struct Node {
     first_child_idx: u32,
     child_count: u8,
@@ -165,6 +166,7 @@ impl MCTS {
 
                 node_idx = best_child_idx;
                 let child = &self.nodes[best_child_idx as usize];
+                // println!("{}, {}", self.position.board().to_fen(), child.parent_move);
                 self.position.make_move(child.parent_move);
                 self.selection.push(node_idx);
             }
@@ -323,21 +325,87 @@ impl MCTS {
         }
     }
 
+    // depth 2 perft to find the node
+    fn find_node(&self, position: &Position) -> Option<u32> {
+        if self.nodes.len() == 0 {
+            return None;
+        }
+        let root_node = &self.nodes[0];
+        for child_idx in root_node.child_indices() {
+            let child_node = &self.nodes[child_idx as usize];
+            let mut new_pos = self.root_position.clone();
+            new_pos.make_move(child_node.parent_move);
+            for child2_idx in child_node.child_indices() {
+                let child2_node = &self.nodes[child2_idx as usize];
+                let mut new_pos2 = new_pos.clone();
+                new_pos2.make_move(child2_node.parent_move);
+                if new_pos2 == *position {
+                    println!("{} {}", child_node.parent_move, child2_node.parent_move);
+                    return Some(child2_idx);
+                }
+            }
+        }
+        None
+    }
+
+    fn build_tree(&mut self, old_nodes: &Vec<Node>, node_idx: u32) {
+        let old_node = &old_nodes[node_idx as usize];
+        self.nodes.push(old_node.clone());
+
+        self.build_tree_impl(old_nodes, node_idx, 0);
+    }
+
+    fn build_tree_impl(&mut self, old_nodes: &Vec<Node>, old_node_idx: u32, new_node_idx: u32) {
+        let old_node = &old_nodes[old_node_idx as usize];
+        let first_child_idx = self.nodes.len() as u32;
+        if old_node.child_count == 0 {
+            return;
+        }
+
+        {
+            let new_node: &mut Node = &mut self.nodes[new_node_idx as usize];
+            new_node.child_count = old_node.child_count;
+            new_node.first_child_idx = first_child_idx as u32;
+        }
+
+        for old_child_idx in old_node.child_indices() {
+            let old_child = &old_nodes[old_child_idx as usize];
+            self.nodes.push(old_child.clone());
+        }
+
+        for (iter, old_child_idx) in old_node.child_indices().enumerate() {
+            let new_node = &self.nodes[new_node_idx as usize];
+            self.build_tree_impl(
+                old_nodes,
+                old_child_idx,
+                new_node.first_child_idx + iter as u32,
+            );
+        }
+    }
+
     pub fn run(
         &mut self,
         limits: SearchLimits,
         report: bool,
         position: &Position,
     ) -> SearchResults {
+        let node_idx = self.find_node(position);
+
         self.root_position = position.clone();
         self.position = self.root_position.clone();
-
-        self.nodes.clear();
         self.iters = 0;
-        self.nodes.push(Node::new(Move::NULL, 0f32));
-        self.expand_node(0);
-        self.nodes[0].visits += 1;
-        self.nodes[0].wins += self.eval_wdl();
+
+        if let Some(old_node_idx) = node_idx {
+            let mut old_nodes = Vec::with_capacity(self.nodes.capacity());
+            swap(&mut old_nodes, &mut self.nodes);
+            self.build_tree(&old_nodes, old_node_idx);
+        } else {
+            self.nodes.clear();
+            self.nodes.push(Node::new(Move::NULL, 0f32));
+            self.expand_node(0);
+            self.nodes[0].visits += 1;
+            self.nodes[0].wins += self.eval_wdl();
+        }
 
         let mut total_depth = 0;
         let mut prev_depth = 0;
@@ -406,5 +474,9 @@ impl MCTS {
             best_move: self.get_best_move(),
             nodes: nodes,
         }
+    }
+
+    pub fn new_game(&mut self) {
+        self.nodes.clear();
     }
 }

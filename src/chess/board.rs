@@ -2,7 +2,7 @@ use super::{attacks, CastlingRooks, Move, MoveKind, ZobristKey};
 use crate::types::{Bitboard, Color, Piece, PieceType, Square};
 use std::fmt;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Board {
     pieces: [Bitboard; 6],
     colors: [Bitboard; 2],
