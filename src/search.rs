@@ -206,7 +206,7 @@ impl MCTS {
             match mv.promo_piece() {
                 PieceType::Knight => 0.2,
                 PieceType::Queen => 2.0,
-                _ => 0.0
+                _ => 0.0,
             }
         } else {
             0.0
