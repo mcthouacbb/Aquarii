@@ -139,6 +139,7 @@ impl MCTS {
                 self.expand_node(node_idx);
             }
             let node = &self.nodes[node_idx as usize];
+            let root = node_idx == 0;
             if node.is_terminal() || node.child_count == 0 {
                 break;
             } else {
@@ -147,8 +148,11 @@ impl MCTS {
                 for child_idx in node.child_indices() {
                     let child = &self.nodes[child_idx as usize];
                     let q = if child.visits == 0 {
-                        // TODO: inf root fpu
-                        0.5
+                        if root {
+                            1000.0
+                        } else {
+                            node.q()
+                        }
                     } else {
                         // 1 - child q because child q is from opposite perspective of current node
                         1.0 - child.q()
