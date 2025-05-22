@@ -38,7 +38,7 @@ impl Bitboard {
     }
 
     pub const fn file(file: u8) -> Self {
-        Self(Self::FILE_A.value() << file)
+        Self(Self::FILE_A.value() << (8 * file))
     }
 
     pub const fn from_square(sq: Square) -> Self {

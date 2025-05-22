@@ -97,7 +97,10 @@ const MOBILITY: [[ScorePair; 28]; 4] = [
 	[S(  -2,    6), S( -35,  -72), S( -61, -116), S( -18, -202), S( -23,  -63), S( -15,  -11), S(  -6,  -24), S(  -3,   -5), S(  -2,   12), S(   0,   21), S(   3,   24), S(   6,   27), S(   7,   37), S(  10,   36), S(  11,   42), S(  12,   44), S(  13,   45), S(  16,   46), S(  15,   46), S(  21,   39), S(  26,   29), S(  32,   12), S(  29,   18), S(  37,   -7), S(  36,   -8), S(   7,   -3), S( -12,   -9), S(-118,   16)]
 ];
 
-pub fn piece_attacks(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
+const OPEN_FILE: ScorePair = S(  40,   13);
+const SEMIOPEN_FILE: ScorePair = S(  16,    9);
+
+fn piece_attacks(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
     match pt {
         PieceType::Knight => attacks::knight_attacks(sq),
         PieceType::Bishop => attacks::bishop_attacks(sq, occ),
@@ -107,9 +110,10 @@ pub fn piece_attacks(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
     }
 }
 
-pub fn evaluate_piece(board: &Board, pt: PieceType, color: Color) -> ScorePair {
+fn evaluate_piece(board: &Board, pt: PieceType, color: Color) -> ScorePair {
     let mut eval = S(0, 0);
 
+    let our_pawns = board.colored_pieces(Piece::new(color, pt));
     let opp_pawns = board.colored_pieces(Piece::new(!color, pt));
     let mobility_area = !attacks::pawn_attacks_bb(!color, opp_pawns);
 
@@ -122,6 +126,17 @@ pub fn evaluate_piece(board: &Board, pt: PieceType, color: Color) -> ScorePair {
         let mobility = (attacks & mobility_area).popcount();
         eval.mg += MOBILITY[pt as usize - PieceType::Knight as usize][mobility as usize].mg;
         eval.eg += MOBILITY[pt as usize - PieceType::Knight as usize][mobility as usize].eg;
+
+        let file_bb = Bitboard::file(sq.file());
+        if pt == PieceType::Rook && (file_bb & our_pawns).empty() {
+            if (file_bb & opp_pawns).empty() {
+                eval.mg += OPEN_FILE.mg;
+                eval.eg += OPEN_FILE.eg;
+            } else {
+                eval.mg += SEMIOPEN_FILE.mg;
+                eval.eg += SEMIOPEN_FILE.eg;
+            }
+        }
     }
     eval
 }
