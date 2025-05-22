@@ -1,6 +1,6 @@
 use crate::{
-    chess::Board,
-    types::{Piece, PieceType},
+    chess::{attacks, Board},
+    types::{Bitboard, Color, Piece, PieceType, Square},
 };
 
 #[derive(Clone, Copy)]
@@ -89,6 +89,43 @@ const PSQT: [[ScorePair; 64]; 6] = [
     ],
 ];
 
+#[rustfmt::skip]
+const MOBILITY: [[ScorePair; 28]; 4] = [
+	[S(  -3,  -30), S( -37,  -46), S( -16,  -16), S(  -8,    0), S(   2,    8), S(   6,   18), S(  13,   21), S(  21,   26), S(  30,   19), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0)],
+	[S( -10,  -46), S( -30,  -60), S( -18,  -32), S( -11,  -13), S(  -3,   -4), S(   2,    7), S(   3,   15), S(   6,   19), S(   6,   22), S(   8,   23), S(  10,   23), S(  14,   18), S(  12,   25), S(  18,    4), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0)],
+	[S( -13,  -46), S( -30,  -69), S( -14,  -53), S(  -3,  -31), S(   0,  -17), S(  -2,   -6), S(  -1,    1), S(   2,    7), S(   3,   11), S(   6,   17), S(   3,   27), S(   4,   34), S(   6,   38), S(   9,   39), S(  16,   36), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0)],
+	[S(  -2,    6), S( -35,  -72), S( -61, -116), S( -18, -202), S( -23,  -63), S( -15,  -11), S(  -6,  -24), S(  -3,   -5), S(  -2,   12), S(   0,   21), S(   3,   24), S(   6,   27), S(   7,   37), S(  10,   36), S(  11,   42), S(  12,   44), S(  13,   45), S(  16,   46), S(  15,   46), S(  21,   39), S(  26,   29), S(  32,   12), S(  29,   18), S(  37,   -7), S(  36,   -8), S(   7,   -3), S( -12,   -9), S(-118,   16)]
+];
+
+pub fn piece_attacks(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
+    match pt {
+        PieceType::Knight => attacks::knight_attacks(sq),
+        PieceType::Bishop => attacks::bishop_attacks(sq, occ),
+        PieceType::Rook => attacks::rook_attacks(sq, occ),
+        PieceType::Queen => attacks::queen_attacks(sq, occ),
+        _ => unreachable!(),
+    }
+}
+
+pub fn evaluate_piece(board: &Board, pt: PieceType, color: Color) -> ScorePair {
+    let mut eval = S(0, 0);
+
+    let opp_pawns = board.colored_pieces(Piece::new(!color, pt));
+    let mobility_area = !attacks::pawn_attacks_bb(!color, opp_pawns);
+
+    let mut pieces = board.colored_pieces(Piece::new(color, pt));
+
+    while pieces.any() {
+        let sq = pieces.poplsb();
+
+        let attacks = piece_attacks(pt, sq, board.occ());
+        let mobility = (attacks & mobility_area).popcount();
+        eval.mg += MOBILITY[pt as usize - PieceType::Knight as usize][mobility as usize].mg;
+        eval.eg += MOBILITY[pt as usize - PieceType::Knight as usize][mobility as usize].eg;
+    }
+    eval
+}
+
 pub fn eval(board: &Board) -> i32 {
     let stm = board.stm();
     let mut eval_mg = 0;
@@ -122,6 +159,20 @@ pub fn eval(board: &Board) -> i32 {
             eval_eg -= PSQT[pt as usize][sq.value() as usize].eg as i32;
         }
     }
+
+    let knight_stm = evaluate_piece(board, PieceType::Knight, stm);
+    let knight_nstm = evaluate_piece(board, PieceType::Knight, !stm);
+    let bishop_stm = evaluate_piece(board, PieceType::Bishop, stm);
+    let bishop_nstm = evaluate_piece(board, PieceType::Bishop, !stm);
+    let rook_stm = evaluate_piece(board, PieceType::Rook, stm);
+    let rook_nstm = evaluate_piece(board, PieceType::Rook, !stm);
+    let queen_stm = evaluate_piece(board, PieceType::Queen, stm);
+    let queen_nstm = evaluate_piece(board, PieceType::Queen, !stm);
+
+    eval_mg += (knight_stm.mg + bishop_stm.mg + rook_stm.mg + queen_stm.mg) as i32;
+    eval_mg -= (knight_nstm.mg + bishop_nstm.mg + rook_nstm.mg + queen_nstm.mg) as i32;
+    eval_eg += (knight_stm.eg + bishop_stm.eg + rook_stm.eg + queen_stm.eg) as i32;
+    eval_eg -= (knight_nstm.eg + bishop_nstm.eg + rook_nstm.eg + queen_nstm.eg) as i32;
 
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
         + 2 * board.pieces(PieceType::Rook).popcount()
