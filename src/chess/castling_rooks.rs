@@ -2,7 +2,7 @@ use core::fmt;
 
 use crate::types::{Color, Square};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RookPair {
     pub king_side: Option<Square>,
     pub queen_side: Option<Square>,
@@ -23,7 +23,7 @@ impl RookPair {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CastlingRooks {
     pub rooks: [RookPair; 2],
     pub frc: bool,
