@@ -138,7 +138,8 @@ pub struct MCTS {
 }
 
 impl MCTS {
-    const CUCT: f32 = std::f32::consts::SQRT_2;
+    const ROOT_CPUCT: f32 = 2.21858038;
+    const CPUCT: f32 = std::f32::consts::SQRT_2;
     const EVAL_SCALE: f32 = 200.0;
 
     pub fn new(max_nodes: u32) -> Self {
@@ -183,7 +184,12 @@ impl MCTS {
                     };
                     let policy = child.policy;
                     let expl = (node.visits as f32).sqrt() / (1 + child.visits) as f32;
-                    let uct = q + Self::CUCT * policy * expl;
+                    let cpuct = if root {
+                        Self::ROOT_CPUCT
+                    } else {
+                        Self::CPUCT
+                    };
+                    let uct = q + cpuct * policy * expl;
 
                     if uct > best_uct {
                         best_child_idx = child_idx;
