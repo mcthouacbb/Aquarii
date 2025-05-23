@@ -138,8 +138,8 @@ pub struct MCTS {
 }
 
 impl MCTS {
-    const ROOT_CPUCT: f32 = 2.21858038;
-    const CPUCT: f32 = std::f32::consts::SQRT_2;
+    const ROOT_CPUCT: f32 = 2.44043842;
+    const CPUCT: f32 = 1.55563492;
     const EVAL_SCALE: f32 = 200.0;
 
     pub fn new(max_nodes: u32) -> Self {
