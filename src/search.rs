@@ -279,7 +279,7 @@ impl MCTS {
         let replace = NonZeroI16::new(move_mate_dist as i16).unwrap();
         if let Some(mate_dist) = node.mate_dist {
             let mate_dist = mate_dist.get() as i32;
-            if move_mate_dist < mate_dist {
+            if move_mate_dist < mate_dist || mate_dist < 0 {
                 node.mate_dist = Some(replace);
                 Some(move_mate_dist)
             } else {
@@ -303,6 +303,8 @@ impl MCTS {
                 } else {
                     return None;
                 }
+            } else {
+                return None;
             }
         }
         let node = &mut nodes[node_idx as usize];
@@ -371,15 +373,15 @@ impl MCTS {
                 if let Some(mate_dist) = child_node.mate_dist {
                     let mate_dist = mate_dist.get() as f32;
                     if mate_dist > 0.0 {
-                        mate_dist - 1000.0
+                        -mate_dist
                     } else {
-                        -mate_dist + 1.0
+                        mate_dist + 1000.0
                     }
                 } else {
                     1.0 - child_node.q()
                 }
             },
-            GameResult::Mated => 0.0,
+            GameResult::Mated => 1000.0,
             GameResult::Drawn => 0.5,
         }
     }
@@ -409,9 +411,9 @@ impl MCTS {
             let score_str = if let Some(mate_dist) = child_node.mate_dist {
                 let mate_dist = mate_dist.get() as i32;
                 if mate_dist > 0 {
-                    format!("win {} plies", mate_dist)
-                } else {
                     format!("loss {} plies", mate_dist)
+                } else {
+                    format!("win {} plies", -mate_dist)
                 }
             } else {
                 format!("{} cp", sigmoid_inv(1.0 - child_node.q(), Self::EVAL_SCALE))
