@@ -405,12 +405,10 @@ impl MCTS {
     fn root_move_score(child_node: &Node) -> f32 {
         match child_node.result {
             GameResult::NonTerminal => {
-                if let Some(mate_dist) = child_node.mate_dist {
-                    let mate_dist = mate_dist.get() as f32;
-                    if mate_dist > 0.0 {
-                        -mate_dist
-                    } else {
-                        mate_dist + 1000.0
+                if let Some(mate_score) = child_node.mate_score() {
+                    match mate_score {
+                        MateScore::Loss(dist) => 1000.0 - dist as f32,
+                        MateScore::Win(dist) => -(dist as f32),
                     }
                 } else {
                     1.0 - child_node.q()
@@ -443,12 +441,11 @@ impl MCTS {
         let root_node = &self.nodes[0];
         for child_idx in root_node.child_indices() {
             let child_node = &self.nodes[child_idx as usize];
-            let score_str = if let Some(mate_dist) = child_node.mate_dist {
-                let mate_dist = mate_dist.get() as i32;
-                if mate_dist > 0 {
-                    format!("loss {} plies", mate_dist)
-                } else {
-                    format!("win {} plies", -mate_dist)
+            let score_str = if let Some(mate_score) = child_node.mate_score() {
+                // child win = parent loss and vice versa
+                match mate_score {
+                    MateScore::Loss(dist) => format!("win {} plies", dist),
+                    MateScore::Win(dist) => format!("loss {} plies", dist),
                 }
             } else {
                 format!("{} cp", sigmoid_inv(1.0 - child_node.q(), Self::EVAL_SCALE))
@@ -567,12 +564,10 @@ impl MCTS {
                 prev_depth = curr_depth;
                 if report {
                     let elapsed = start_time.elapsed().as_secs_f64();
-                    let score_str = if let Some(mate_dist) = self.nodes[0].mate_dist {
-                        let mate_dist = mate_dist.get() as i32;
-                        if mate_dist < 0 {
-                            format!("mate {}", mate_dist / 2)
-                        } else {
-                            format!("mate {}", (mate_dist + 1) / 2)
+                    let score_str = if let Some(mate_score) = self.nodes[0].mate_score() {
+                        match mate_score {
+                            MateScore::Loss(dist) => format!("mate {}", -(dist as i32) / 2),
+                            MateScore::Win(dist) => format!("mate {}", (dist as i32 + 1) / 2),
                         }
                     } else {
                         format!("cp {}", sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE).round())
@@ -606,12 +601,10 @@ impl MCTS {
         if report {
             let curr_depth = total_depth / self.iters;
             let elapsed = start_time.elapsed().as_secs_f64();
-            let score_str = if let Some(mate_dist) = self.nodes[0].mate_dist {
-                let mate_dist = mate_dist.get() as i32;
-                if mate_dist < 0 {
-                    format!("mate {}", mate_dist / 2)
-                } else {
-                    format!("mate {}", (mate_dist + 1) / 2)
+            let score_str = if let Some(mate_score) = self.nodes[0].mate_score() {
+                match mate_score {
+                    MateScore::Loss(dist) => format!("mate {}", -(dist as i32) / 2),
+                    MateScore::Win(dist) => format!("mate {}", (dist as i32 + 1) / 2),
                 }
             } else {
                 format!("cp {}", sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE).round())
