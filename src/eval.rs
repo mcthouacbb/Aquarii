@@ -1,17 +1,83 @@
+use std::ops;
+
 use crate::{
     chess::{attacks, Board},
     types::{Bitboard, Color, Piece, PieceType, Square},
 };
 
 #[derive(Clone, Copy)]
-struct ScorePair {
-    mg: i16,
-    eg: i16,
+struct ScorePair(i32);
+
+impl ScorePair {
+    const fn new(mg: i32, eg: i32) -> Self {
+        Self((((eg as u32) << 16).wrapping_add(mg as u32)) as i32)
+    }
+
+    const fn mg(&self) -> i32 {
+        self.0 as i16 as i32
+    }
+
+    const fn eg(&self) -> i32 {
+        ((self.0.wrapping_add(0x8000)) as u32 >> 16) as i32
+    }
+}
+
+impl ops::Add for ScorePair {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl ops::Sub for ScorePair {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0)
+    }
+}
+
+impl ops::Mul<i32> for ScorePair {
+    type Output = Self;
+    fn mul(self, rhs: i32) -> Self::Output {
+        Self(self.0 * rhs)
+    }
+}
+
+impl ops::Mul<ScorePair> for i32 {
+    type Output = ScorePair;
+    fn mul(self, rhs: ScorePair) -> Self::Output {
+        ScorePair(self * rhs.0)
+    }
+}
+
+impl ops::Neg for ScorePair {
+    type Output = ScorePair;
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
+    }
+}
+
+impl ops::AddAssign for ScorePair {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
+impl ops::SubAssign for ScorePair {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+    }
+}
+
+impl ops::MulAssign<i32> for ScorePair {
+    fn mul_assign(&mut self, rhs: i32) {
+        self.0 *= rhs;
+    }
 }
 
 #[allow(non_snake_case)]
-const fn S(mg: i16, eg: i16) -> ScorePair {
-    ScorePair { mg: mg, eg: eg }
+const fn S(mg: i32, eg: i32) -> ScorePair {
+    ScorePair::new(mg, eg)
 }
 
 #[rustfmt::skip]
@@ -120,16 +186,14 @@ pub fn evaluate_piece(board: &Board, pt: PieceType, color: Color) -> ScorePair {
 
         let attacks = piece_attacks(pt, sq, board.occ());
         let mobility = (attacks & mobility_area).popcount();
-        eval.mg += MOBILITY[pt as usize - PieceType::Knight as usize][mobility as usize].mg;
-        eval.eg += MOBILITY[pt as usize - PieceType::Knight as usize][mobility as usize].eg;
+        eval += MOBILITY[pt as usize - PieceType::Knight as usize][mobility as usize];
     }
     eval
 }
 
 pub fn eval(board: &Board) -> i32 {
     let stm = board.stm();
-    let mut eval_mg = 0;
-    let mut eval_eg = 0;
+    let mut eval = S(0, 0);
     for pt in [
         PieceType::Pawn,
         PieceType::Knight,
@@ -143,41 +207,26 @@ pub fn eval(board: &Board) -> i32 {
 
         while stm_bb.any() {
             let sq = stm_bb.poplsb().relative_sq(stm).flip();
-            eval_mg += MATERIAL[pt as usize].mg as i32;
-            eval_eg += MATERIAL[pt as usize].eg as i32;
-
-            eval_mg += PSQT[pt as usize][sq.value() as usize].mg as i32;
-            eval_eg += PSQT[pt as usize][sq.value() as usize].eg as i32;
+            eval += MATERIAL[pt as usize];
+            eval += PSQT[pt as usize][sq.value() as usize]
         }
 
         while nstm_bb.any() {
             let sq = nstm_bb.poplsb().relative_sq(!stm).flip();
-            eval_mg -= MATERIAL[pt as usize].mg as i32;
-            eval_eg -= MATERIAL[pt as usize].eg as i32;
-
-            eval_mg -= PSQT[pt as usize][sq.value() as usize].mg as i32;
-            eval_eg -= PSQT[pt as usize][sq.value() as usize].eg as i32;
+            eval -= MATERIAL[pt as usize];
+            eval -= PSQT[pt as usize][sq.value() as usize];
         }
     }
 
-    let knight_stm = evaluate_piece(board, PieceType::Knight, stm);
-    let knight_nstm = evaluate_piece(board, PieceType::Knight, !stm);
-    let bishop_stm = evaluate_piece(board, PieceType::Bishop, stm);
-    let bishop_nstm = evaluate_piece(board, PieceType::Bishop, !stm);
-    let rook_stm = evaluate_piece(board, PieceType::Rook, stm);
-    let rook_nstm = evaluate_piece(board, PieceType::Rook, !stm);
-    let queen_stm = evaluate_piece(board, PieceType::Queen, stm);
-    let queen_nstm = evaluate_piece(board, PieceType::Queen, !stm);
-
-    eval_mg += (knight_stm.mg + bishop_stm.mg + rook_stm.mg + queen_stm.mg) as i32;
-    eval_mg -= (knight_nstm.mg + bishop_nstm.mg + rook_nstm.mg + queen_nstm.mg) as i32;
-    eval_eg += (knight_stm.eg + bishop_stm.eg + rook_stm.eg + queen_stm.eg) as i32;
-    eval_eg -= (knight_nstm.eg + bishop_nstm.eg + rook_nstm.eg + queen_nstm.eg) as i32;
+    eval += evaluate_piece(board, PieceType::Knight, stm) - evaluate_piece(board, PieceType::Knight, !stm);
+    eval += evaluate_piece(board, PieceType::Bishop, stm) - evaluate_piece(board, PieceType::Bishop, !stm);
+    eval += evaluate_piece(board, PieceType::Rook, stm) - evaluate_piece(board, PieceType::Rook, !stm);
+    eval += evaluate_piece(board, PieceType::Queen, stm) - evaluate_piece(board, PieceType::Queen, !stm);
 
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
         + 2 * board.pieces(PieceType::Rook).popcount()
         + board.pieces(PieceType::Bishop).popcount()
         + board.pieces(PieceType::Knight).popcount()) as i32;
 
-    (eval_mg * phase.min(24) + eval_eg * (24 - phase.min(24))) / 24
+    (eval.mg() * phase.min(24) + eval.eg() * (24 - phase.min(24))) / 24
 }
