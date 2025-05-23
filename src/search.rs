@@ -21,6 +21,12 @@ enum GameResult {
     Drawn,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum MateScore {
+    Loss(u16),
+    Win(u16)
+}
+
 #[derive(Clone)]
 struct Node {
     first_child_idx: u32,
@@ -49,6 +55,21 @@ impl Node {
 
     fn q(&self) -> f32 {
         self.wins / self.visits as f32
+    }
+
+    fn mate_score(&self) -> Option<MateScore> {
+        if self.result == GameResult::Mated {
+            Some(MateScore::Loss(0))
+        } else if let Some(mate_dist) = self.mate_dist {
+            let mate_dist = mate_dist.get() as i32;
+            if mate_dist > 0 {
+                Some(MateScore::Win(mate_dist as u16))
+            } else {
+                Some(MateScore::Loss(-mate_dist as u16))
+            }
+        } else {
+            None
+        }
     }
 
     fn is_terminal(&self) -> bool {
@@ -157,7 +178,6 @@ impl MCTS {
                             0.5
                         }
                     } else {
-
                         // 1 - child q because child q is from opposite perspective of current node
                         1.0 - child.q()
                     };
@@ -281,13 +301,20 @@ impl MCTS {
     fn try_prove_mate_win(node: &mut Node, backprop_mate_dist: i32) -> Option<i32> {
         let move_mate_dist = -backprop_mate_dist + 1;
         let replace = NonZeroI16::new(move_mate_dist as i16).unwrap();
-        if let Some(mate_dist) = node.mate_dist {
-            let mate_dist = mate_dist.get() as i32;
-            if move_mate_dist < mate_dist || mate_dist < 0 {
-                node.mate_dist = Some(replace);
-                Some(move_mate_dist)
-            } else {
-                None
+        if let Some(mate_score) = node.mate_score() {
+            match mate_score {
+                MateScore::Loss(_) => {
+                    node.mate_dist = Some(replace);
+                    Some(move_mate_dist)
+                }
+                MateScore::Win(dist) => {
+                    if move_mate_dist < dist as i32 {
+                        node.mate_dist = Some(replace);
+                        Some(move_mate_dist)
+                    } else {
+                        None
+                    }
+                }
             }
         } else {
             node.mate_dist = Some(replace);
@@ -301,9 +328,9 @@ impl MCTS {
         let mut max_dist = 0;
         for child_idx in node.child_indices() {
             let child_node = &nodes[child_idx as usize];
-            if let Some(child_dist) = child_node.mate_dist {
-                if child_dist.get() > 0 {
-                    max_dist = max_dist.max(child_dist.into());
+            if let Some(mate_score) = child_node.mate_score() {
+                if let MateScore::Win(child_dist) = mate_score {
+                    max_dist = max_dist.max(child_dist as i32);
                 } else {
                     return None;
                 }
@@ -314,16 +341,20 @@ impl MCTS {
         let node = &mut nodes[node_idx as usize];
         if max_dist > 0 {
             let move_dist = -max_dist - 1;
-            let replace = NonZeroI16::new(move_dist).unwrap();
-            if let Some(mate_dist) = node.mate_dist {
-                // flipped comparison because mate distances are negative
-                // this correctly handles the case where we try to prove a mate loss
-                // when the node has already proven a mate win
-                if move_dist > mate_dist.get() {
-                    node.mate_dist = Some(replace);
-                    Some(move_dist as i32)
-                } else {
-                    None
+            let replace = NonZeroI16::new(move_dist as i16).unwrap();
+            if let Some(mate_score) = node.mate_score() {
+                match mate_score {
+                    MateScore::Loss(mate_dist) => {
+                        if -move_dist < mate_dist as i32 {
+                            node.mate_dist = Some(replace);
+                            Some(move_dist)
+                        } else {
+                            None
+                        }
+                    }
+                    MateScore::Win(_) => {
+                        unreachable!()
+                    }
                 }
             } else {
                 node.mate_dist = Some(replace);
@@ -507,7 +538,7 @@ impl MCTS {
             self.build_tree(&old_nodes, old_node_idx);
         } else {
             self.nodes.clear();
-            self.nodes.push(Node::new(Move::NULL, 0f32));
+            self.nodes.push(Node::new(Move::NULL, 0.0));
             self.expand_node(0);
             self.nodes[0].visits += 1;
             self.nodes[0].wins += self.eval_wdl();
