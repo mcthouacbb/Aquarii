@@ -149,7 +149,6 @@ impl MCTS {
                 for child_idx in node.child_indices() {
                     let child = &self.nodes[child_idx as usize];
                     let q = if child.visits == 0 {
-                        // TODO: inf root fpu
                         if root {
                             1000.0
                         } else {
