@@ -1,4 +1,4 @@
-use std::{mem::swap, ops::Range, time::Instant};
+use std::{mem::swap, num::NonZeroI16, ops::Range, time::Instant};
 
 use arrayvec::ArrayVec;
 
@@ -21,12 +21,19 @@ enum GameResult {
     Drawn,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum MateScore {
+    Loss(u16),
+    Win(u16)
+}
+
 #[derive(Clone)]
 struct Node {
     first_child_idx: u32,
     child_count: u8,
     parent_move: Move,
     result: GameResult,
+    mate_dist: Option<NonZeroI16>,
     policy: f32,
     wins: f32,
     visits: u32,
@@ -39,6 +46,7 @@ impl Node {
             child_count: 0,
             parent_move: mv,
             result: GameResult::NonTerminal,
+            mate_dist: None,
             policy: policy,
             wins: 0.0,
             visits: 0,
@@ -47,6 +55,21 @@ impl Node {
 
     fn q(&self) -> f32 {
         self.wins / self.visits as f32
+    }
+
+    fn mate_score(&self) -> Option<MateScore> {
+        if self.result == GameResult::Mated {
+            Some(MateScore::Loss(0))
+        } else if let Some(mate_dist) = self.mate_dist {
+            let mate_dist = mate_dist.get() as i32;
+            if mate_dist > 0 {
+                Some(MateScore::Win(mate_dist as u16))
+            } else {
+                Some(MateScore::Loss(-mate_dist as u16))
+            }
+        } else {
+            None
+        }
     }
 
     fn is_terminal(&self) -> bool {
@@ -275,12 +298,92 @@ impl MCTS {
         }
     }
 
+    fn try_prove_mate_win(node: &mut Node, backprop_mate_dist: i32) -> Option<i32> {
+        let move_mate_dist = -backprop_mate_dist + 1;
+        let replace = NonZeroI16::new(move_mate_dist as i16).unwrap();
+        if let Some(mate_score) = node.mate_score() {
+            match mate_score {
+                MateScore::Loss(_) => {
+                    node.mate_dist = Some(replace);
+                    Some(move_mate_dist)
+                }
+                MateScore::Win(dist) => {
+                    if move_mate_dist < dist as i32 {
+                        node.mate_dist = Some(replace);
+                        Some(move_mate_dist)
+                    } else {
+                        None
+                    }
+                }
+            }
+        } else {
+            node.mate_dist = Some(replace);
+            Some(move_mate_dist)
+        }
+    }
+
+    fn try_prove_mate_loss(nodes: &mut Vec<Node>, node_idx: u32) -> Option<i32> {
+        // a node is only proven to be a loss if every child is a win for the opponent
+        let node = &nodes[node_idx as usize];
+        let mut max_dist = 0;
+        for child_idx in node.child_indices() {
+            let child_node = &nodes[child_idx as usize];
+            if let Some(mate_score) = child_node.mate_score() {
+                if let MateScore::Win(child_dist) = mate_score {
+                    max_dist = max_dist.max(child_dist as i32);
+                } else {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+        }
+        let node = &mut nodes[node_idx as usize];
+        if max_dist > 0 {
+            let move_dist = -max_dist - 1;
+            let replace = NonZeroI16::new(move_dist as i16).unwrap();
+            if let Some(mate_score) = node.mate_score() {
+                match mate_score {
+                    MateScore::Loss(mate_dist) => {
+                        if -move_dist < mate_dist as i32 {
+                            node.mate_dist = Some(replace);
+                            Some(move_dist)
+                        } else {
+                            None
+                        }
+                    }
+                    MateScore::Win(_) => {
+                        unreachable!()
+                    }
+                }
+            } else {
+                node.mate_dist = Some(replace);
+                Some(move_dist as i32)
+            }
+        } else {
+            unreachable!()
+        }
+    }
+
     fn backprop(&mut self, mut result: f32) {
+        let mut child_mate_dist: Option<i32> = None;
         for node_idx in self.selection.iter().rev() {
+            if let Some(mate_dist) = child_mate_dist {
+                if mate_dist <= 0 {
+                    child_mate_dist = Self::try_prove_mate_win(&mut self.nodes[*node_idx as usize], mate_dist);
+                } else {
+                    child_mate_dist = Self::try_prove_mate_loss(&mut self.nodes, *node_idx as u32);
+                }
+            }
+
             let node = &mut self.nodes[*node_idx as usize];
 
             node.visits += 1;
             node.wins += result;
+
+            if node.result == GameResult::Mated {
+                child_mate_dist = Some(0);
+            }
 
             result = 1.0 - result;
         }
@@ -299,17 +402,37 @@ impl MCTS {
         self.backprop(score);
     }
 
+    fn root_move_score(child_node: &Node) -> f32 {
+        match child_node.result {
+            GameResult::NonTerminal => {
+                if let Some(mate_dist) = child_node.mate_dist {
+                    let mate_dist = mate_dist.get() as f32;
+                    if mate_dist > 0.0 {
+                        -mate_dist
+                    } else {
+                        mate_dist + 1000.0
+                    }
+                } else {
+                    1.0 - child_node.q()
+                }
+            },
+            GameResult::Mated => 1000.0,
+            GameResult::Drawn => 0.5,
+        }
+    }
+
     fn get_best_move(&self) -> Move {
         let root_node = &self.nodes[0];
-        let mut best_q = -1.0;
+        let mut best_score = -1000.0;
         let mut best_move = Move::NULL;
         for child_idx in root_node.child_indices() {
             let child_node = &self.nodes[child_idx as usize];
             if child_node.visits == 0 {
                 continue;
             }
-            if 1.0 - child_node.q() > best_q {
-                best_q = 1.0 - child_node.q();
+            let score = Self::root_move_score(child_node);
+            if score > best_score {
+                best_score = score;
                 best_move = child_node.parent_move;
             }
         }
@@ -320,11 +443,21 @@ impl MCTS {
         let root_node = &self.nodes[0];
         for child_idx in root_node.child_indices() {
             let child_node = &self.nodes[child_idx as usize];
+            let score_str = if let Some(mate_dist) = child_node.mate_dist {
+                let mate_dist = mate_dist.get() as i32;
+                if mate_dist > 0 {
+                    format!("loss {} plies", mate_dist)
+                } else {
+                    format!("win {} plies", -mate_dist)
+                }
+            } else {
+                format!("{} cp", sigmoid_inv(1.0 - child_node.q(), Self::EVAL_SCALE))
+            };
             println!(
-                "{} => {} visits {} cp",
+                "{} => {} visits {}",
                 child_node.parent_move,
                 child_node.visits,
-                sigmoid_inv(1.0 - child_node.q(), Self::EVAL_SCALE)
+                score_str
             );
         }
     }
@@ -405,7 +538,7 @@ impl MCTS {
             self.build_tree(&old_nodes, old_node_idx);
         } else {
             self.nodes.clear();
-            self.nodes.push(Node::new(Move::NULL, 0f32));
+            self.nodes.push(Node::new(Move::NULL, 0.0));
             self.expand_node(0);
             self.nodes[0].visits += 1;
             self.nodes[0].wins += self.eval_wdl();
@@ -434,13 +567,23 @@ impl MCTS {
                 prev_depth = curr_depth;
                 if report {
                     let elapsed = start_time.elapsed().as_secs_f64();
+                    let score_str = if let Some(mate_dist) = self.nodes[0].mate_dist {
+                        let mate_dist = mate_dist.get() as i32;
+                        if mate_dist < 0 {
+                            format!("mate {}", mate_dist / 2)
+                        } else {
+                            format!("mate {}", (mate_dist + 1) / 2)
+                        }
+                    } else {
+                        format!("cp {}", sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE).round())
+                    };
                     println!(
-                        "info depth {} nodes {} time {} nps {} score cp {} pv {}",
+                        "info depth {} nodes {} time {} nps {} score {} pv {}",
                         curr_depth,
                         nodes,
                         (elapsed * 1000.0) as u64,
                         (nodes as f64 / elapsed as f64) as u64,
-                        sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE).round(),
+                        score_str,
                         self.get_best_move()
                     );
                 }
@@ -463,13 +606,23 @@ impl MCTS {
         if report {
             let curr_depth = total_depth / self.iters;
             let elapsed = start_time.elapsed().as_secs_f64();
+            let score_str = if let Some(mate_dist) = self.nodes[0].mate_dist {
+                let mate_dist = mate_dist.get() as i32;
+                if mate_dist < 0 {
+                    format!("mate {}", mate_dist / 2)
+                } else {
+                    format!("mate {}", (mate_dist + 1) / 2)
+                }
+            } else {
+                format!("cp {}", sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE).round())
+            };
             println!(
-                "info depth {} nodes {} time {} nps {} score cp {} pv {}",
+                "info depth {} nodes {} time {} nps {} score {} pv {}",
                 curr_depth,
                 nodes,
                 (elapsed * 1000.0) as u64,
                 (nodes as f64 / elapsed as f64) as u64,
-                sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE).round(),
+                score_str,
                 self.get_best_move()
             );
         }
