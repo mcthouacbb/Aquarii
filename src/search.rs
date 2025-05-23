@@ -149,7 +149,7 @@ impl MCTS {
                     let child = &self.nodes[child_idx as usize];
                     let q = if child.visits == 0 {
                         // TODO: inf root fpu
-                        0.5
+                        node.q()
                     } else {
                         // 1 - child q because child q is from opposite perspective of current node
                         1.0 - child.q()
