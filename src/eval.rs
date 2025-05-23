@@ -97,6 +97,10 @@ const MOBILITY: [[ScorePair; 28]; 4] = [
 	[S(  -2,    6), S( -35,  -72), S( -61, -116), S( -18, -202), S( -23,  -63), S( -15,  -11), S(  -6,  -24), S(  -3,   -5), S(  -2,   12), S(   0,   21), S(   3,   24), S(   6,   27), S(   7,   37), S(  10,   36), S(  11,   42), S(  12,   44), S(  13,   45), S(  16,   46), S(  15,   46), S(  21,   39), S(  26,   29), S(  32,   12), S(  29,   18), S(  37,   -7), S(  36,   -8), S(   7,   -3), S( -12,   -9), S(-118,   16)]
 ];
 
+const PAWN_THREAT: [ScorePair; 6] = [
+    S(   0,    0), S( 166,  129), S( 160,  160), S( 281,  224), S( 372,   98), S(   0,    0)
+];
+
 pub fn piece_attacks(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
     match pt {
         PieceType::Knight => attacks::knight_attacks(sq),
@@ -123,6 +127,23 @@ pub fn evaluate_piece(board: &Board, pt: PieceType, color: Color) -> ScorePair {
         eval.mg += MOBILITY[pt as usize - PieceType::Knight as usize][mobility as usize].mg;
         eval.eg += MOBILITY[pt as usize - PieceType::Knight as usize][mobility as usize].eg;
     }
+    eval
+}
+
+pub fn evaluate_threats(board: &Board, color: Color) -> ScorePair {
+    let mut eval = S(0, 0);
+
+    let our_pawns = board.colored_pieces(Piece::new(color, PieceType::Pawn));
+    let pawn_attacks = attacks::pawn_attacks_bb(color, our_pawns);
+
+    let mut pawn_threats = pawn_attacks & board.colors(!color) & !board.pieces(PieceType::Pawn);
+    while pawn_threats.any() {
+        let sq = pawn_threats.poplsb();
+        let piece = board.piece_at(sq).unwrap().piece_type();
+        eval.mg += PAWN_THREAT[piece as usize].mg;
+        eval.eg += PAWN_THREAT[piece as usize].eg;
+    }
+
     eval
 }
 
@@ -169,10 +190,16 @@ pub fn eval(board: &Board) -> i32 {
     let queen_stm = evaluate_piece(board, PieceType::Queen, stm);
     let queen_nstm = evaluate_piece(board, PieceType::Queen, !stm);
 
+    let threats_stm = evaluate_threats(board, stm);
+    let threats_nstm = evaluate_threats(board, !stm);
+
     eval_mg += (knight_stm.mg + bishop_stm.mg + rook_stm.mg + queen_stm.mg) as i32;
     eval_mg -= (knight_nstm.mg + bishop_nstm.mg + rook_nstm.mg + queen_nstm.mg) as i32;
     eval_eg += (knight_stm.eg + bishop_stm.eg + rook_stm.eg + queen_stm.eg) as i32;
     eval_eg -= (knight_nstm.eg + bishop_nstm.eg + rook_nstm.eg + queen_nstm.eg) as i32;
+
+    eval_mg += (threats_stm.mg - threats_nstm.mg) as i32;
+    eval_eg += (threats_stm.eg - threats_nstm.eg) as i32;
 
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
         + 2 * board.pieces(PieceType::Rook).popcount()
