@@ -163,17 +163,30 @@ const MOBILITY: [[ScorePair; 28]; 4] = [
 	[S(  -2,    6), S( -35,  -72), S( -61, -116), S( -18, -202), S( -23,  -63), S( -15,  -11), S(  -6,  -24), S(  -3,   -5), S(  -2,   12), S(   0,   21), S(   3,   24), S(   6,   27), S(   7,   37), S(  10,   36), S(  11,   42), S(  12,   44), S(  13,   45), S(  16,   46), S(  15,   46), S(  21,   39), S(  26,   29), S(  32,   12), S(  29,   18), S(  37,   -7), S(  36,   -8), S(   7,   -3), S( -12,   -9), S(-118,   16)]
 ];
 
-#[rustfmt::skip]
-const SAFE_KNIGHT_CHECK: ScorePair = S(  80,   -5);
-#[rustfmt::skip]
-const SAFE_BISHOP_CHECK: ScorePair = S(  19,   -7);
-#[rustfmt::skip]
-const SAFE_ROOK_CHECK: ScorePair = S(  58,   -6);
-#[rustfmt::skip]
-const SAFE_QUEEN_CHECK: ScorePair = S(  34,   12);
+const PASSED_PAWN: [ScorePair; 8] = [
+    S(0, 0),
+    S(-10, 5),
+    S(-14, 13),
+    S(-27, 48),
+    S(9, 88),
+    S(28, 102),
+    S(46, 95),
+    S(0, 0),
+];
 
-#[rustfmt::skip]
-const THREAT_BY_PAWN: [ScorePair; 6] = [S(   4,  -20), S(  66,   29), S(  60,   60), S(  81,   24), S(  72,   -2), S(   0,    0)];
+const SAFE_KNIGHT_CHECK: ScorePair = S(80, -5);
+const SAFE_BISHOP_CHECK: ScorePair = S(19, -7);
+const SAFE_ROOK_CHECK: ScorePair = S(58, -6);
+const SAFE_QUEEN_CHECK: ScorePair = S(34, 12);
+
+const THREAT_BY_PAWN: [ScorePair; 6] = [
+    S(4, -20),
+    S(66, 29),
+    S(60, 60),
+    S(81, 24),
+    S(72, -2),
+    S(0, 0),
+];
 #[rustfmt::skip]
 const THREAT_BY_KNIGHT: [[ScorePair; 6]; 2] = [
 	[S(   4,   28), S(  15,   38), S(  35,   43), S(  73,   13), S(  54,  -29), S(   0,    0)],
@@ -332,6 +345,23 @@ fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScoreP
     eval
 }
 
+fn evaluate_pawns(board: &Board, color: Color) -> ScorePair {
+    let mut eval = S(0, 0);
+    let our_pawns = board.colored_pieces(Piece::new(color, PieceType::Pawn));
+    let their_pawns = board.colored_pieces(Piece::new(!color, PieceType::Pawn));
+
+    let mut tmp = our_pawns;
+    while tmp.any() {
+        let sq = tmp.poplsb();
+        let relative_rank = sq.relative_sq(color).rank();
+        let stoppers = their_pawns & attacks::passed_pawn_span(color, sq);
+        if stoppers.empty() {
+            eval += PASSED_PAWN[relative_rank as usize];
+        }
+    }
+    eval
+}
+
 pub fn psqt_score(board: &Board, pt: PieceType, sq: Square) -> i32 {
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
         + 2 * board.pieces(PieceType::Rook).popcount()
@@ -390,6 +420,8 @@ pub fn eval(board: &Board) -> i32 {
 
     eval += evaluate_kings(board, stm, &eval_data) - evaluate_kings(board, !stm, &eval_data);
     eval += evaluate_threats(board, stm, &eval_data) - evaluate_threats(board, !stm, &eval_data);
+
+    eval += evaluate_pawns(board, stm) - evaluate_pawns(board, !stm);
 
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
         + 2 * board.pieces(PieceType::Rook).popcount()
