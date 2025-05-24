@@ -364,6 +364,32 @@ const FILE_ATTACKS: [[Bitboard; 64]; 64] = {
     result
 };
 
+const PASSED_PAWN_SPAN: [[Bitboard; 64]; 2] = {
+    let mut result = [[Bitboard::NONE; 64]; 2];
+
+    let mut sq_idx = 0;
+    while sq_idx < 64 {
+        let square = Square::from_raw(sq_idx);
+        let sq_bb = Bitboard::from_square(square);
+        let mut white = sq_bb.north();
+        white = white.bit_or(white.north());
+        white = white.bit_or(white.north().north());
+        white = white.bit_or(white.north().north().north().north());
+
+        result[Color::White as usize][sq_idx as usize] = white.bit_or(white.west()).bit_or(white.east());
+
+        let mut black = sq_bb.south();
+        black = black.bit_or(black.south());
+        black = black.bit_or(black.south().south());
+        black = black.bit_or(black.south().south().south().south());
+
+        result[Color::Black as usize][sq_idx as usize] = black.bit_or(black.west()).bit_or(black.east());
+
+        sq_idx += 1;
+    }
+    result
+};
+
 pub const fn ray_bb(sq: Square, dir: Direction) -> Bitboard {
     RAYS[sq.value() as usize][dir as usize]
 }
@@ -457,4 +483,8 @@ pub fn rook_attacks(sq: Square, occ: Bitboard) -> Bitboard {
 
 pub fn queen_attacks(sq: Square, occ: Bitboard) -> Bitboard {
     rook_attacks(sq, occ) | bishop_attacks(sq, occ)
+}
+
+pub fn passed_pawn_span(color: Color, sq: Square) -> Bitboard {
+    PASSED_PAWN_SPAN[color as usize][sq as usize]
 }
