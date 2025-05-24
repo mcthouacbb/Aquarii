@@ -18,7 +18,7 @@ impl ScorePair {
     }
 
     const fn eg(&self) -> i32 {
-        ((self.0.wrapping_add(0x8000)) as u32 >> 16) as i32
+        ((self.0.wrapping_add(0x8000)) as u32 >> 16) as i16 as i32
     }
 }
 
