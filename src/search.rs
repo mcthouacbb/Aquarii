@@ -189,7 +189,7 @@ impl MCTS {
                     } else {
                         Self::CPUCT
                     };
-                    let cpuct_scale = 1.0 + (1.0 + node.visits as f32 / 8192.0).ln();
+                    let cpuct_scale = 1.0 + (1.0 + node.visits as f32 / 65536.0).ln();
                     let cpuct = cpuct_base * cpuct_scale;
                     let uct = q + cpuct * policy * expl;
 
