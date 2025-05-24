@@ -258,7 +258,7 @@ impl MCTS {
             0.0
         };
 
-        cap_bonus + promo_bonus - pawn_protected_penalty + psqt as f32 / 100.0
+        cap_bonus + promo_bonus - pawn_protected_penalty + psqt as f32 / 50.0
     }
 
     fn expand_node(&mut self, node_idx: u32) {
