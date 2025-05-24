@@ -191,6 +191,17 @@ pub fn evaluate_piece(board: &Board, pt: PieceType, color: Color) -> ScorePair {
     eval
 }
 
+pub fn psqt_score(board: &Board, pt: PieceType, sq: Square) -> i32 {
+    let phase = (4 * board.pieces(PieceType::Queen).popcount()
+        + 2 * board.pieces(PieceType::Rook).popcount()
+        + board.pieces(PieceType::Bishop).popcount()
+        + board.pieces(PieceType::Knight).popcount()) as i32;
+
+    (PSQT[pt as usize][sq as usize].mg() as i32 * phase.min(24)
+        + PSQT[pt as usize][sq as usize].eg() as i32 * (24 - phase.min(24)))
+        / 24
+}
+
 pub fn eval(board: &Board) -> i32 {
     let stm = board.stm();
     let mut eval = S(0, 0);

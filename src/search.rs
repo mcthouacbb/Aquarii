@@ -8,7 +8,7 @@ use crate::{
         movegen::{movegen, MoveList},
         Move, MoveKind,
     },
-    eval,
+    eval::{self, psqt_score},
     position::Position,
     types::{Piece, PieceType},
 };
@@ -236,6 +236,17 @@ impl MCTS {
         } else {
             0.0
         };
+        let moving_piece = self.position.board().piece_at(mv.from_sq()).unwrap();
+        let psqt = if mv.kind() != MoveKind::Promotion {
+            psqt_score(self.position.board(), moving_piece.piece_type(), mv.to_sq())
+            - psqt_score(
+                self.position.board(),
+                moving_piece.piece_type(),
+                mv.from_sq(),
+            )
+        } else {
+            0
+        };
 
         let promo_bonus = if mv.kind() == MoveKind::Promotion {
             match mv.promo_piece() {
@@ -247,7 +258,7 @@ impl MCTS {
             0.0
         };
 
-        cap_bonus + promo_bonus - pawn_protected_penalty
+        cap_bonus + promo_bonus - pawn_protected_penalty + psqt as f32 / 100.0
     }
 
     fn expand_node(&mut self, node_idx: u32) {
