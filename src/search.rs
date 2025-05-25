@@ -6,7 +6,7 @@ use crate::{
     chess::{
         attacks,
         movegen::{movegen, MoveList},
-        Move, MoveKind,
+        see, Move, MoveKind,
     },
     eval::{self, psqt_score},
     position::Position,
@@ -269,7 +269,16 @@ impl MCTS {
             0.0
         };
 
-        cap_bonus + promo_bonus + pawn_threat_evasion - pawn_protected_penalty + psqt as f32 / 100.0
+        let bad_see_penalty = if pawn_protected_penalty > 0.0 {
+            0.0
+        } else if !see::see(board, mv, 0) {
+            -1.2
+        } else {
+            0.0
+        };
+
+        cap_bonus + promo_bonus + pawn_threat_evasion + bad_see_penalty - pawn_protected_penalty
+            + psqt as f32 / 100.0
     }
 
     fn expand_node(&mut self, node_idx: u32) {

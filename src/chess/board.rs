@@ -395,6 +395,22 @@ impl Board {
             | (attacks::rook_attacks(sq, occ) & hvs)
     }
 
+    pub fn all_attackers_to(&self, sq: Square, occ: Bitboard) -> Bitboard {
+        let diags = self.pieces(PieceType::Bishop) | self.pieces(PieceType::Queen);
+        let hvs = self.pieces(PieceType::Rook) | self.pieces(PieceType::Queen);
+        let wpawns = self.colored_pieces(Piece::new(Color::White, PieceType::Pawn));
+        let bpawns = self.colored_pieces(Piece::new(Color::Black, PieceType::Pawn));
+        let knights = self.pieces(PieceType::Knight);
+        let king = self.pieces(PieceType::King);
+
+        (attacks::pawn_attacks(Color::White, sq) & bpawns)
+            | (attacks::pawn_attacks(Color::Black, sq) & wpawns)
+            | (attacks::knight_attacks(sq) & knights)
+            | (attacks::king_attacks(sq) & king)
+            | (attacks::bishop_attacks(sq, occ) & diags)
+            | (attacks::rook_attacks(sq, occ) & hvs)
+    }
+
     pub fn is_drawn(&self, keys: &Vec<ZobristKey>) -> bool {
         if self.half_move_clock >= 100 {
             return true;

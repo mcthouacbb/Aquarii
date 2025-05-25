@@ -3,6 +3,7 @@ pub mod board;
 pub mod castling_rooks;
 pub mod chess_move;
 pub mod movegen;
+pub mod see;
 pub mod zobrist;
 
 pub use board::Board;
