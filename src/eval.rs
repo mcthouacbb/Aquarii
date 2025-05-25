@@ -229,10 +229,14 @@ pub fn eval(board: &Board) -> i32 {
         }
     }
 
-    eval += evaluate_piece(board, PieceType::Knight, stm) - evaluate_piece(board, PieceType::Knight, !stm);
-    eval += evaluate_piece(board, PieceType::Bishop, stm) - evaluate_piece(board, PieceType::Bishop, !stm);
-    eval += evaluate_piece(board, PieceType::Rook, stm) - evaluate_piece(board, PieceType::Rook, !stm);
-    eval += evaluate_piece(board, PieceType::Queen, stm) - evaluate_piece(board, PieceType::Queen, !stm);
+    eval += evaluate_piece(board, PieceType::Knight, stm)
+        - evaluate_piece(board, PieceType::Knight, !stm);
+    eval += evaluate_piece(board, PieceType::Bishop, stm)
+        - evaluate_piece(board, PieceType::Bishop, !stm);
+    eval +=
+        evaluate_piece(board, PieceType::Rook, stm) - evaluate_piece(board, PieceType::Rook, !stm);
+    eval += evaluate_piece(board, PieceType::Queen, stm)
+        - evaluate_piece(board, PieceType::Queen, !stm);
 
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
         + 2 * board.pieces(PieceType::Rook).popcount()
