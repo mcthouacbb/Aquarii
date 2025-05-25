@@ -6,7 +6,7 @@ use crate::{
     chess::{
         attacks,
         movegen::{movegen, MoveList},
-        Move, MoveKind,
+        see, Move, MoveKind,
     },
     eval::{self, psqt_score},
     position::Position,
@@ -24,7 +24,7 @@ enum GameResult {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum MateScore {
     Loss(u16),
-    Win(u16)
+    Win(u16),
 }
 
 #[derive(Clone)]
@@ -184,11 +184,7 @@ impl MCTS {
                     };
                     let policy = child.policy;
                     let expl = (node.visits as f32).sqrt() / (1 + child.visits) as f32;
-                    let cpuct = if root {
-                        Self::ROOT_CPUCT
-                    } else {
-                        Self::CPUCT
-                    };
+                    let cpuct = if root { Self::ROOT_CPUCT } else { Self::CPUCT };
                     let uct = q + cpuct * policy * expl;
 
                     if uct > best_uct {
@@ -237,27 +233,28 @@ impl MCTS {
             0.0
         };
 
-        let pawn_threat_evasion = if pawn_protected.has(mv.from_sq()) && !pawn_protected.has(mv.to_sq()) {
-            match moving_piece.piece_type() {
-                PieceType::Pawn => 0.4,
-                PieceType::Knight => 1.2,
-                PieceType::Bishop => 1.2,
-                PieceType::Rook => 2.4,
-                PieceType::Queen => 3.5,
-                _ => 0.0,
-            }
-        } else {
-            0.0
-        };
-        
+        let pawn_threat_evasion =
+            if pawn_protected.has(mv.from_sq()) && !pawn_protected.has(mv.to_sq()) {
+                match moving_piece.piece_type() {
+                    PieceType::Pawn => 0.4,
+                    PieceType::Knight => 1.2,
+                    PieceType::Bishop => 1.2,
+                    PieceType::Rook => 2.4,
+                    PieceType::Queen => 3.5,
+                    _ => 0.0,
+                }
+            } else {
+                0.0
+            };
+
         let moving_piece = self.position.board().piece_at(mv.from_sq()).unwrap();
         let psqt = if mv.kind() != MoveKind::Promotion {
             psqt_score(self.position.board(), moving_piece.piece_type(), mv.to_sq())
-            - psqt_score(
-                self.position.board(),
-                moving_piece.piece_type(),
-                mv.from_sq(),
-            )
+                - psqt_score(
+                    self.position.board(),
+                    moving_piece.piece_type(),
+                    mv.from_sq(),
+                )
         } else {
             0
         };
@@ -272,7 +269,16 @@ impl MCTS {
             0.0
         };
 
-        cap_bonus + promo_bonus + pawn_threat_evasion - pawn_protected_penalty + psqt as f32 / 100.0
+        let bad_see_penalty = if pawn_protected_penalty > 0.0 {
+            0.0
+        } else if !see::see(board, mv, 0) {
+            -1.2
+        } else {
+            0.0
+        };
+
+        cap_bonus + promo_bonus + pawn_threat_evasion + bad_see_penalty - pawn_protected_penalty
+            + psqt as f32 / 100.0
     }
 
     fn expand_node(&mut self, node_idx: u32) {
@@ -401,7 +407,8 @@ impl MCTS {
         for node_idx in self.selection.iter().rev() {
             if let Some(mate_dist) = child_mate_dist {
                 if mate_dist <= 0 {
-                    child_mate_dist = Self::try_prove_mate_win(&mut self.nodes[*node_idx as usize], mate_dist);
+                    child_mate_dist =
+                        Self::try_prove_mate_win(&mut self.nodes[*node_idx as usize], mate_dist);
                 } else {
                     child_mate_dist = Self::try_prove_mate_loss(&mut self.nodes, *node_idx as u32);
                 }
@@ -444,7 +451,7 @@ impl MCTS {
                 } else {
                     1.0 - child_node.q()
                 }
-            },
+            }
             GameResult::Mated => 1000.0,
             GameResult::Drawn => 0.5,
         }
@@ -483,9 +490,7 @@ impl MCTS {
             };
             println!(
                 "{} => {} visits {}",
-                child_node.parent_move,
-                child_node.visits,
-                score_str
+                child_node.parent_move, child_node.visits, score_str
             );
         }
     }
@@ -601,7 +606,10 @@ impl MCTS {
                             MateScore::Win(dist) => format!("mate {}", (dist as i32 + 1) / 2),
                         }
                     } else {
-                        format!("cp {}", sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE).round())
+                        format!(
+                            "cp {}",
+                            sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE).round()
+                        )
                     };
                     println!(
                         "info depth {} nodes {} time {} nps {} score {} pv {}",
@@ -638,7 +646,10 @@ impl MCTS {
                     MateScore::Win(dist) => format!("mate {}", (dist as i32 + 1) / 2),
                 }
             } else {
-                format!("cp {}", sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE).round())
+                format!(
+                    "cp {}",
+                    sigmoid_inv(self.nodes[0].q(), Self::EVAL_SCALE).round()
+                )
             };
             println!(
                 "info depth {} nodes {} time {} nps {} score {} pv {}",
