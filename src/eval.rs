@@ -393,6 +393,18 @@ fn evaluate_pawns(board: &Board, color: Color) -> ScorePair {
     eval
 }
 
+fn mopup_eval(board: &Board, strong_side: Color) -> ScorePair {
+    let strong_king = board.king_sq(strong_side);
+    let weak_king = board.king_sq(!strong_side);
+
+    let edge_dist = weak_king.rank().min(7 - weak_king.rank()).min(weak_king.file()).min(7 - weak_king.file()) as i32;
+    let push_close = Square::chebyshev(strong_king, weak_king);
+
+    let eval = 200 * (3 - edge_dist) + 300 * (7 - push_close);
+
+    return ScorePair::new(eval, eval);
+}
+
 pub fn psqt_score(board: &Board, pt: PieceType, sq: Square) -> i32 {
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
         + 2 * board.pieces(PieceType::Rook).popcount()
@@ -453,6 +465,12 @@ pub fn eval(board: &Board) -> i32 {
     eval += evaluate_threats(board, stm, &eval_data) - evaluate_threats(board, !stm, &eval_data);
 
     eval += evaluate_pawns(board, stm) - evaluate_pawns(board, !stm);
+
+    if board.colors(stm).one() {
+        eval -= mopup_eval(board, !stm);
+    } else if board.colors(!stm).one() {
+        eval += mopup_eval(board, stm);
+    }
 
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
         + 2 * board.pieces(PieceType::Rook).popcount()
