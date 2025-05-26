@@ -261,9 +261,8 @@ impl MCTS {
 
         let promo_bonus = if mv.kind() == MoveKind::Promotion {
             match mv.promo_piece() {
-                PieceType::Knight => 0.2,
                 PieceType::Queen => 2.0,
-                _ => 0.0,
+                _ => -3.0,
             }
         } else {
             0.0
