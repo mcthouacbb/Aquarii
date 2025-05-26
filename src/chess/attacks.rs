@@ -392,6 +392,41 @@ const PASSED_PAWN_SPAN: [[Bitboard; 64]; 2] = {
     result
 };
 
+const KING_FLANKS: [[Bitboard; 8]; 2] = {
+    let mut result = [[Bitboard::NONE; 8]; 2];
+    
+    let king_flank = Bitboard::FILE_A.bit_or(Bitboard::FILE_B).bit_or(Bitboard::FILE_C).bit_or(Bitboard::FILE_D);
+    let white_ranks = Bitboard::RANK_1.bit_or(Bitboard::RANK_2).bit_or(Bitboard::RANK_3).bit_or(Bitboard::RANK_4).bit_or(Bitboard::RANK_5);
+    let black_ranks = Bitboard::RANK_8.bit_or(Bitboard::RANK_7).bit_or(Bitboard::RANK_6).bit_or(Bitboard::RANK_5).bit_or(Bitboard::RANK_4);
+    // a-c file
+    let mut i = 0;
+    while i <= 2 {
+        result[Color::White as usize][i] = king_flank.bit_and(white_ranks);
+        result[Color::Black as usize][i] = king_flank.bit_and(black_ranks);
+        i += 1;
+    }
+
+    let king_flank = Bitboard::FILE_C.bit_or(Bitboard::FILE_D).bit_or(Bitboard::FILE_E).bit_or(Bitboard::FILE_F);
+    // d-e file
+    i = 3;
+    while i <= 4 {
+        result[Color::White as usize][i] = king_flank.bit_and(white_ranks);
+        result[Color::Black as usize][i] = king_flank.bit_and(black_ranks);
+        i += 1;
+    }
+
+    let king_flank = Bitboard::FILE_E.bit_or(Bitboard::FILE_F).bit_or(Bitboard::FILE_G).bit_or(Bitboard::FILE_H);
+    // f-h file
+    i = 5;
+    while i <= 7 {
+        result[Color::White as usize][i] = king_flank.bit_and(white_ranks);
+        result[Color::Black as usize][i] = king_flank.bit_and(black_ranks);
+        i += 1;
+    }
+
+    result
+};
+
 pub const fn ray_bb(sq: Square, dir: Direction) -> Bitboard {
     RAYS[sq.value() as usize][dir as usize]
 }
@@ -489,4 +524,8 @@ pub fn queen_attacks(sq: Square, occ: Bitboard) -> Bitboard {
 
 pub fn passed_pawn_span(color: Color, sq: Square) -> Bitboard {
     PASSED_PAWN_SPAN[color as usize][sq as usize]
+}
+
+pub fn king_flank(color: Color, sq: Square) -> Bitboard {
+    KING_FLANKS[color as usize][sq.rank() as usize]
 }

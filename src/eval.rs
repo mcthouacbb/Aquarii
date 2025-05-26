@@ -196,11 +196,6 @@ const DEFENDED_PAWN: [ScorePair; 8] = [
     S(0, 0),
 ];
 
-const SAFE_KNIGHT_CHECK: ScorePair = S(80, -5);
-const SAFE_BISHOP_CHECK: ScorePair = S(19, -7);
-const SAFE_ROOK_CHECK: ScorePair = S(58, -6);
-const SAFE_QUEEN_CHECK: ScorePair = S(34, 12);
-
 const THREAT_BY_PAWN: [ScorePair; 6] = [
     S(4, -20),
     S(66, 29),
@@ -230,10 +225,53 @@ const THREAT_BY_QUEEN: [[ScorePair; 6]; 2] = [
 	[S(  -3,   12), S(   1,    8), S(  -5,   14), S(  -4,    3), S( -16,  -74), S( 118,   52)]
 ];
 
+#[rustfmt::skip]
+const PAWN_STORM: [[[ScorePair; 8]; 4]; 2] = [
+	[
+		[S(  41,   36), S(-109,  -48), S( -39,  -34), S(  60,    2), S(  26,   22), S(  -1,   31), S( -10,   31), S(   0,    0)],
+		[S(  32,    6), S(  45, -122), S(  93,  -81), S(  59,  -20), S(  16,   -2), S( -22,    8), S(   4,    6), S(   0,    0)],
+		[S(   7,   21), S( 103, -102), S( 104,  -50), S(  62,   -2), S(  14,   17), S( -13,   23), S( -15,   27), S(   0,    0)],
+		[S(  16,    5), S( 149,  -77), S( 120,  -23), S(  70,    5), S(   9,   16), S( -15,   10), S( -21,   20), S(   0,    0)]
+	],
+	[
+		[S(   0,    0), S(   0,    0), S(  62,   62), S( -21,   33), S( -25,   41), S( -17,   58), S(  -4,   46), S(   0,    0)],
+		[S(   0,    0), S(   0,    0), S(  98,   17), S(  -3,   18), S( -17,   27), S( -29,   42), S( -39,   33), S(   0,    0)],
+		[S(   0,    0), S(   0,    0), S( 109,   17), S(  10,   24), S( -15,   40), S(  15,   44), S(  50,   29), S(   0,    0)],
+		[S(   0,    0), S(   0,    0), S(  88,   17), S(  17,   25), S( -25,   25), S( -24,   22), S(  -3,   17), S(   0,    0)]
+	]
+];
+#[rustfmt::skip]
+const PAWN_SHIELD: [[ScorePair; 8]; 4] = [
+	[S(  47,   36), S( -19,   52), S( -12,   42), S(  40,   31), S(  44,   17), S( -26,   -1), S( -67,  -16), S(   0,    0)],
+	[S(  49,    9), S( -25,   19), S(   8,    7), S(  53,   -1), S(  43,  -15), S(  13,  -19), S( -41,  -33), S(   0,    0)],
+	[S(  22,   -2), S(  16,  119), S(  12,   -2), S(  34,  -21), S(  24,  -19), S(  -6,  -25), S( -60,  -40), S(   0,    0)],
+	[S(  15,   17), S(   3,   12), S(   2,   10), S(  28,    5), S(  33,    1), S(   8,    5), S( -84,    7), S(   0,    0)]
+];
+const SAFE_KNIGHT_CHECK: ScorePair = S( 109,    7);
+const SAFE_BISHOP_CHECK: ScorePair = S(  72,   18);
+const SAFE_ROOK_CHECK: ScorePair = S( 115,   15);
+const SAFE_QUEEN_CHECK: ScorePair = S(  55,   26);
+const UNSAFE_KNIGHT_CHECK: ScorePair = S(  16,    2);
+const UNSAFE_BISHOP_CHECK: ScorePair = S(  38,   10);
+const UNSAFE_ROOK_CHECK: ScorePair = S(  39,    3);
+const UNSAFE_QUEEN_CHECK: ScorePair = S(  16,    3);
+const QUEENLESS_ATTACK: ScorePair = S(-142,  144);
+const KING_ATTACKER_WEIGHT: [ScorePair; 4] = [S(  57,   -5), S(  22,    0), S(  29,  -13), S(   4,  -10)];
+const KING_ATTACKS: ScorePair = S(   7,   -1);
+const WEAK_KING_RING: ScorePair = S(   8,   -1);
+const KING_FLANK_ATTACKS: [ScorePair; 2] = [S(  11,   -4), S(   7,    1)];
+const KING_FLANK_DEFENSES: [ScorePair; 2] = [S(  -6,    0), S( -10,    2)];
+const SAFETY_OFFSET: ScorePair = S(  79,  211);
+
+
 struct EvalData {
     attacked: [Bitboard; 2],
     attacked_by: [[Bitboard; 6]; 2],
     attacked_by_2: [Bitboard; 2],
+    king_ring: [Bitboard; 2],
+    attack_count: [i32; 2],
+    attack_weight: [ScorePair; 2],
+    king_flank: [Bitboard; 2],
 }
 
 impl Default for EvalData {
@@ -242,6 +280,10 @@ impl Default for EvalData {
             attacked: [Bitboard::NONE; 2],
             attacked_by: [[Bitboard::NONE; 6]; 2],
             attacked_by_2: [Bitboard::NONE; 2],
+            king_ring: [Bitboard::NONE; 2],
+            attack_count: [0; 2],
+            attack_weight: [S(0, 0); 2],
+            king_flank: [Bitboard::NONE; 2],
         }
     }
 }
@@ -279,14 +321,67 @@ fn evaluate_piece(
         eval_data.attacked_by_2[color as usize] |= attacks & eval_data.attacked[color as usize];
         eval_data.attacked[color as usize] |= attacks;
         eval_data.attacked_by[color as usize][pt as usize] |= attacks;
+
+        let king_ring_atks = eval_data.king_ring[!color as usize] & attacks;
+        if king_ring_atks.any() {
+            eval_data.attack_weight[color as usize] += KING_ATTACKER_WEIGHT[pt as usize - PieceType::Knight as usize];
+            eval_data.attack_count[color as usize] += king_ring_atks.popcount() as i32;
+        }
     }
     eval
+}
+
+fn eval_king_pawn_file(color: Color, file: u8, our_pawns: Bitboard, their_pawns: Bitboard) -> ScorePair {
+    let mut eval = S(0, 0);
+    let edge_dist = file.min(7 - file);
+    {
+        let file_pawns = our_pawns & Bitboard::file(file);
+        let mut rank = 0;
+        let mut blocked = false;
+        if file_pawns.any() {
+            let file_pawn = if color == Color::White { file_pawns.msb() } else { file_pawns.lsb() };
+            rank = file_pawn.relative_sq(!color).rank();
+            let offset = if color == Color::White { 8 } else { -8 };
+            blocked = their_pawns.has(file_pawn + offset);
+        }
+        eval += PAWN_STORM[blocked as usize][edge_dist as usize][rank as usize];
+    }
+    {
+        let file_pawns = their_pawns & Bitboard::file(file);
+        let rank = if file_pawns.any() {
+            if color == Color::White {
+                file_pawns.msb().relative_sq(!color).rank()
+            } else {
+                file_pawns.lsb().relative_sq(!color).rank()
+            }
+        } else {
+            0
+        };
+        eval += PAWN_SHIELD[edge_dist as usize][rank as usize];
+    }
+
+    eval
+}
+
+fn safety_adjustment(value: i32) -> i32
+{
+    return (value + value.max(0) * value / 128) / 8;
 }
 
 fn evaluate_kings(board: &Board, color: Color, eval_data: &EvalData) -> ScorePair {
     let mut eval = S(0, 0);
 
     let their_king = board.king_sq(!color);
+    let our_pawns = board.colored_pieces(Piece::new(color, PieceType::Pawn));
+    let their_pawns = board.colored_pieces(Piece::new(!color, PieceType::Pawn));
+
+    // a-f file
+    let left_file = (their_king.file() - 1).clamp(0, 5);
+    // c-h file
+    let right_file = (their_king.file() + 1).clamp(2, 7);
+    for file in left_file..=right_file {
+        eval += eval_king_pawn_file(color, file, our_pawns, their_pawns)
+    }
 
     let rook_check_squares = attacks::rook_attacks(their_king, board.occ());
     let bishop_check_squares = attacks::bishop_attacks(their_king, board.occ());
@@ -311,7 +406,32 @@ fn evaluate_kings(board: &Board, color: Color, eval_data: &EvalData) -> ScorePai
     eval += SAFE_ROOK_CHECK * (rook_checks & safe).popcount() as i32;
     eval += SAFE_QUEEN_CHECK * (queen_checks & safe).popcount() as i32;
 
-    return eval;
+    eval += UNSAFE_KNIGHT_CHECK * (knight_checks & !safe).popcount() as i32;
+    eval += UNSAFE_BISHOP_CHECK * (bishop_checks & !safe).popcount() as i32;
+    eval += UNSAFE_ROOK_CHECK * (rook_checks & !safe).popcount() as i32;
+    eval += UNSAFE_QUEEN_CHECK * (queen_checks & !safe).popcount() as i32;
+
+    if board.colored_pieces(Piece::new(color, PieceType::Queen)).empty() {
+        eval += QUEENLESS_ATTACK;
+    }
+
+    eval += eval_data.attack_weight[color as usize];
+
+    eval += KING_ATTACKS * eval_data.attack_count[color as usize];
+
+    eval += WEAK_KING_RING * (eval_data.king_ring[!color as usize] & weak).popcount() as i32;
+
+    let flank_attacks = eval_data.king_flank[!color as usize] & eval_data.attacked[color as usize];
+    let flank_attacks2 = eval_data.king_flank[!color as usize] & eval_data.attacked_by_2[color as usize];
+    let flank_defenses = eval_data.king_flank[!color as usize] & eval_data.attacked[!color as usize];
+    let flank_defenses2 = eval_data.king_flank[!color as usize] & eval_data.attacked_by_2[!color as usize];
+
+    eval += flank_attacks.popcount() as i32 * KING_FLANK_ATTACKS[0] + flank_attacks2.popcount() as i32 * KING_FLANK_ATTACKS[1];
+    eval += flank_defenses.popcount() as i32 * KING_FLANK_DEFENSES[0] + flank_defenses2.popcount() as i32 * KING_FLANK_DEFENSES[1];
+
+    eval += SAFETY_OFFSET;
+
+    return ScorePair::new(safety_adjustment(eval.mg()), safety_adjustment(eval.eg()));
 }
 
 fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScorePair {
@@ -439,6 +559,26 @@ pub fn eval(board: &Board) -> i32 {
     eval_data.attacked[Color::Black as usize] = bking_atks;
     eval_data.attacked_by[Color::White as usize][PieceType::King as usize] = wking_atks;
     eval_data.attacked_by[Color::Black as usize][PieceType::King as usize] = bking_atks;
+
+    eval_data.king_ring[Color::White as usize] = (wking_atks | wking_atks.north()) & !Bitboard::from_square(board.king_sq(Color::White));
+    eval_data.king_ring[Color::Black as usize] = (bking_atks | bking_atks.north()) & !Bitboard::from_square(board.king_sq(Color::Black));
+
+    if Bitboard::FILE_H.has(board.king_sq(Color::White)) {
+        eval_data.king_ring[Color::White as usize] |= eval_data.king_ring[Color::White as usize].west();
+    }
+    if Bitboard::FILE_A.has(board.king_sq(Color::White)) {
+        eval_data.king_ring[Color::White as usize] |= eval_data.king_ring[Color::White as usize].east();
+    }
+
+    if Bitboard::FILE_H.has(board.king_sq(Color::Black)) {
+        eval_data.king_ring[Color::Black as usize] |= eval_data.king_ring[Color::Black as usize].west();
+    }
+    if Bitboard::FILE_A.has(board.king_sq(Color::Black)) {
+        eval_data.king_ring[Color::Black as usize] |= eval_data.king_ring[Color::Black as usize].east();
+    }
+
+    eval_data.king_flank[Color::White as usize] = attacks::king_flank(Color::White, board.king_sq(Color::White));
+    eval_data.king_flank[Color::Black as usize] = attacks::king_flank(Color::Black, board.king_sq(Color::Black));
 
     eval += evaluate_piece(board, PieceType::Knight, stm, &mut eval_data)
         - evaluate_piece(board, PieceType::Knight, !stm, &mut eval_data);
