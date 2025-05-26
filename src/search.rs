@@ -283,7 +283,8 @@ impl MCTS {
             0.0
         };
 
-        cap_bonus + promo_bonus + pawn_threat_evasion + bad_see_penalty + check_bonus - pawn_protected_penalty
+        cap_bonus + promo_bonus + pawn_threat_evasion + bad_see_penalty + check_bonus
+            - pawn_protected_penalty
             + psqt as f32 / 100.0
     }
 

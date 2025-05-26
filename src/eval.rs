@@ -221,7 +221,7 @@ pub fn piece_attacks(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
     }
 }
 
-pub fn evaluate_piece(
+fn evaluate_piece(
     board: &Board,
     pt: PieceType,
     color: Color,
@@ -248,7 +248,7 @@ pub fn evaluate_piece(
     eval
 }
 
-pub fn evaluate_kings(board: &Board, color: Color, eval_data: &EvalData) -> ScorePair {
+fn evaluate_kings(board: &Board, color: Color, eval_data: &EvalData) -> ScorePair {
     let mut eval = S(0, 0);
 
     let their_king = board.king_sq(!color);
@@ -279,54 +279,53 @@ pub fn evaluate_kings(board: &Board, color: Color, eval_data: &EvalData) -> Scor
     return eval;
 }
 
-pub fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScorePair {
+fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScorePair {
     let mut eval = S(0, 0);
 
-    let defendedBB =
-        eval_data.attacked_by_2[!color as usize] |
-        eval_data.attacked_by[!color as usize][PieceType::Pawn as usize] |
-        (eval_data.attacked[!color as usize] & !eval_data.attacked_by_2[color as usize]);
+    let defended_bb = eval_data.attacked_by_2[!color as usize]
+        | eval_data.attacked_by[!color as usize][PieceType::Pawn as usize]
+        | (eval_data.attacked[!color as usize] & !eval_data.attacked_by_2[color as usize]);
 
-    let mut pawn_threats = eval_data.attacked_by[color as usize][PieceType::Pawn as usize] & board.colors(!color);
-    while (pawn_threats.any())
-    {
+    let mut pawn_threats =
+        eval_data.attacked_by[color as usize][PieceType::Pawn as usize] & board.colors(!color);
+    while pawn_threats.any() {
         let threatened = board.piece_at(pawn_threats.poplsb()).unwrap().piece_type();
         eval += THREAT_BY_PAWN[threatened as usize];
     }
 
-    let mut knight_threats = eval_data.attacked_by[color as usize][PieceType::Knight as usize] & board.colors(!color);
-    while (knight_threats.any())
-    {
+    let mut knight_threats =
+        eval_data.attacked_by[color as usize][PieceType::Knight as usize] & board.colors(!color);
+    while knight_threats.any() {
         let threat = knight_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
-        let defended = defendedBB.has(threat);
+        let defended = defended_bb.has(threat);
         eval += THREAT_BY_KNIGHT[defended as usize][threatened as usize];
     }
 
-    let mut bishop_threats = eval_data.attacked_by[color as usize][PieceType::Bishop as usize] & board.colors(!color);
-    while (bishop_threats.any())
-    {
+    let mut bishop_threats =
+        eval_data.attacked_by[color as usize][PieceType::Bishop as usize] & board.colors(!color);
+    while bishop_threats.any() {
         let threat = bishop_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
-        let defended = defendedBB.has(threat);
+        let defended = defended_bb.has(threat);
         eval += THREAT_BY_BISHOP[defended as usize][threatened as usize];
     }
 
-    let mut rook_threats = eval_data.attacked_by[color as usize][PieceType::Rook as usize] & board.colors(!color);
-    while (rook_threats.any())
-    {
+    let mut rook_threats =
+        eval_data.attacked_by[color as usize][PieceType::Rook as usize] & board.colors(!color);
+    while rook_threats.any() {
         let threat = rook_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
-        let defended = defendedBB.has(threat);
+        let defended = defended_bb.has(threat);
         eval += THREAT_BY_ROOK[defended as usize][threatened as usize];
     }
 
-    let mut queen_threats = eval_data.attacked_by[color as usize][PieceType::Queen as usize] & board.colors(!color);
-    while (queen_threats.any())
-    {
+    let mut queen_threats =
+        eval_data.attacked_by[color as usize][PieceType::Queen as usize] & board.colors(!color);
+    while queen_threats.any() {
         let threat = queen_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
-        let defended = defendedBB.has(threat);
+        let defended = defended_bb.has(threat);
         eval += THREAT_BY_QUEEN[defended as usize][threatened as usize];
     }
 
