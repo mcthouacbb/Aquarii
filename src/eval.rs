@@ -196,10 +196,27 @@ const DEFENDED_PAWN: [ScorePair; 8] = [
     S(0, 0),
 ];
 
-const SAFE_KNIGHT_CHECK: ScorePair = S(80, -5);
-const SAFE_BISHOP_CHECK: ScorePair = S(19, -7);
-const SAFE_ROOK_CHECK: ScorePair = S(58, -6);
-const SAFE_QUEEN_CHECK: ScorePair = S(34, 12);
+const SAFE_KNIGHT_CHECK: ScorePair = S(73, -3);
+const SAFE_BISHOP_CHECK: ScorePair = S(15, -6);
+const SAFE_ROOK_CHECK: ScorePair = S(50, -1);
+const SAFE_QUEEN_CHECK: ScorePair = S(29, 13);
+const KING_ATTACKER_WEIGHT: [ScorePair; 4] = [S(15, -4), S(10, -1), S(10, -17), S(1, 13)];
+const KING_ATTACKS: [ScorePair; 14] = [
+    S(-24, 9),
+    S(-29, 7),
+    S(-32, 5),
+    S(-30, 11),
+    S(-21, 8),
+    S(-4, 4),
+    S(23, -7),
+    S(57, -21),
+    S(102, -41),
+    S(139, -57),
+    S(187, -71),
+    S(260, -113),
+    S(265, -95),
+    S(257, -86),
+];
 
 const THREAT_BY_PAWN: [ScorePair; 6] = [
     S(4, -20),
@@ -234,6 +251,9 @@ struct EvalData {
     attacked: [Bitboard; 2],
     attacked_by: [[Bitboard; 6]; 2],
     attacked_by_2: [Bitboard; 2],
+    king_ring: [Bitboard; 2],
+    king_attack_weight: [ScorePair; 2],
+    king_attacks: [i32; 2],
 }
 
 impl Default for EvalData {
@@ -242,6 +262,9 @@ impl Default for EvalData {
             attacked: [Bitboard::NONE; 2],
             attacked_by: [[Bitboard::NONE; 6]; 2],
             attacked_by_2: [Bitboard::NONE; 2],
+            king_ring: [Bitboard::NONE; 2],
+            king_attack_weight: [S(0, 0); 2],
+            king_attacks: [0; 2],
         }
     }
 }
@@ -279,6 +302,13 @@ fn evaluate_piece(
         eval_data.attacked_by_2[color as usize] |= attacks & eval_data.attacked[color as usize];
         eval_data.attacked[color as usize] |= attacks;
         eval_data.attacked_by[color as usize][pt as usize] |= attacks;
+
+        let king_ring_attacks = eval_data.king_ring[!color as usize] & attacks;
+        if king_ring_attacks.any() {
+            eval_data.king_attack_weight[color as usize] +=
+                KING_ATTACKER_WEIGHT[pt as usize - PieceType::Knight as usize];
+            eval_data.king_attacks[color as usize] += king_ring_attacks.popcount() as i32;
+        }
     }
     eval
 }
@@ -310,6 +340,9 @@ fn evaluate_kings(board: &Board, color: Color, eval_data: &EvalData) -> ScorePai
     eval += SAFE_BISHOP_CHECK * (bishop_checks & safe).popcount() as i32;
     eval += SAFE_ROOK_CHECK * (rook_checks & safe).popcount() as i32;
     eval += SAFE_QUEEN_CHECK * (queen_checks & safe).popcount() as i32;
+
+    eval += eval_data.king_attack_weight[color as usize];
+    eval += KING_ATTACKS[eval_data.king_attacks[color as usize].min(13) as usize];
 
     return eval;
 }
@@ -439,6 +472,11 @@ pub fn eval(board: &Board) -> i32 {
     eval_data.attacked[Color::Black as usize] = bking_atks;
     eval_data.attacked_by[Color::White as usize][PieceType::King as usize] = wking_atks;
     eval_data.attacked_by[Color::Black as usize][PieceType::King as usize] = bking_atks;
+
+    eval_data.king_ring[Color::White as usize] =
+        (wking_atks | wking_atks.north()) & !Bitboard::from_square(board.king_sq(Color::White));
+    eval_data.king_ring[Color::Black as usize] =
+        (bking_atks | bking_atks.south()) & !Bitboard::from_square(board.king_sq(Color::Black));
 
     eval += evaluate_piece(board, PieceType::Knight, stm, &mut eval_data)
         - evaluate_piece(board, PieceType::Knight, !stm, &mut eval_data);
