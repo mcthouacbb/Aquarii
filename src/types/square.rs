@@ -51,6 +51,16 @@ impl Square {
     pub const fn flip(self) -> Self {
         Self::from_raw(self.value() ^ 56)
     }
+
+    pub const fn chebyshev(a: Self, b: Self) -> i32 {
+        let file_diff = (a.file() as i32 - b.file() as i32).abs();
+        let rank_diff = (a.rank() as i32 - b.rank() as i32).abs();
+        if file_diff > rank_diff {
+            file_diff
+        } else {
+            rank_diff
+        }
+    }
 }
 
 impl ops::Add<i32> for Square {

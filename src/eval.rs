@@ -174,6 +174,27 @@ const PASSED_PAWN: [ScorePair; 8] = [
     S(0, 0),
 ];
 
+const OUR_PASSER_PROXIMITY: [ScorePair; 8] = [
+    S(77, 98),
+    S(71, 101),
+    S(45, 72),
+    S(7, 58),
+    S(5, 38),
+    S(7, 25),
+    S(12, 17),
+    S(-8, 24),
+];
+const THEIR_PASSER_PROXIMITY: [ScorePair; 8] = [
+    S(-45, -10),
+    S(-3, 3),
+    S(25, 0),
+    S(20, 31),
+    S(15, 64),
+    S(19, 78),
+    S(25, 79),
+    S(31, 68),
+];
+
 const PAWN_PHALANX: [ScorePair; 8] = [
     S(0, 0),
     S(5, -2),
@@ -372,13 +393,19 @@ fn evaluate_pawns(board: &Board, color: Color) -> ScorePair {
     let our_pawns = board.colored_pieces(Piece::new(color, PieceType::Pawn));
     let their_pawns = board.colored_pieces(Piece::new(!color, PieceType::Pawn));
 
+    let our_king = board.king_sq(color);
+    let their_king = board.king_sq(!color);
+
     let mut tmp = our_pawns;
     while tmp.any() {
         let sq = tmp.poplsb();
+        let push_sq = sq + if color == Color::White { 8 } else { -8 };
         let relative_rank = sq.relative_sq(color).rank();
         let stoppers = their_pawns & attacks::passed_pawn_span(color, sq);
         if stoppers.empty() {
             eval += PASSED_PAWN[relative_rank as usize];
+            eval += OUR_PASSER_PROXIMITY[Square::chebyshev(push_sq, our_king) as usize];
+            eval += THEIR_PASSER_PROXIMITY[Square::chebyshev(push_sq, their_king) as usize];
         }
     }
 
