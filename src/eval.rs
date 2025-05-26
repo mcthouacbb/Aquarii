@@ -225,11 +225,7 @@ pub fn evaluate_piece(
     eval
 }
 
-pub fn evaluate_kings(
-    board: &Board,
-    color: Color,
-    eval_data: &EvalData,
-) -> ScorePair {
+pub fn evaluate_kings(board: &Board, color: Color, eval_data: &EvalData) -> ScorePair {
     let mut eval = S(0, 0);
 
     let their_king = board.king_sq(!color);
