@@ -459,5 +459,5 @@ pub fn eval(board: &Board) -> i32 {
         + board.pieces(PieceType::Bishop).popcount()
         + board.pieces(PieceType::Knight).popcount()) as i32;
 
-    (eval.mg() * phase.min(24) + eval.eg() * (24 - phase.min(24))) / 24
+    (eval.mg() * phase.min(24) + eval.eg() * (24 - phase.min(24))) / 24 + 20
 }
