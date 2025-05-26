@@ -277,7 +277,13 @@ impl MCTS {
             0.0
         };
 
-        cap_bonus + promo_bonus + pawn_threat_evasion + bad_see_penalty - pawn_protected_penalty
+        let check_bonus = if board.gives_direct_check(mv) {
+            0.9
+        } else {
+            0.0
+        };
+
+        cap_bonus + promo_bonus + pawn_threat_evasion + bad_see_penalty + check_bonus - pawn_protected_penalty
             + psqt as f32 / 100.0
     }
 

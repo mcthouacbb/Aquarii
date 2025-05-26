@@ -10,6 +10,7 @@ pub struct Board {
     checkers: Bitboard,
     diag_pinned: Bitboard,
     hv_pinned: Bitboard,
+    check_squares: [Bitboard; 5],
     castling_rooks: CastlingRooks,
     stm: Color,
     ep_square: Option<Square>,
@@ -317,6 +318,18 @@ impl Board {
         self.update_check_info();
     }
 
+    // doesn't handle castling or discovered check
+    pub fn gives_direct_check(&self, mv: Move) -> bool {
+        let moved_piece = if mv.kind() == MoveKind::Promotion {
+            mv.promo_piece()
+        } else {
+            self.piece_at(mv.from_sq()).unwrap().piece_type()
+        };
+
+        return moved_piece != PieceType::King
+            && self.check_squares[moved_piece as usize].has(mv.to_sq());
+    }
+
     pub fn stm(&self) -> Color {
         self.stm
     }
@@ -483,6 +496,7 @@ impl Board {
             checkers: Bitboard::NONE,
             diag_pinned: Bitboard::NONE,
             hv_pinned: Bitboard::NONE,
+            check_squares: [Bitboard::NONE; 5],
             castling_rooks: CastlingRooks::DEFAULT,
             stm: Color::White,
             ep_square: None,
@@ -560,6 +574,18 @@ impl Board {
                 self.hv_pinned |= between;
             }
         }
+
+        self.check_squares[PieceType::Pawn as usize] =
+            attacks::pawn_attacks(!self.stm(), self.king_sq(!self.stm()));
+        self.check_squares[PieceType::Knight as usize] =
+            attacks::knight_attacks(self.king_sq(!self.stm()));
+        self.check_squares[PieceType::Bishop as usize] =
+            attacks::bishop_attacks(self.king_sq(!self.stm()), self.occ());
+        self.check_squares[PieceType::Rook as usize] =
+            attacks::rook_attacks(self.king_sq(!self.stm()), self.occ());
+        self.check_squares[PieceType::Queen as usize] = self.check_squares
+            [PieceType::Bishop as usize]
+            | self.check_squares[PieceType::Rook as usize];
     }
 }
 
