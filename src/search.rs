@@ -176,7 +176,7 @@ impl MCTS {
                         if root {
                             1000.0
                         } else {
-                            0.5
+                            node.q()
                         }
                     } else {
                         // 1 - child q because child q is from opposite perspective of current node
