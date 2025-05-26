@@ -174,6 +174,28 @@ const PASSED_PAWN: [ScorePair; 8] = [
     S(0, 0),
 ];
 
+const PAWN_PHALANX: [ScorePair; 8] = [
+    S(0, 0),
+    S(5, -2),
+    S(18, 11),
+    S(22, 26),
+    S(46, 64),
+    S(175, 267),
+    S(183, 252),
+    S(0, 0),
+];
+
+const DEFENDED_PAWN: [ScorePair; 8] = [
+    S(0, 0),
+    S(0, 0),
+    S(18, 22),
+    S(15, 22),
+    S(23, 34),
+    S(61, 100),
+    S(179, 171),
+    S(0, 0),
+];
+
 const SAFE_KNIGHT_CHECK: ScorePair = S(80, -5);
 const SAFE_BISHOP_CHECK: ScorePair = S(19, -7);
 const SAFE_ROOK_CHECK: ScorePair = S(58, -6);
@@ -358,6 +380,15 @@ fn evaluate_pawns(board: &Board, color: Color) -> ScorePair {
         if stoppers.empty() {
             eval += PASSED_PAWN[relative_rank as usize];
         }
+    }
+
+    let mut phalanxes = our_pawns & our_pawns.west();
+    while phalanxes.any() {
+        eval += PAWN_PHALANX[phalanxes.poplsb().relative_sq(color).rank() as usize];
+    }
+    let mut defended = our_pawns & attacks::pawn_attacks_bb(color, our_pawns);
+    while defended.any() {
+        eval += DEFENDED_PAWN[defended.poplsb().relative_sq(color).rank() as usize];
     }
     eval
 }
