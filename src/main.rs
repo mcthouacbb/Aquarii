@@ -4,6 +4,7 @@ mod bench;
 mod chess;
 mod eval;
 mod perft;
+mod policy;
 mod position;
 mod search;
 mod types;
