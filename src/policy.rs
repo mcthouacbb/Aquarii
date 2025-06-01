@@ -50,8 +50,8 @@ pub fn get_policy(board: &Board, mv: Move) -> f32 {
 
     let moving_piece = board.piece_at(mv.from_sq()).unwrap();
     let psqt = if mv.kind() != MoveKind::Promotion {
-        psqt_score(board, moving_piece.piece_type(), mv.to_sq())
-            - psqt_score(board, moving_piece.piece_type(), mv.from_sq())
+        psqt_score(board, moving_piece.piece_type(), mv.to_sq(), board.stm())
+            - psqt_score(board, moving_piece.piece_type(), mv.from_sq(), board.stm())
     } else {
         0
     };
