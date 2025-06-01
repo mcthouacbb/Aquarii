@@ -81,5 +81,5 @@ pub fn get_policy(board: &Board, mv: Move) -> f32 {
 
     cap_bonus + promo_bonus + pawn_threat_evasion + bad_see_penalty + check_bonus
         - pawn_protected_penalty
-        + psqt as f32 / 100.0
+        + psqt as f32 / 50.0
 }
