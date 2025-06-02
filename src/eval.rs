@@ -437,8 +437,27 @@ pub fn psqt_score(board: &Board, pt: PieceType, sq: Square, c: Color) -> i32 {
         / 24
 }
 
+pub fn mopup_eval(board: &Board, strong_side: Color) -> i32 {
+    let mut eval = 1200;
+
+    let strong_king = board.king_sq(strong_side);
+    let weak_king = board.king_sq(!strong_side);
+
+    eval += 300 - 40 * Square::chebyshev(strong_king, weak_king);
+    let edge_dist = weak_king.rank().min(weak_king.file()).min(7 - weak_king.rank()).min(7 - weak_king.file());
+    eval += 320 - 80 * edge_dist as i32;
+
+    eval
+}
+
 pub fn eval(board: &Board) -> i32 {
     let stm = board.stm();
+    if board.colors(stm).one() {
+        return -mopup_eval(board, !stm);
+    } else if board.colors(!stm).one() {
+        return mopup_eval(board, stm);
+    }
+
     let mut eval = S(0, 0);
     for pt in [
         PieceType::Pawn,
