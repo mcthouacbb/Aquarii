@@ -33,6 +33,7 @@ struct Node {
     policy: f32,
     wins: f32,
     visits: u32,
+    gini_impurity: f32
 }
 
 impl Node {
@@ -46,6 +47,7 @@ impl Node {
             policy: policy,
             wins: 0.0,
             visits: 0,
+            gini_impurity: 0.0,
         }
     }
 
@@ -181,7 +183,8 @@ impl MCTS {
                     let policy = child.policy;
                     let expl = (node.visits as f32).sqrt() / (1 + child.visits) as f32;
                     let cpuct = if root { Self::ROOT_CPUCT } else { Self::CPUCT };
-                    let uct = q + cpuct * policy * expl;
+                    let scale = (0.679 - 1.634 * (node.gini_impurity + 0.001).ln()).min(2.1);
+                    let uct = q + cpuct * scale * policy * expl;
 
                     if uct > best_uct {
                         best_child_idx = child_idx;
@@ -217,9 +220,13 @@ impl MCTS {
         node.first_child_idx = first_child_idx;
         node.child_count = moves.len() as u8;
 
+        let mut gini_impurity = 1.0;
+
         for (i, mv) in moves.iter().enumerate() {
+            gini_impurity -= policies[i] * policies[i];
             self.nodes.push(Node::new(*mv, policies[i]));
         }
+        self.nodes[node_idx as usize].gini_impurity = gini_impurity;
     }
 
     fn eval_wdl(&self) -> f32 {
