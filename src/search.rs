@@ -85,10 +85,10 @@ fn sigmoid_inv(x: f32, scale: f32) -> f32 {
     scale * (x / (1.0 - x)).ln()
 }
 
-fn softmax(vals: &mut ArrayVec<f32, 256>, max_val: f32) {
+fn softmax(vals: &mut ArrayVec<f32, 256>, max_val: f32, temp: f32) {
     let mut exp_sum = 0.0;
     for v in vals.iter_mut() {
-        *v = (*v - max_val).exp();
+        *v = ((*v - max_val) / temp).exp();
         exp_sum += *v;
     }
     for v in vals.iter_mut() {
@@ -199,6 +199,8 @@ impl MCTS {
     }
 
     fn expand_node(&mut self, node_idx: u32) {
+        let pst = if node_idx == 0 { 2.0 } else { 1.0 };
+
         let mut moves = MoveList::new();
         movegen(self.position.board(), &mut moves);
 
@@ -210,7 +212,7 @@ impl MCTS {
             policies.push(policy);
         }
 
-        softmax(&mut policies, max_policy);
+        softmax(&mut policies, max_policy, pst);
 
         let first_child_idx = self.nodes.len() as u32;
         let node = &mut self.nodes[node_idx as usize];
