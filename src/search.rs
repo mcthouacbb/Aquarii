@@ -181,7 +181,7 @@ impl MCTS {
                     let policy = child.policy;
                     let expl = (node.visits as f32).sqrt() / (1 + child.visits) as f32;
                     let cpuct = if root { Self::ROOT_CPUCT } else { Self::CPUCT };
-                    let uct = q + cpuct * policy * expl;
+                    let uct = q + cpuct * policy * expl / 2.0;
 
                     if uct > best_uct {
                         best_child_idx = child_idx;
