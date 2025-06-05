@@ -11,7 +11,7 @@ use crate::{
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 #[repr(u8)]
-enum GameResult {
+pub enum GameResult {
     NonTerminal,
     Mated,
     Drawn,

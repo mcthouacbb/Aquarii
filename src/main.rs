@@ -8,6 +8,7 @@ mod policy;
 mod position;
 mod search;
 mod types;
+mod datagen;
 
 use bench::run_bench;
 use chess::{
@@ -17,6 +18,8 @@ use chess::{
 use position::Position;
 use search::SearchLimits;
 use types::Color;
+
+use crate::datagen::run_datagen;
 
 fn move_from_str(board: &Board, mv_str: &str) -> Option<Move> {
     let parsed = mv_str.parse::<Move>().unwrap_or(Move::NULL);
@@ -74,6 +77,11 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() == 2 && args[1] == "bench" {
         run_bench();
+        return;
+    }
+
+    if args.len() == 2 && args[1] == "datagen" {
+        run_datagen();
         return;
     }
 
