@@ -2,11 +2,32 @@ use rand::Rng;
 use rand_core::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
 
-use crate::{chess::movegen::{self, MoveList}, position::Position, search::{GameResult, SearchLimits, MCTS}, types::Color};
+use crate::{chess::{movegen::{self, MoveList}, Move}, position::Position, search::{GameResult, MateScore, Score, SearchLimits, MCTS}, types::Color};
 
+#[derive(Debug, Clone, Default)]
+struct DataPoint {
+	fen: String,
+	visit_dist: Vec<(Move, f32)>,
+	score: f32
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+enum WDL {
+	WhiteWin,
+	#[default]
+	Draw,
+	BlackWin,
+}
+
+#[derive(Debug, Clone, Default)]
+struct Game {
+	points: Vec<DataPoint>,
+	wdl: WDL
+}
 
 pub fn run_datagen() {
 	let mut search = MCTS::new(10000);
+	// temporary
 	let seed = rand::rng().next_u64();
 	println!("RNG seed: {}", seed);
 
@@ -60,23 +81,36 @@ fn run_game(search: &mut MCTS, rng: &mut XorShiftRng) {
 	let mut pos = init_opening(rng);
 
 	println!("opening position: {}", pos.board().to_fen());
+
+	let mut game = Game::default();
 	
 	loop {
 		let results = search.run(limits, false, &pos);
-		println!("best move: {}", results.best_move);
+		let score_str = match results.score {
+			Score::Mate(mate_score) => match mate_score {
+				MateScore::Loss(ply) => format!("mate -{}", ply),
+				MateScore::Win(ply) => format!("mate {}", ply),
+			},
+			Score::Normal(wdl) => format!("wdl {}", wdl),
+		};
+		println!("best move: {}, score: {}", results.best_move, score_str);
+		println!("visit dist: {:?}", results.visit_dist);
 
 		pos.make_move(results.best_move);
 		let game_result = game_result(&pos);
 		match game_result {
 			GameResult::Drawn => {
 				println!("Draw");
+				game.wdl = WDL::Draw;
 				break;
 			}
 			GameResult::Mated => {
 				if pos.board().stm() == Color::White {
 					println!("Black win");
+					game.wdl = WDL::BlackWin;
 				} else {
 					println!("White win");
+					game.wdl = WDL::WhiteWin;
 				}
 				break;
 			}
