@@ -28,7 +28,7 @@ struct Game {
 pub fn run_datagen() {
 	let mut search = MCTS::new(10000);
 	// temporary
-	let seed = rand::rng().next_u64();
+	let seed = 9792801834308900943;//rand::rng().next_u64();
 	println!("RNG seed: {}", seed);
 
 	let mut rng = XorShiftRng::seed_from_u64(seed);
@@ -74,7 +74,7 @@ fn init_opening(rng: &mut XorShiftRng) -> Position {
 	}
 }
 
-fn run_game(search: &mut MCTS, rng: &mut XorShiftRng) {
+fn run_game(search: &mut MCTS, rng: &mut XorShiftRng) -> Game {
 	let mut limits = SearchLimits::new();
 	limits.max_nodes = 5000;
 
@@ -93,8 +93,20 @@ fn run_game(search: &mut MCTS, rng: &mut XorShiftRng) {
 			},
 			Score::Normal(wdl) => format!("wdl {}", wdl),
 		};
+		let mut datapt_score = match results.score {
+			Score::Mate(mate_score) => match mate_score {
+				MateScore::Loss(_) => 0.0,
+				MateScore::Win(_) => 1.0,
+			},
+			Score::Normal(wdl) => wdl,
+		};
+		if pos.board().stm() == Color::Black {
+			datapt_score = 1.0 - datapt_score;
+		}
 		println!("best move: {}, score: {}", results.best_move, score_str);
-		println!("visit dist: {:?}", results.visit_dist);
+		// println!("visit dist: {:?}", results.visit_dist);
+
+		game.points.push(DataPoint { fen: pos.board().to_fen(), visit_dist: results.visit_dist, score: datapt_score});
 
 		pos.make_move(results.best_move);
 		let game_result = game_result(&pos);
@@ -119,4 +131,5 @@ fn run_game(search: &mut MCTS, rng: &mut XorShiftRng) {
 			}
 		}
 	}
+	game
 }

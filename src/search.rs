@@ -211,10 +211,12 @@ impl MCTS {
         let mut moves = MoveList::new();
         movegen(self.position.board(), &mut moves);
 
+        let tmp = if node_idx == 0 { 3.0 } else { 1.0 };
+
         let mut policies = ArrayVec::<f32, 256>::new();
         let mut max_policy = 0f32;
         for mv in moves.iter() {
-            let policy = get_policy(self.position.board(), *mv);
+            let policy = get_policy(self.position.board(), *mv) / tmp;
             max_policy = max_policy.max(policy);
             policies.push(policy);
         }
