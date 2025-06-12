@@ -19,6 +19,16 @@ enum WDL {
 	BlackWin,
 }
 
+impl WDL {
+	fn as_f32(self) -> f32 {
+		match self {
+			Self::WhiteWin => 1.0,
+			Self::Draw => 0.5,
+			Self::BlackWin => 0.0,
+		}
+	}
+}
+
 #[derive(Debug, Clone, Default)]
 struct Game {
 	points: Vec<DataPoint>,
@@ -33,11 +43,20 @@ pub fn run_datagen() {
 
 	let mut rng = XorShiftRng::seed_from_u64(seed);
 	loop {
-		run_game(&mut search, &mut rng);
+		let game = run_game(&mut search, &mut rng);
+		println!("{}", serialize_value(&game));
 
 		// temporary
 		break;
 	}
+}
+
+fn serialize_value(game: &Game) -> String {
+	let mut result = String::new();
+	for pt in &game.points {
+		result += format!("{} | {} | {}\n", pt.fen, pt.score, game.wdl.as_f32()).as_str();
+	}
+	result
 }
 
 fn game_result(pos: &Position) -> GameResult {
