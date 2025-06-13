@@ -63,49 +63,22 @@ pub fn compute_single_grad(params: &Vec<f32>, grads: &mut Vec<f32>, pos: &Positi
     }
 }
 
-pub fn compute_grads(params: &Vec<f32>, grads: &mut Vec<f32>, dataset: &Dataset) {
-    for pos in &dataset.positions {
+pub fn compute_grads(params: &Vec<f32>, grads: &mut Vec<f32>, positions: &[Position]) {
+    for pos in positions {
         compute_single_grad(params, grads, pos);
     }
     for grad in grads {
-        *grad /= dataset.positions.len() as f32;
+        *grad /= positions.len() as f32;
     }
 }
-
-/*pub fn compute_grads_slow(params: &mut Vec<f32>, grads: &mut Vec<f32>, dataset: &Dataset) {
-    const EPSILON: f32 = 0.00001;
-    for i in 0..params.len() {
-        let old_error = error_total(params, dataset);
-        let old = params[i];
-
-        params[i] += EPSILON;
-        let new_error = error_total(params, dataset);
-        params[i] = old;
-
-        grads[i] = (new_error - old_error) / EPSILON;
-    }
-}
-
-pub fn compare_slow_fast(params: &Vec<f32>, dataset: &Dataset) {
-    let mut grads_slow = params.clone();
-    grads_slow.fill(0.0);
-    let mut grads_fast = params.clone();
-    grads_fast.fill(0.0);
-    compute_grads(&mut params.clone(), &mut grads_fast, dataset);
-    compute_grads_slow(&mut params.clone(), &mut grads_slow, dataset);
-
-    for i in 0..params.len() {
-        if (grads_slow[i] - grads_fast[i]).abs() > 0.001 {
-            println!("{} slow {} fast {}", i, grads_slow[i], grads_fast[i])
-        }
-    }
-}*/
 
 pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
     const BETA1: f32 = 0.9;
     const BETA2: f32 = 0.999;
     const EPSILON: f32 = 1e-8;
     const LR: f32 = 0.1;
+    const BATCH_SIZE: u32 = 16384;
+    const SUPERBATCH_SIZE: u32 = 6104;
 
     let mut grads = params.clone();
     let mut velocity = params.clone();
@@ -114,17 +87,39 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
     velocity.fill(0.0);
     momentum.fill(0.0);
 
-    for i in 1..=100000 {
-        compute_grads(&params, &mut grads, dataset);
+    let mut batch_idx = 0;
+    let mut num_batches = 0;
+    loop {
+        let begin_idx = batch_idx * BATCH_SIZE as usize;
+        let end_idx = (batch_idx + 1) * BATCH_SIZE as usize;
+        if end_idx > dataset.positions.len() {
+            batch_idx = 0;
+            continue;
+        }
+        compute_grads(&params, &mut grads, &dataset.positions[begin_idx..end_idx]);
         // compare_slow_fast(&params, dataset);
-        for j in 0..params.len() {
-            momentum[j] = BETA1 * momentum[j] + (1.0 - BETA1) * grads[j];
-            velocity[j] = BETA2 * velocity[j] + (1.0 - BETA2) * grads[j] * grads[j];
-            params[j] -= LR * momentum[j] / (velocity[j].sqrt() + EPSILON);
+        for i in 0..params.len() {
+            momentum[i] = BETA1 * momentum[i] + (1.0 - BETA1) * grads[i];
+            velocity[i] = BETA2 * velocity[i] + (1.0 - BETA2) * grads[i] * grads[i];
+            params[i] -= LR * momentum[i] / (velocity[i].sqrt() + EPSILON);
+        }
+        batch_idx += 1;
+        num_batches += 1;
+
+        if num_batches % 100 == 0 {
+            println!(
+                "Batch {} error {}",
+                num_batches,
+                error_total(&params, dataset)
+            );
         }
 
-        println!("Epoch {} error {}", i, error_total(&params, dataset));
-        if i % 25 == 0 {
+        if num_batches % SUPERBATCH_SIZE == 0 {
+            println!(
+                "SuperBatch {} error {}",
+                num_batches / SUPERBATCH_SIZE,
+                error_total(&params, dataset)
+            );
             println!("{}", trace::PolicyFeature::format_all_features(&params));
         }
     }

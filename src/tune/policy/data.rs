@@ -3,12 +3,13 @@ use std::{
     io::{BufRead, BufReader},
 };
 
+use rand::seq::SliceRandom;
+
 use crate::{
     chess::{
         movegen::{self, MoveList},
         Board,
     },
-    policy,
     tune::policy::trace,
 };
 
@@ -33,6 +34,8 @@ pub fn load_dataset(files: &[File]) -> Dataset {
     for file in files {
         load_data_file(&file, &mut positions);
     }
+    positions.shuffle(&mut rand::rng());
+    println!("Finished shuffling positions");
     Dataset {
         positions: positions,
     }
