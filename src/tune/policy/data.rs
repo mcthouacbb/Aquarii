@@ -13,18 +13,19 @@ use crate::{
 };
 
 pub struct Coefficient {
-    mv_idx: u16,
-    index: u16,
-    value: f32,
+    pub mv_idx: u16,
+    pub index: u16,
+    pub value: f32,
 }
 
 pub struct Position {
-    coeffs: Vec<Coefficient>,
-    visit_dist: Vec<f32>,
+    pub coeffs: Vec<Coefficient>,
+    pub visit_dist: Vec<f32>,
+    pub movecount: u8,
 }
 
 pub struct Dataset {
-    positions: Vec<Position>,
+    pub positions: Vec<Position>,
 }
 
 pub fn load_dataset(files: &[File]) -> Dataset {
@@ -51,6 +52,7 @@ fn load_data_file(file: &File, positions: &mut Vec<Position>) {
         let mut pos = Position {
             coeffs: Vec::new(),
             visit_dist: Vec::with_capacity(parts.len() - 1),
+            movecount: 0,
         };
 
         for str in parts.iter().skip(1) {
@@ -63,6 +65,8 @@ fn load_data_file(file: &File, positions: &mut Vec<Position>) {
         // somehow get coeffs out of policy
         let mut moves = MoveList::new();
         movegen::movegen(&board, &mut moves);
+
+        pos.movecount = moves.len() as u8;
 
         for (mv_idx, mv) in moves.iter().enumerate() {
             let coeffs = trace::compute_coeffs(&board, *mv);

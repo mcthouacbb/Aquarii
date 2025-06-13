@@ -1,0 +1,79 @@
+use arrayvec::ArrayVec;
+
+use crate::tune::policy::data::{Dataset, Position};
+
+fn eval_policy(params: &Vec<f32>, pos: &Position) -> ArrayVec<f32, 256> {
+    let mut result = ArrayVec::new();
+
+    for i in 0..pos.movecount {
+        result.push(0.0);
+    }
+
+    for coeff in &pos.coeffs {
+        result[coeff.mv_idx as usize] += params[coeff.index as usize] * coeff.value;
+    }
+
+    let mut max = -100000.0f32;
+    for elem in &result {
+        max = max.max(*elem);
+    }
+
+    let mut sum = 0.0f32;
+    for elem in result.iter_mut() {
+        *elem = (*elem - max).exp();
+        sum += *elem;
+    }
+
+    for elem in result.iter_mut() {
+        *elem /= sum;
+    }
+
+    result
+}
+
+fn error_single(params: &Vec<f32>, pos: &Position) -> f32 {
+    let policy = eval_policy(params, pos);
+    let mut loss = 0.0;
+    for i in 0..pos.movecount {
+        loss -= pos.visit_dist[i as usize] * policy[i as usize].ln();
+    }
+    loss
+}
+
+pub fn error_total(params: &Vec<f32>, dataset: &Dataset) -> f32 {
+    let mut total = 0.0;
+    for pos in &dataset.positions {
+        total += error_single(params, pos);
+    }
+    total / dataset.positions.len() as f32
+}
+
+pub fn compute_grads(params: &mut Vec<f32>, grads: &mut Vec<f32>, dataset: &Dataset) {
+    const EPSILON: f32 = 0.001;
+    for i in 0..params.len() {
+        let old_error = error_total(params, dataset);
+        let old = params[i];
+
+        params[i] += EPSILON;
+        let new_error = error_total(params, dataset);
+        params[i] = old;
+
+        grads[i] = (new_error - old_error) / EPSILON;
+    }
+}
+
+pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
+    let mut grads = params.clone();
+
+    for i in 1..=100 {
+        compute_grads(&mut params, &mut grads, dataset);
+        for j in 0..params.len() {
+            params[j] -= grads[j];
+        }
+
+        println!("Epoch {} error {}", i, error_total(&params, dataset));
+        if i % 10 == 0 {
+            println!("{:?}", params);
+        }
+    }
+}

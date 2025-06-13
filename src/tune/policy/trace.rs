@@ -110,6 +110,8 @@ enum PolicyFeature {
 }
 
 impl PolicyFeature {
+    pub const TOTAL_TERMS: u32 = 7;
+
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
     }
@@ -133,6 +135,14 @@ impl PolicyFeature {
             offset += Self::ft_cnt(Self::from_raw(i));
         }
         offset
+    }
+
+    fn total_fts() -> u32 {
+        let mut count = 0;
+        for i in 0..Self::TOTAL_TERMS {
+            count += Self::ft_cnt(Self::from_raw(i));
+        }
+        count
     }
 }
 
@@ -219,5 +229,13 @@ pub fn compute_coeffs(board: &Board, mv: Move) -> Vec<(u32, f32)> {
         result.push(elem);
     }
 
+    result
+}
+
+pub fn zero_params() -> Vec<f32> {
+    let mut result = Vec::new();
+    for i in 0..PolicyFeature::total_fts() {
+        result.push(0.0);
+    }
     result
 }
