@@ -99,17 +99,29 @@ pub fn compare_slow_fast(params: &Vec<f32>, dataset: &Dataset) {
 }*/
 
 pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
-    let mut grads = params.clone();
+	const BETA1: f32 = 0.9;
+	const BETA2: f32 = 0.999;
+	const EPSILON: f32 = 1e-8;
+	const LR: f32 = 0.1;
 
-    for i in 1..=100 {
+    let mut grads = params.clone();
+	let mut velocity = params.clone();
+	let mut momentum = params.clone();
+	grads.fill(0.0);
+	velocity.fill(0.0);
+	momentum.fill(0.0);
+
+    for i in 1..=100000 {
         compute_grads(&params, &mut grads, dataset);
 		// compare_slow_fast(&params, dataset);
         for j in 0..params.len() {
-            params[j] -= grads[j];
+			momentum[j] = BETA1 * momentum[j] + (1.0 - BETA1) * grads[j];
+			velocity[j] = BETA2 * velocity[j] + (1.0 - BETA2) * grads[j] * grads[j];
+			params[j] -= LR * momentum[j] / (velocity[j].sqrt() + EPSILON);
         }
 
         println!("Epoch {} error {}", i, error_total(&params, dataset));
-        if i % 10 == 0 {
+        if i % 1000 == 0 {
             println!("{:?}", params);
         }
     }
