@@ -234,7 +234,7 @@ pub fn compute_coeffs(board: &Board, mv: Move) -> Vec<(u32, f32)> {
 
 pub fn zero_params() -> Vec<f32> {
     let mut result = Vec::new();
-    for i in 0..PolicyFeature::total_fts() {
+    for _ in 0..PolicyFeature::total_fts() {
         result.push(0.0);
     }
     result

@@ -48,8 +48,29 @@ pub fn error_total(params: &Vec<f32>, dataset: &Dataset) -> f32 {
     total / dataset.positions.len() as f32
 }
 
-pub fn compute_grads(params: &mut Vec<f32>, grads: &mut Vec<f32>, dataset: &Dataset) {
-    const EPSILON: f32 = 0.001;
+pub fn compute_single_grad(params: &Vec<f32>, grads: &mut Vec<f32>, pos: &Position) {
+	let policy = eval_policy(params, pos);
+
+	for coeff in &pos.coeffs {
+		let predicted = policy[coeff.mv_idx as usize];
+		let actual = pos.visit_dist[coeff.mv_idx as usize];
+		let grad_contrib = coeff.value * (predicted - actual);
+		// println!("idx: {} value: {} grad: {}", coeff.index, coeff.value, grad_contrib);
+		grads[coeff.index as usize] += grad_contrib;
+	}
+}
+
+pub fn compute_grads(params: &Vec<f32>, grads: &mut Vec<f32>, dataset: &Dataset) {
+	for pos in &dataset.positions {
+		compute_single_grad(params, grads, pos);
+	}
+	for grad in grads {
+		*grad /= dataset.positions.len() as f32;
+	}
+}
+
+/*pub fn compute_grads_slow(params: &mut Vec<f32>, grads: &mut Vec<f32>, dataset: &Dataset) {
+    const EPSILON: f32 = 0.00001;
     for i in 0..params.len() {
         let old_error = error_total(params, dataset);
         let old = params[i];
@@ -62,11 +83,27 @@ pub fn compute_grads(params: &mut Vec<f32>, grads: &mut Vec<f32>, dataset: &Data
     }
 }
 
+pub fn compare_slow_fast(params: &Vec<f32>, dataset: &Dataset) {
+	let mut grads_slow = params.clone();
+	grads_slow.fill(0.0);
+	let mut grads_fast = params.clone();
+	grads_fast.fill(0.0);
+	compute_grads(&mut params.clone(), &mut grads_fast, dataset);
+	compute_grads_slow(&mut params.clone(), &mut grads_slow, dataset);
+	
+	for i in 0..params.len() {
+		if (grads_slow[i] - grads_fast[i]).abs() > 0.001 {
+			println!("{} slow {} fast {}", i, grads_slow[i], grads_fast[i])
+		}
+	}
+}*/
+
 pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
     let mut grads = params.clone();
 
     for i in 1..=100 {
-        compute_grads(&mut params, &mut grads, dataset);
+        compute_grads(&params, &mut grads, dataset);
+		// compare_slow_fast(&params, dataset);
         for j in 0..params.len() {
             params[j] -= grads[j];
         }
