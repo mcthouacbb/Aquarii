@@ -67,16 +67,23 @@ pub fn datagen_thread(thread_id: i32) {
     let value_filename = format!("datagen{}.value.txt", thread_id);
     let mut value_file = File::create(value_filename).expect("Unable to create value data file");
 
+    let policy_filename = format!("datagen{}.policy.txt", thread_id);
+    let mut policy_file = File::create(policy_filename).expect("Unable to create policy data file");
+
     let mut rng = XorShiftRng::seed_from_u64(seed);
     let mut games = 0;
     let mut positions = 0;
     let mut start_time = Instant::now();
     loop {
         let game = run_game(thread_id, &mut search, &mut rng);
-        let (num_positions, data) = serialize_value(&game);
+        let (num_positions, value_data, policy_data) = serialize(&game);
         value_file
-            .write_all(data.as_bytes())
-            .expect("Unable to write data");
+            .write_all(value_data.as_bytes())
+            .expect("Unable to write value data");
+
+        policy_file
+            .write_all(policy_data.as_bytes())
+            .expect("Unable to write policy data");
 
         games += 1;
         positions += num_positions;
@@ -94,14 +101,22 @@ pub fn datagen_thread(thread_id: i32) {
     }
 }
 
-fn serialize_value(game: &Game) -> (i32, String) {
-    let mut result = String::new();
+fn serialize(game: &Game) -> (i32, String, String) {
+    let mut value = String::new();
+    let mut policy = String::new();
     let mut num_positions = 0;
     for pt in &game.points {
-        result += format!("{} | {} | {}\n", pt.fen, pt.score, game.wdl.as_f32()).as_str();
+        value += format!("{} | {} | {}\n", pt.fen, pt.score, game.wdl.as_f32()).as_str();
+
+        policy += pt.fen.as_str();
+        for (mv, frac) in &pt.visit_dist {
+            policy += format!(" | {}:{}", mv, frac).as_str();
+        }
+        policy += "\n";
+
         num_positions += 1;
     }
-    (num_positions, result)
+    (num_positions, value, policy)
 }
 
 fn game_result(pos: &Position) -> GameResult {

@@ -72,17 +72,17 @@ impl Move {
 
 impl fmt::Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{}{}",
-            self.from_sq(),
-            self.to_sq(),
-            if self.kind() == MoveKind::Promotion {
+        if self.kind() == MoveKind::Promotion {
+            write!(
+                f,
+                "{}{}{}",
+                self.from_sq(),
+                self.to_sq(),
                 Piece::new(Color::Black, self.promo_piece()).char_repr()
-            } else {
-                ' '
-            }
-        )
+            )
+        } else {
+            write!(f, "{}{}", self.from_sq(), self.to_sq())
+        }
     }
 }
 
