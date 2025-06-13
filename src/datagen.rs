@@ -110,7 +110,7 @@ fn serialize(game: &Game) -> (i32, String, String) {
 
         policy += pt.fen.as_str();
         for (mv, frac) in &pt.visit_dist {
-            policy += format!(" | {}:{}", mv, frac).as_str();
+            policy += format!(" | {}", frac).as_str();
         }
         policy += "\n";
 
