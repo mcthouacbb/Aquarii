@@ -4,7 +4,10 @@ use std::{mem::swap, num::NonZeroI16, ops::Range, time::Instant};
 use arrayvec::ArrayVec;
 
 use crate::{
-    chess::{movegen::{movegen, MoveList}, Move},
+    chess::{
+        movegen::{movegen, MoveList},
+        Move,
+    },
     eval,
     policy::get_policy,
     position::Position,
@@ -428,7 +431,10 @@ impl MCTS {
         let total = self.nodes[0].visits;
         for child_idx in self.nodes[0].child_indices() {
             let child_node = &self.nodes[child_idx as usize];
-            result.push((child_node.parent_move, child_node.visits as f32 / total as f32));
+            result.push((
+                child_node.parent_move,
+                child_node.visits as f32 / total as f32,
+            ));
         }
         result
     }

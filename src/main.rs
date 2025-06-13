@@ -2,13 +2,13 @@ use std::{env, io, str::SplitWhitespace};
 
 mod bench;
 mod chess;
+mod datagen;
 mod eval;
 mod perft;
 mod policy;
 mod position;
 mod search;
 mod types;
-mod datagen;
 
 use bench::run_bench;
 use chess::{
