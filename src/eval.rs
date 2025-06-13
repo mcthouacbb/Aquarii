@@ -6,18 +6,18 @@ use crate::{
 };
 
 #[derive(Clone, Copy)]
-struct ScorePair(i32);
+pub struct ScorePair(i32);
 
 impl ScorePair {
-    const fn new(mg: i32, eg: i32) -> Self {
+    pub const fn new(mg: i32, eg: i32) -> Self {
         Self((((eg as u32) << 16).wrapping_add(mg as u32)) as i32)
     }
 
-    const fn mg(&self) -> i32 {
+    pub const fn mg(&self) -> i32 {
         self.0 as i16 as i32
     }
 
-    const fn eg(&self) -> i32 {
+    pub const fn eg(&self) -> i32 {
         ((self.0.wrapping_add(0x8000)) as u32 >> 16) as i16 as i32
     }
 }
@@ -76,7 +76,7 @@ impl ops::MulAssign<i32> for ScorePair {
 }
 
 #[allow(non_snake_case)]
-const fn S(mg: i32, eg: i32) -> ScorePair {
+pub const fn S(mg: i32, eg: i32) -> ScorePair {
     ScorePair::new(mg, eg)
 }
 
