@@ -99,7 +99,7 @@ impl PolicyValueType for SparseTrace {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
-enum PolicyFeature {
+pub enum PolicyFeature {
     CapBonus,
     PawnProtectedPenalty,
     PawnThreatEvasion,
@@ -108,6 +108,8 @@ enum PolicyFeature {
     BadSeePenalty,
     CheckBonus,
 }
+
+use PolicyFeature::*;
 
 impl PolicyFeature {
     pub const TOTAL_TERMS: u32 = 7;
@@ -144,9 +146,109 @@ impl PolicyFeature {
         }
         count
     }
-}
 
-use PolicyFeature::*;
+    fn format_single(params: &Vec<f32>, offset: u32) -> String {
+        format!("{}", params[offset as usize])
+    }
+
+    fn format_array_1D(params: &Vec<f32>, offset: u32, size: u32) -> String {
+        let mut result = "[".to_owned();
+        for i in offset..(offset + size) {
+            if i != offset + size - 1 {
+                result += format!("{}, ", params[i as usize]).as_str();
+            } else {
+                result += format!("{}", params[i as usize]).as_str();
+            }
+        }
+        result + "]"
+    }
+
+    fn format_single_feature(self, params: &Vec<f32>) -> String {
+        match self {
+            Self::CapBonus => Self::format_cap_bonus(params),
+            Self::PawnProtectedPenalty => Self::format_pawn_protected_penalty(params),
+            Self::PawnThreatEvasion => Self::format_pawn_threat_evasion(params),
+            Self::PsqtScore => Self::format_psqt_score(params),
+            Self::PromoBonus => Self::format_promo_bonus(params),
+            Self::BadSeePenalty => Self::format_bad_see_penalty(params),
+            Self::CheckBonus => Self::format_check_bonus(params),
+        }
+    }
+
+    fn format_cap_bonus(params: &Vec<f32>) -> String {
+        "const CAP_BONUS: [f32; 5] = ".to_owned()
+            + Self::format_array_1D(params, CapBonus.ft_offset(), CapBonus.ft_cnt()).as_str()
+    }
+
+    fn format_pawn_protected_penalty(params: &Vec<f32>) -> String {
+        "const PAWN_PROTECTED_PENALTY: [f32; 5] = ".to_owned()
+            + Self::format_array_1D(
+                params,
+                PawnProtectedPenalty.ft_offset(),
+                PawnProtectedPenalty.ft_cnt(),
+            )
+            .as_str()
+    }
+
+    fn format_pawn_threat_evasion(params: &Vec<f32>) -> String {
+        "const PAWN_THREAT_EVASION: [f32; 5] = ".to_owned()
+            + Self::format_array_1D(
+                params,
+                PawnThreatEvasion.ft_offset(),
+                PawnThreatEvasion.ft_cnt(),
+            )
+            .as_str()
+    }
+
+    fn format_psqt_score(params: &Vec<f32>) -> String {
+        let mut result = "const PSQT_SCORE: [[(f32, f32); 64]; 64] = [\n".to_owned();
+        for pt in 0..6 {
+            result += "    [\n";
+            for y in 0..8 {
+                result += "        ";
+                for x in 0..8 {
+                    let mg_offset = PsqtScore.ft_offset() + pt * 64 * 2 + y * 8 * 2 + x * 2;
+                    let eg_offset = mg_offset + 1;
+                    result += format!(
+                        "S({}, {}),",
+                        params[mg_offset as usize], params[eg_offset as usize]
+                    )
+                    .as_str();
+                    if x != 7 {
+                        result += " ";
+                    }
+                }
+                result += "\n";
+            }
+            result += "    ],\n";
+        }
+        result + "];\n"
+    }
+
+    fn format_promo_bonus(params: &Vec<f32>) -> String {
+        "const PROMO_BONUS: [f32; 2] = ".to_owned()
+            + Self::format_array_1D(params, PromoBonus.ft_offset(), PromoBonus.ft_cnt()).as_str()
+    }
+
+    fn format_bad_see_penalty(params: &Vec<f32>) -> String {
+        "const BAD_SEE_PENALTY: f32 = ".to_owned()
+            + Self::format_single(params, BadSeePenalty.ft_offset()).as_str()
+    }
+
+    fn format_check_bonus(params: &Vec<f32>) -> String {
+        "const CHECK_BONUS: f32 = ".to_owned()
+            + Self::format_single(params, CheckBonus.ft_offset()).as_str()
+    }
+
+    pub fn format_all_features(params: &Vec<f32>) -> String {
+        let mut result = String::new();
+        for i in 0..Self::TOTAL_TERMS {
+            result += Self::from_raw(i).format_single_feature(params).as_str();
+            result += ";\n";
+        }
+        result
+    }
+}
 
 struct PolicyTrace {}
 
