@@ -12,22 +12,22 @@ use crate::{
     tune::policy::trace,
 };
 
-struct Coefficient {
+pub struct Coefficient {
     mv_idx: u16,
     index: u16,
     value: f32,
 }
 
-struct Position {
+pub struct Position {
     coeffs: Vec<Coefficient>,
     visit_dist: Vec<f32>,
 }
 
-struct Dataset {
+pub struct Dataset {
     positions: Vec<Position>,
 }
 
-pub fn load_dataset(files: Vec<&File>) -> Dataset {
+pub fn load_dataset(files: &[File]) -> Dataset {
     let mut positions = Vec::new();
     for file in files {
         load_data_file(&file, &mut positions);
@@ -76,5 +76,10 @@ fn load_data_file(file: &File, positions: &mut Vec<Position>) {
         }
 
         positions.push(pos);
+
+        if positions.len() % 65536 == 0 {
+            println!("Loaded {} positions", positions.len());
+        }
     }
+    println!("Finished loading {} positions", positions.len());
 }
