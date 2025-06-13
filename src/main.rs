@@ -8,6 +8,7 @@ mod perft;
 mod policy;
 mod position;
 mod search;
+mod tune;
 mod types;
 
 use bench::run_bench;

@@ -124,7 +124,7 @@ impl PolicyValues for PolicyParams {
             _ => 0.0,
         }
     }
-    
+
     fn pawn_protected_penalty(pt: PieceType) -> Self::Value {
         match pt {
             PieceType::Pawn => 0.6,
@@ -135,7 +135,7 @@ impl PolicyValues for PolicyParams {
             _ => 0.0,
         }
     }
-   
+
     fn pawn_threat_evasion(pt: PieceType) -> Self::Value {
         match pt {
             PieceType::Pawn => 0.4,
@@ -146,10 +146,11 @@ impl PolicyValues for PolicyParams {
             _ => 0.0,
         }
     }
-    
+
     fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value {
         ((PSQT[pt as usize][sq.relative_sq(c).flip() as usize].mg() as i32 * phase.min(24)
-            + PSQT[pt as usize][sq.relative_sq(c).flip() as usize].eg() as i32 * (24 - phase.min(24)))
+            + PSQT[pt as usize][sq.relative_sq(c).flip() as usize].eg() as i32
+                * (24 - phase.min(24)))
             / 24) as f32
     }
 
@@ -204,8 +205,8 @@ pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params:
             + board.pieces(PieceType::Bishop).popcount()
             + board.pieces(PieceType::Knight).popcount()) as i32;
 
-        Params::psqt_score(board.stm(), moving_piece.piece_type(), mv.to_sq(), phase) - Params::psqt_score(board.stm(), moving_piece.piece_type(), mv.from_sq(), phase)
-
+        Params::psqt_score(board.stm(), moving_piece.piece_type(), mv.to_sq(), phase)
+            - Params::psqt_score(board.stm(), moving_piece.piece_type(), mv.from_sq(), phase)
     } else {
         Params::Value::default()
     };
