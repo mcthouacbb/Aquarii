@@ -76,7 +76,7 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
     const BETA1: f32 = 0.9;
     const BETA2: f32 = 0.999;
     const EPSILON: f32 = 1e-8;
-    const LR: f32 = 0.1;
+    const LR: f32 = 0.01;
     const BATCH_SIZE: u32 = 16384;
     const SUPERBATCH_SIZE: u32 = 6104;
 
