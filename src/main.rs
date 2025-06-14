@@ -2,11 +2,13 @@ use std::{env, io, str::SplitWhitespace};
 
 mod bench;
 mod chess;
+mod datagen;
 mod eval;
 mod perft;
 mod policy;
 mod position;
 mod search;
+mod tune;
 mod types;
 
 use bench::run_bench;
@@ -74,6 +76,16 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() == 2 && args[1] == "bench" {
         run_bench();
+        return;
+    }
+
+    if args.len() == 2 && args[1] == "datagen" {
+        datagen::run_datagen();
+        return;
+    }
+
+    if args.len() >= 2 && args[1] == "tunepolicy" {
+        tune::policy::main(&args[2..args.len()]);
         return;
     }
 

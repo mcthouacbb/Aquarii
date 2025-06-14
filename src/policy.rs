@@ -1,85 +1,221 @@
-use crate::{
-    chess::{attacks, see, Board, Move, MoveKind},
-    eval::psqt_score,
-    types::{Piece, PieceType},
+use std::{
+    fmt::Debug,
+    ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign},
 };
 
+use crate::{
+    chess::{attacks, see, Board, Move, MoveKind},
+    types::{Color, Piece, PieceType, Square},
+};
+
+// heavily inspired by Motors tuner
+pub trait PolicyValueType:
+    Debug
+    + Default
+    + Clone
+    + PartialEq
+    + Add<Output = Self>
+    + AddAssign
+    + Sub<Output = Self>
+    + SubAssign
+    + Neg<Output = Self>
+    + Mul<f32, Output = Self>
+    + Div<f32, Output = Self>
+{
+}
+
+impl PolicyValueType for f32 {}
+
+pub trait PolicyValues {
+    type Value: PolicyValueType;
+
+    fn cap_bonus(pt: PieceType) -> Self::Value;
+    fn pawn_protected_penalty(pt: PieceType) -> Self::Value;
+    fn pawn_threat_evasion(pt: PieceType) -> Self::Value;
+    fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value;
+    fn promo_bonus(pt: PieceType) -> Self::Value;
+    fn bad_see_penalty() -> Self::Value;
+    fn check_bonus() -> Self::Value;
+}
+
+const fn S(mg: f32, eg: f32) -> (f32, f32) {
+    (mg, eg)
+}
+
+const CAP_BONUS: [f32; 5] = [1.539, 2.534, 2.718, 2.701, 3.315];
+const PAWN_PROTECTED_PENALTY: [f32; 5] = [0.691, 2.104, 1.968, 3.060, 3.213];
+const PAWN_THREAT_EVASION: [f32; 5] = [0.269, 2.441, 2.088, 2.348, 2.777];
+#[rustfmt::skip]
+const PSQT_SCORE: [[(f32, f32); 64]; 6] = [
+    [
+        S(0.000, 0.000), S(0.000, 0.000), S(0.000, 0.000), S(0.000, 0.000), S(0.000, 0.000), S(0.000, 0.000), S(0.000, 0.000), S(0.000, 0.000),
+        S(101.992, 141.192), S(70.521, 127.540), S(89.336, 144.446), S(83.329, 145.742), S(93.242, 132.828), S(44.338, 127.096), S(42.413, 123.313), S(75.334, 154.046),
+        S(32.073, 45.675), S(30.023, 36.445), S(57.265, 52.062), S(70.147, 45.774), S(67.759, 35.448), S(76.145, 27.758), S(43.837, 27.375), S(37.947, 46.593),
+        S(-36.434, -29.552), S(18.184, -37.474), S(16.180, -20.068), S(38.907, -18.582), S(47.349, -30.053), S(32.259, -36.465), S(38.576, -46.100), S(-10.576, -34.647),
+        S(-43.021, -88.375), S(-25.128, -73.104), S(-7.833, -65.707), S(10.309, -52.068), S(2.593, -56.918), S(-1.574, -64.952), S(-4.045, -76.925), S(-22.426, -86.332),
+        S(-20.370, -109.376), S(-30.599, -76.048), S(-3.635, -81.376), S(-22.489, -47.618), S(-7.583, -58.702), S(-13.418, -68.950), S(7.977, -80.681), S(7.303, -102.417),
+        S(-22.501, -91.413), S(-20.543, -69.938), S(-23.114, -62.653), S(-57.934, -36.078), S(-44.938, -34.311), S(0.403, -57.185), S(19.453, -73.875), S(-8.669, -84.122),
+        S(0.000, 0.000), S(0.000, 0.000), S(0.000, 0.000), S(0.000, 0.000), S(0.000, 0.000), S(0.000, 0.000), S(0.000, 0.000), S(0.000, 0.000),
+    ],
+    [
+        S(28.040, -77.630), S(24.193, -34.715), S(-22.004, -7.230), S(47.244, -20.186), S(32.187, -13.956), S(9.871, -29.208), S(2.531, -30.823), S(35.393, -69.695),
+        S(-27.036, -16.772), S(7.864, -5.572), S(11.606, 9.037), S(6.254, 11.128), S(4.337, 7.621), S(41.998, -4.409), S(-4.092, -5.239), S(14.985, -32.683),
+        S(3.135, -10.732), S(35.679, 5.766), S(55.417, 12.575), S(33.925, 25.164), S(60.766, 12.496), S(47.963, 10.741), S(57.731, -3.211), S(19.177, -21.537),
+        S(3.764, -0.121), S(14.982, 19.152), S(38.821, 27.235), S(47.060, 26.677), S(48.584, 26.332), S(50.991, 23.577), S(28.895, 16.890), S(44.053, -14.344),
+        S(-7.707, -5.879), S(12.172, 12.237), S(26.041, 29.898), S(38.145, 25.746), S(43.381, 23.975), S(38.254, 23.822), S(29.437, 13.437), S(7.308, -16.035),
+        S(-46.269, -11.442), S(-2.315, 7.201), S(28.862, 5.769), S(28.769, 19.145), S(38.995, 19.875), S(30.704, 2.323), S(25.927, -5.095), S(-34.758, -9.104),
+        S(-52.099, -23.639), S(-33.664, -11.609), S(-11.338, 1.185), S(-9.955, 7.208), S(-3.731, 6.793), S(6.362, 0.512), S(-13.109, -17.056), S(-30.779, -22.374),
+        S(-84.534, -26.911), S(-59.027, -44.039), S(-61.721, -10.809), S(-37.375, -13.645), S(-41.306, -17.168), S(-25.446, -20.606), S(-52.056, -41.339), S(-84.461, -17.365),
+    ],
+    [
+        S(5.704, -21.581), S(-64.370, -0.057), S(7.891, -18.358), S(-1.148, -4.805), S(-19.815, -5.746), S(-0.069, -15.102), S(-49.514, -4.856), S(9.866, -24.743),
+        S(-36.008, -13.888), S(2.471, -4.494), S(-14.603, 0.402), S(-49.050, 3.977), S(-23.566, -0.138), S(-19.512, -1.476), S(-4.869, -1.988), S(-17.227, -23.107),
+        S(-32.657, -0.063), S(3.317, 1.773), S(6.937, 7.236), S(21.584, -0.349), S(11.318, 4.724), S(17.647, 7.213), S(18.613, -0.069), S(-17.422, -0.125),
+        S(-10.750, -4.551), S(9.572, 7.609), S(12.298, 12.591), S(21.015, 15.354), S(24.125, 14.652), S(14.980, 11.867), S(20.058, 5.560), S(-3.079, -9.626),
+        S(2.621, -10.250), S(-5.619, 12.170), S(3.768, 18.097), S(30.312, 15.914), S(28.896, 13.363), S(9.538, 14.627), S(4.083, 5.497), S(15.250, -20.071),
+        S(-0.758, -7.125), S(14.961, 2.067), S(16.123, 14.148), S(8.833, 14.625), S(6.964, 19.703), S(13.144, 12.819), S(19.401, -2.277), S(6.004, -9.977),
+        S(-14.304, -3.006), S(12.483, -8.906), S(9.799, -1.632), S(-15.601, 7.702), S(-1.995, 5.805), S(19.360, -5.130), S(32.227, -11.612), S(-4.998, -13.995),
+        S(-26.735, -18.887), S(-23.001, -1.212), S(-20.116, -26.338), S(-37.146, -1.145), S(-25.030, -9.727), S(-19.443, -15.844), S(-17.639, -10.424), S(-29.336, -26.329),
+    ],
+    [
+        S(12.954, 15.833), S(-10.180, 18.850), S(-36.081, 29.371), S(-37.298, 22.743), S(-24.945, 16.222), S(-26.639, 15.543), S(-5.920, 12.331), S(41.710, 3.920),
+        S(-3.163, 16.145), S(2.630, 18.131), S(14.407, 18.192), S(18.983, 9.179), S(16.726, 4.410), S(18.016, 2.515), S(7.482, 5.177), S(34.146, -0.393),
+        S(-2.512, 13.751), S(9.188, 9.845), S(17.714, 4.882), S(28.088, -4.094), S(35.057, -13.425), S(30.870, -9.596), S(40.393, -8.060), S(28.819, -6.718),
+        S(-7.038, 12.140), S(5.187, 5.402), S(20.204, 3.572), S(22.833, -2.663), S(32.199, -13.328), S(30.568, -12.517), S(33.633, -11.469), S(30.490, -11.028),
+        S(-13.425, 8.049), S(-14.869, 7.488), S(8.947, 0.418), S(19.799, -5.785), S(23.027, -9.708), S(11.255, -5.161), S(20.765, -11.505), S(11.874, -10.776),
+        S(-34.209, 6.294), S(-10.405, -3.714), S(-2.754, -3.237), S(0.110, -5.248), S(10.200, -9.773), S(4.094, -12.566), S(30.677, -23.304), S(9.302, -19.217),
+        S(-48.705, 3.662), S(-29.566, -0.816), S(-7.832, -5.579), S(-6.373, -7.213), S(-4.810, -11.162), S(-4.180, -13.224), S(12.155, -22.733), S(-22.215, -11.195),
+        S(-2.246, -11.761), S(-18.830, 0.966), S(-7.451, 3.782), S(8.494, -3.749), S(6.073, -9.782), S(3.608, -16.610), S(12.509, -17.976), S(6.225, -23.161),
+    ],
+    [
+        S(-8.923, -1.617), S(-28.363, 12.650), S(-45.584, 32.141), S(-51.025, 30.241), S(-34.619, 23.680), S(-47.996, 24.362), S(-8.866, 1.262), S(6.521, -3.420),
+        S(-9.505, -14.081), S(-13.567, 6.504), S(-22.474, 21.581), S(-56.877, 43.217), S(-66.355, 55.509), S(-30.138, 27.060), S(-17.755, 13.648), S(5.441, -3.132),
+        S(-1.895, -19.552), S(12.026, -10.669), S(-4.663, 14.263), S(7.249, 8.960), S(3.854, 20.088), S(7.435, 16.368), S(33.342, -6.339), S(13.837, -6.260),
+        S(-13.295, -4.639), S(9.030, -3.347), S(2.409, 8.084), S(8.661, 15.032), S(15.923, 16.675), S(14.495, 17.360), S(24.359, 6.834), S(20.855, -6.532),
+        S(5.681, -17.935), S(-6.868, 4.406), S(15.143, -0.172), S(23.003, 5.168), S(23.405, 8.947), S(23.796, 1.752), S(13.295, 5.515), S(20.457, -13.141),
+        S(-9.122, -12.441), S(7.031, -9.001), S(20.292, -5.568), S(9.323, 4.242), S(19.414, 1.703), S(23.935, -3.624), S(35.026, -16.823), S(16.864, -20.103),
+        S(-20.899, -12.875), S(-2.092, -12.001), S(12.629, -20.567), S(6.825, -7.718), S(10.105, -9.464), S(23.012, -25.380), S(26.254, -33.544), S(11.107, -39.811),
+        S(-12.352, -18.679), S(-43.045, 0.660), S(-23.279, -6.005), S(12.441, -62.094), S(-8.602, -18.851), S(-24.389, -3.541), S(-10.484, -17.593), S(-23.747, -21.180),
+    ],
+    [
+        S(16.973, -37.319), S(26.503, -20.196), S(17.065, -13.530), S(-35.499, 0.277), S(-23.759, 1.593), S(3.894, 3.901), S(22.828, 0.493), S(49.825, -33.420),
+        S(-21.850, -11.048), S(-15.793, 20.821), S(-35.393, 20.329), S(-21.615, 19.277), S(-52.098, 32.529), S(-15.896, 36.017), S(13.944, 26.686), S(-17.027, 8.786),
+        S(-73.339, 3.925), S(-15.499, 24.025), S(-56.776, 36.308), S(-76.205, 48.674), S(-57.773, 51.206), S(-5.354, 45.234), S(-0.650, 36.860), S(-28.135, 14.421),
+        S(-74.631, 3.511), S(-60.133, 27.304), S(-81.179, 42.692), S(-127.788, 57.500), S(-109.978, 57.262), S(-94.853, 52.973), S(-78.250, 38.668), S(-98.696, 17.295),
+        S(-75.115, -6.865), S(-71.203, 18.115), S(-80.592, 33.883), S(-113.092, 51.400), S(-115.469, 51.798), S(-84.756, 39.325), S(-79.213, 24.870), S(-105.509, 9.108),
+        S(-31.271, -19.656), S(-9.448, -0.165), S(-45.616, 18.094), S(-62.153, 30.552), S(-60.065, 30.938), S(-52.270, 21.704), S(-24.398, 5.464), S(-31.944, -12.980),
+        S(27.633, -38.369), S(12.011, -16.751), S(2.785, -3.622), S(-23.858, 4.049), S(-23.456, 7.084), S(0.415, -3.430), S(23.904, -16.762), S(16.952, -33.922),
+        S(-8.824, -67.298), S(60.918, -57.125), S(47.352, -43.314), S(-10.446, -37.100), S(53.937, -54.264), S(5.774, -41.268), S(52.140, -50.976), S(10.918, -71.130),
+    ],
+];
+const PROMO_BONUS: [f32; 2] = [1.056, -1.903];
+const BAD_SEE_PENALTY: f32 = -2.530;
+const CHECK_BONUS: f32 = 0.490;
+
+pub struct PolicyParams {}
+
+impl PolicyValues for PolicyParams {
+    type Value = f32;
+
+    fn cap_bonus(pt: PieceType) -> Self::Value {
+        CAP_BONUS[pt as usize]
+    }
+
+    fn pawn_protected_penalty(pt: PieceType) -> Self::Value {
+        PAWN_PROTECTED_PENALTY[pt as usize]
+    }
+
+    fn pawn_threat_evasion(pt: PieceType) -> Self::Value {
+        PAWN_THREAT_EVASION[pt as usize]
+    }
+
+    fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value {
+        (PSQT_SCORE[pt as usize][sq.relative_sq(c).flip() as usize].0 * phase.min(24) as f32
+            + PSQT_SCORE[pt as usize][sq.relative_sq(c).flip() as usize].1
+                * (24 - phase.min(24)) as f32)
+            / 24.0
+    }
+
+    fn promo_bonus(pt: PieceType) -> Self::Value {
+        match pt {
+            PieceType::Queen => PROMO_BONUS[0],
+            _ => PROMO_BONUS[1],
+        }
+    }
+
+    fn bad_see_penalty() -> Self::Value {
+        BAD_SEE_PENALTY
+    }
+
+    fn check_bonus() -> Self::Value {
+        CHECK_BONUS
+    }
+}
+
 pub fn get_policy(board: &Board, mv: Move) -> f32 {
+    get_policy_impl::<PolicyParams>(board, mv)
+}
+
+pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params::Value {
     let opp_pawns = board.colored_pieces(Piece::new(!board.stm(), PieceType::Pawn));
     let pawn_protected = attacks::pawn_attacks_bb(!board.stm(), opp_pawns);
     let moving_piece = board.piece_at(mv.from_sq()).unwrap();
     let captured_piece = board.piece_at(mv.to_sq());
     let cap_bonus = if let Some(captured) = captured_piece {
-        match captured.piece_type() {
-            PieceType::Pawn => 0.7,
-            PieceType::Knight => 2.0,
-            PieceType::Bishop => 2.0,
-            PieceType::Rook => 3.0,
-            PieceType::Queen => 4.5,
-            _ => 0.0,
-        }
+        Params::cap_bonus(captured.piece_type())
     } else {
-        0.0
-    };
-    let pawn_protected_penalty = if pawn_protected.has(mv.to_sq()) {
-        match moving_piece.piece_type() {
-            PieceType::Pawn => 0.6,
-            PieceType::Knight => 1.9,
-            PieceType::Bishop => 1.9,
-            PieceType::Rook => 2.8,
-            PieceType::Queen => 4.2,
-            _ => 0.0,
-        }
-    } else {
-        0.0
+        Params::Value::default()
     };
 
-    let pawn_threat_evasion = if pawn_protected.has(mv.from_sq()) && !pawn_protected.has(mv.to_sq())
-    {
-        match moving_piece.piece_type() {
-            PieceType::Pawn => 0.4,
-            PieceType::Knight => 1.2,
-            PieceType::Bishop => 1.2,
-            PieceType::Rook => 2.4,
-            PieceType::Queen => 3.5,
-            _ => 0.0,
-        }
+    let pawn_protected_penalty = if pawn_protected.has(mv.to_sq()) {
+        Params::pawn_protected_penalty(moving_piece.piece_type())
     } else {
-        0.0
+        Params::Value::default()
+    };
+
+    let pawn_threat_evasion = if pawn_protected.has(mv.from_sq())
+        && !pawn_protected.has(mv.to_sq())
+        && moving_piece.piece_type() != PieceType::King
+    {
+        Params::pawn_threat_evasion(moving_piece.piece_type())
+    } else {
+        Params::Value::default()
     };
 
     let moving_piece = board.piece_at(mv.from_sq()).unwrap();
     let psqt = if mv.kind() != MoveKind::Promotion {
-        psqt_score(board, moving_piece.piece_type(), mv.to_sq(), board.stm())
-            - psqt_score(board, moving_piece.piece_type(), mv.from_sq(), board.stm())
+        let phase = (4 * board.pieces(PieceType::Queen).popcount()
+            + 2 * board.pieces(PieceType::Rook).popcount()
+            + board.pieces(PieceType::Bishop).popcount()
+            + board.pieces(PieceType::Knight).popcount()) as i32;
+
+        Params::psqt_score(board.stm(), moving_piece.piece_type(), mv.to_sq(), phase)
+            - Params::psqt_score(board.stm(), moving_piece.piece_type(), mv.from_sq(), phase)
     } else {
-        0
+        Params::Value::default()
     };
 
     let promo_bonus = if mv.kind() == MoveKind::Promotion {
-        match mv.promo_piece() {
-            PieceType::Queen => 2.0,
-            _ => -3.0,
-        }
+        Params::promo_bonus(mv.promo_piece())
     } else {
-        0.0
+        Params::Value::default()
     };
 
-    let bad_see_penalty = if pawn_protected_penalty > 0.0 {
-        0.0
+    let bad_see_penalty = if pawn_protected.has(mv.to_sq()) {
+        Params::Value::default()
     } else if !see::see(board, mv, 0) {
-        -1.2
+        Params::bad_see_penalty()
     } else {
-        0.0
+        Params::Value::default()
     };
 
     let check_bonus = if board.gives_direct_check(mv) {
-        0.9
+        Params::check_bonus()
     } else {
-        0.0
+        Params::Value::default()
     };
 
     cap_bonus + promo_bonus + pawn_threat_evasion + bad_see_penalty + check_bonus
         - pawn_protected_penalty
-        + psqt as f32 / 50.0
+        + psqt / 50.0
 }

@@ -1,9 +1,13 @@
+use core::fmt;
 use std::{mem::swap, num::NonZeroI16, ops::Range, time::Instant};
 
 use arrayvec::ArrayVec;
 
 use crate::{
-    chess::{movegen::{movegen, MoveList}, Move},
+    chess::{
+        movegen::{movegen, MoveList},
+        Move,
+    },
     eval,
     policy::get_policy,
     position::Position,
@@ -11,16 +15,22 @@ use crate::{
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 #[repr(u8)]
-enum GameResult {
+pub enum GameResult {
     NonTerminal,
     Mated,
     Drawn,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum MateScore {
+pub enum MateScore {
     Loss(u16),
     Win(u16),
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Score {
+    Mate(MateScore),
+    Normal(f32),
 }
 
 #[derive(Clone)]
@@ -106,10 +116,12 @@ pub struct SearchLimits {
     pub max_nodes: i32,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct SearchResults {
     pub best_move: Move,
     pub nodes: u64,
+    pub score: Score,
+    pub visit_dist: Vec<(Move, f32)>,
 }
 
 impl SearchLimits {
@@ -202,10 +214,12 @@ impl MCTS {
         let mut moves = MoveList::new();
         movegen(self.position.board(), &mut moves);
 
+        let tmp = if node_idx == 0 { 3.0 } else { 1.0 };
+
         let mut policies = ArrayVec::<f32, 256>::new();
         let mut max_policy = 0f32;
         for mv in moves.iter() {
-            let policy = get_policy(self.position.board(), *mv);
+            let policy = get_policy(self.position.board(), *mv) / tmp;
             max_policy = max_policy.max(policy);
             policies.push(policy);
         }
@@ -412,6 +426,19 @@ impl MCTS {
         }
     }
 
+    fn get_visit_dist(&self) -> Vec<(Move, f32)> {
+        let mut result = Vec::new();
+        let total = self.nodes[0].visits;
+        for child_idx in self.nodes[0].child_indices() {
+            let child_node = &self.nodes[child_idx as usize];
+            result.push((
+                child_node.parent_move,
+                child_node.visits as f32 / total as f32,
+            ));
+        }
+        result
+    }
+
     // depth 2 perft to find the node
     fn find_node(&self, position: &Position) -> Option<u32> {
         if self.nodes.len() == 0 {
@@ -582,6 +609,12 @@ impl MCTS {
         SearchResults {
             best_move: self.get_best_move(),
             nodes: nodes,
+            score: if let Some(mate_score) = self.nodes[0].mate_score() {
+                Score::Mate(mate_score)
+            } else {
+                Score::Normal(self.nodes[0].q())
+            },
+            visit_dist: self.get_visit_dist(),
         }
     }
 

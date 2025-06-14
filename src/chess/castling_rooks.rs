@@ -99,17 +99,25 @@ impl fmt::Display for CastlingRooks {
         if self.frc {
             todo!()
         } else {
+            let mut empty = true;
             if self.color(Color::White).king_side.is_some() {
                 write!(f, "K")?;
+                empty = false;
             }
             if self.color(Color::White).queen_side.is_some() {
                 write!(f, "Q")?;
+                empty = false;
             }
             if self.color(Color::Black).king_side.is_some() {
                 write!(f, "k")?;
+                empty = false;
             }
             if self.color(Color::Black).queen_side.is_some() {
                 write!(f, "q")?;
+                empty = false;
+            }
+            if empty {
+                write!(f, "-");
             }
         }
         Ok(())

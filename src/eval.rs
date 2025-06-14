@@ -76,7 +76,7 @@ impl ops::MulAssign<i32> for ScorePair {
 }
 
 #[allow(non_snake_case)]
-const fn S(mg: i32, eg: i32) -> ScorePair {
+pub const fn S(mg: i32, eg: i32) -> ScorePair {
     ScorePair::new(mg, eg)
 }
 
@@ -424,17 +424,6 @@ fn evaluate_pawns(board: &Board, color: Color) -> ScorePair {
         eval += DEFENDED_PAWN[defended.poplsb().relative_sq(color).rank() as usize];
     }
     eval
-}
-
-pub fn psqt_score(board: &Board, pt: PieceType, sq: Square, c: Color) -> i32 {
-    let phase = (4 * board.pieces(PieceType::Queen).popcount()
-        + 2 * board.pieces(PieceType::Rook).popcount()
-        + board.pieces(PieceType::Bishop).popcount()
-        + board.pieces(PieceType::Knight).popcount()) as i32;
-
-    (PSQT[pt as usize][sq.relative_sq(c).flip() as usize].mg() as i32 * phase.min(24)
-        + PSQT[pt as usize][sq.relative_sq(c).flip() as usize].eg() as i32 * (24 - phase.min(24)))
-        / 24
 }
 
 pub fn eval(board: &Board) -> i32 {
