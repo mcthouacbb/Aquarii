@@ -148,16 +148,16 @@ impl PolicyFeature {
     }
 
     fn format_single(params: &Vec<f32>, offset: u32) -> String {
-        format!("{}", params[offset as usize])
+        format!("{:.3}", params[offset as usize])
     }
 
     fn format_array_1D(params: &Vec<f32>, offset: u32, size: u32) -> String {
         let mut result = "[".to_owned();
         for i in offset..(offset + size) {
             if i != offset + size - 1 {
-                result += format!("{}, ", params[i as usize]).as_str();
+                result += format!("{:.3}, ", params[i as usize]).as_str();
             } else {
-                result += format!("{}", params[i as usize]).as_str();
+                result += format!("{:.3}", params[i as usize]).as_str();
             }
         }
         result + "]"
@@ -210,7 +210,7 @@ impl PolicyFeature {
                     let mg_offset = PsqtScore.ft_offset() + pt * 64 * 2 + y * 8 * 2 + x * 2;
                     let eg_offset = mg_offset + 1;
                     result += format!(
-                        "S({}, {}),",
+                        "S({:.3}, {:.3}),",
                         params[mg_offset as usize], params[eg_offset as usize]
                     )
                     .as_str();
