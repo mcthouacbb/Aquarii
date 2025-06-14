@@ -73,9 +73,10 @@ pub fn datagen_thread(thread_id: i32) {
     let mut rng = XorShiftRng::seed_from_u64(seed);
     let mut games = 0;
     let mut positions = 0;
+    let mut total_positions = 0;
     let mut start_time = Instant::now();
     loop {
-        let game = run_game(thread_id, &mut search, &mut rng);
+        let game = run_game(&mut search, &mut rng);
         let (num_positions, value_data, policy_data) = serialize(&game);
         value_file
             .write_all(value_data.as_bytes())
@@ -87,11 +88,13 @@ pub fn datagen_thread(thread_id: i32) {
 
         games += 1;
         positions += num_positions;
+        total_positions += num_positions;
         if games % 32 == 0 {
             println!(
-                "Thread {} wrote {} total games {} positions in last 32 games in {} seconds",
+                "Thread {} wrote {} total games and {} total positions. {} positions in last 32 games in {} seconds",
                 thread_id,
                 games,
+                total_positions,
                 positions,
                 start_time.elapsed().as_secs_f32()
             );
@@ -109,7 +112,7 @@ fn serialize(game: &Game) -> (i32, String, String) {
         value += format!("{} | {} | {}\n", pt.fen, pt.score, game.wdl.as_f32()).as_str();
 
         policy += pt.fen.as_str();
-        for (mv, frac) in &pt.visit_dist {
+        for (_mv, frac) in &pt.visit_dist {
             policy += format!(" | {}", frac).as_str();
         }
         policy += "\n";
@@ -153,25 +156,16 @@ fn init_opening(rng: &mut XorShiftRng) -> Position {
     }
 }
 
-fn run_game(thread_id: i32, search: &mut MCTS, rng: &mut XorShiftRng) -> Game {
+fn run_game(search: &mut MCTS, rng: &mut XorShiftRng) -> Game {
     let mut limits = SearchLimits::new();
     limits.max_nodes = 5000;
 
     let mut pos = init_opening(rng);
 
-    // println!("Thread {} opening position: {}", thread_id, pos.board().to_fen());
-
     let mut game = Game::default();
 
     loop {
         let results = search.run(limits, false, &pos);
-        let score_str = match results.score {
-            Score::Mate(mate_score) => match mate_score {
-                MateScore::Loss(ply) => format!("mate -{}", ply),
-                MateScore::Win(ply) => format!("mate {}", ply),
-            },
-            Score::Normal(wdl) => format!("wdl {}", wdl),
-        };
         let mut datapt_score = match results.score {
             Score::Mate(mate_score) => match mate_score {
                 MateScore::Loss(_) => 0.0,
@@ -182,8 +176,6 @@ fn run_game(thread_id: i32, search: &mut MCTS, rng: &mut XorShiftRng) -> Game {
         if pos.board().stm() == Color::Black {
             datapt_score = 1.0 - datapt_score;
         }
-        // println!("best move: {}, score: {}", results.best_move, score_str);
-        // println!("visit dist: {:?}", results.visit_dist);
 
         game.points.push(DataPoint {
             fen: pos.board().to_fen(),

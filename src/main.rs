@@ -20,8 +20,6 @@ use position::Position;
 use search::SearchLimits;
 use types::Color;
 
-use crate::datagen::run_datagen;
-
 fn move_from_str(board: &Board, mv_str: &str) -> Option<Move> {
     let parsed = mv_str.parse::<Move>().unwrap_or(Move::NULL);
 
@@ -82,7 +80,7 @@ fn main() {
     }
 
     if args.len() == 2 && args[1] == "datagen" {
-        run_datagen();
+        datagen::run_datagen();
         return;
     }
 

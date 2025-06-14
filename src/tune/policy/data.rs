@@ -65,7 +65,6 @@ fn load_data_file(file: &File, positions: &mut Vec<Position>) {
             pos.visit_dist.push(frac);
         }
 
-        // somehow get coeffs out of policy
         let mut moves = MoveList::new();
         movegen::movegen(&board, &mut moves);
 

@@ -6,18 +6,18 @@ use crate::{
 };
 
 #[derive(Clone, Copy)]
-pub struct ScorePair(i32);
+struct ScorePair(i32);
 
 impl ScorePair {
-    pub const fn new(mg: i32, eg: i32) -> Self {
+    const fn new(mg: i32, eg: i32) -> Self {
         Self((((eg as u32) << 16).wrapping_add(mg as u32)) as i32)
     }
 
-    pub const fn mg(&self) -> i32 {
+    const fn mg(&self) -> i32 {
         self.0 as i16 as i32
     }
 
-    pub const fn eg(&self) -> i32 {
+    const fn eg(&self) -> i32 {
         ((self.0.wrapping_add(0x8000)) as u32 >> 16) as i16 as i32
     }
 }
@@ -424,17 +424,6 @@ fn evaluate_pawns(board: &Board, color: Color) -> ScorePair {
         eval += DEFENDED_PAWN[defended.poplsb().relative_sq(color).rank() as usize];
     }
     eval
-}
-
-pub fn psqt_score(board: &Board, pt: PieceType, sq: Square, c: Color) -> i32 {
-    let phase = (4 * board.pieces(PieceType::Queen).popcount()
-        + 2 * board.pieces(PieceType::Rook).popcount()
-        + board.pieces(PieceType::Bishop).popcount()
-        + board.pieces(PieceType::Knight).popcount()) as i32;
-
-    (PSQT[pt as usize][sq.relative_sq(c).flip() as usize].mg() as i32 * phase.min(24)
-        + PSQT[pt as usize][sq.relative_sq(c).flip() as usize].eg() as i32 * (24 - phase.min(24)))
-        / 24
 }
 
 pub fn eval(board: &Board) -> i32 {

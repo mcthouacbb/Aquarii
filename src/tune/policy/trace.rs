@@ -112,7 +112,7 @@ pub enum PolicyFeature {
 use PolicyFeature::*;
 
 impl PolicyFeature {
-    pub const TOTAL_TERMS: u32 = 7;
+    pub const TOTAL_FEATURES: u32 = 7;
 
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
@@ -139,10 +139,14 @@ impl PolicyFeature {
         offset
     }
 
+    fn iter() -> impl Iterator<Item = Self> {
+        (0..Self::TOTAL_FEATURES).map(|i| Self::from_raw(i))
+    }
+
     fn total_fts() -> u32 {
         let mut count = 0;
-        for i in 0..Self::TOTAL_TERMS {
-            count += Self::ft_cnt(Self::from_raw(i));
+        for feature in Self::iter() {
+            count += Self::ft_cnt(feature);
         }
         count
     }
@@ -163,8 +167,8 @@ impl PolicyFeature {
         result + "]"
     }
 
-    fn format_single_feature(self, params: &Vec<f32>) -> String {
-        match self {
+    fn format_single_feature(feature: Self, params: &Vec<f32>) -> String {
+        match feature {
             Self::CapBonus => Self::format_cap_bonus(params),
             Self::PawnProtectedPenalty => Self::format_pawn_protected_penalty(params),
             Self::PawnThreatEvasion => Self::format_pawn_threat_evasion(params),
@@ -242,8 +246,8 @@ impl PolicyFeature {
 
     pub fn format_all_features(params: &Vec<f32>) -> String {
         let mut result = String::new();
-        for i in 0..Self::TOTAL_TERMS {
-            result += Self::from_raw(i).format_single_feature(params).as_str();
+        for feature in Self::iter() {
+            result += Self::format_single_feature(feature, params).as_str();
             result += ";\n";
         }
         result
@@ -264,7 +268,7 @@ impl PolicyValues for PolicyTrace {
             PieceType::Bishop => CapBonus.ft_offset() + 2,
             PieceType::Rook => CapBonus.ft_offset() + 3,
             PieceType::Queen => CapBonus.ft_offset() + 4,
-            _ => 0,
+            _ => unreachable!(),
         };
         SparseTrace::single(idx)
     }
@@ -276,7 +280,7 @@ impl PolicyValues for PolicyTrace {
             PieceType::Bishop => PawnProtectedPenalty.ft_offset() + 2,
             PieceType::Rook => PawnProtectedPenalty.ft_offset() + 3,
             PieceType::Queen => PawnProtectedPenalty.ft_offset() + 4,
-            _ => 0,
+            _ => unreachable!(),
         };
         SparseTrace::single(idx)
     }
@@ -288,7 +292,7 @@ impl PolicyValues for PolicyTrace {
             PieceType::Bishop => PawnThreatEvasion.ft_offset() + 2,
             PieceType::Rook => PawnThreatEvasion.ft_offset() + 3,
             PieceType::Queen => PawnThreatEvasion.ft_offset() + 4,
-            _ => 0,
+            _ => unreachable!(),
         };
         SparseTrace::single(idx)
     }
