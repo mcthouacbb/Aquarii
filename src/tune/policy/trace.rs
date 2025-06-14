@@ -106,13 +106,14 @@ pub enum PolicyFeature {
     PsqtScore,
     PromoBonus,
     BadSeePenalty,
+    GoodSeeBonus,
     CheckBonus,
 }
 
 use PolicyFeature::*;
 
 impl PolicyFeature {
-    pub const TOTAL_FEATURES: u32 = 7;
+    pub const TOTAL_FEATURES: u32 = 8;
 
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
@@ -127,6 +128,7 @@ impl PolicyFeature {
             Self::PsqtScore => 6 * 64 * 2,
             Self::PromoBonus => 2,
             Self::BadSeePenalty => 1,
+            Self::GoodSeeBonus => 1,
             Self::CheckBonus => 1,
         }
     }
@@ -175,6 +177,7 @@ impl PolicyFeature {
             Self::PsqtScore => Self::format_psqt_score(params),
             Self::PromoBonus => Self::format_promo_bonus(params),
             Self::BadSeePenalty => Self::format_bad_see_penalty(params),
+            Self::GoodSeeBonus => Self::format_good_see_bonus(params),
             Self::CheckBonus => Self::format_check_bonus(params),
         }
     }
@@ -237,6 +240,11 @@ impl PolicyFeature {
     fn format_bad_see_penalty(params: &Vec<f32>) -> String {
         "const BAD_SEE_PENALTY: f32 = ".to_owned()
             + Self::format_single(params, BadSeePenalty.ft_offset()).as_str()
+    }
+
+    fn format_good_see_bonus(params: &Vec<f32>) -> String {
+        "const GOOD_SEE_BONUS: f32 = ".to_owned()
+            + Self::format_single(params, GoodSeeBonus.ft_offset()).as_str()
     }
 
     fn format_check_bonus(params: &Vec<f32>) -> String {
@@ -320,6 +328,10 @@ impl PolicyValues for PolicyTrace {
 
     fn bad_see_penalty() -> Self::Value {
         SparseTrace::single(BadSeePenalty.ft_offset())
+    }
+
+    fn good_see_bonus() -> Self::Value {
+        SparseTrace::single(GoodSeeBonus.ft_offset())
     }
 
     fn check_bonus() -> Self::Value {

@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use arrayvec::ArrayVec;
 
 use crate::tune::policy::{
@@ -58,7 +60,6 @@ pub fn compute_single_grad(params: &Vec<f32>, grads: &mut Vec<f32>, pos: &Positi
         let predicted = policy[coeff.mv_idx as usize];
         let actual = pos.visit_dist[coeff.mv_idx as usize];
         let grad_contrib = coeff.value * (predicted - actual);
-        // println!("idx: {} value: {} grad: {}", coeff.index, coeff.value, grad_contrib);
         grads[coeff.index as usize] += grad_contrib;
     }
 }
@@ -89,6 +90,7 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
 
     let mut batch_idx = 0;
     let mut num_batches = 0;
+    let start_time = Instant::now();
     loop {
         let begin_idx = batch_idx * BATCH_SIZE as usize;
         let end_idx = (batch_idx + 1) * BATCH_SIZE as usize;
@@ -108,9 +110,10 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
 
         if num_batches % 100 == 0 {
             println!(
-                "Batch {} error {}",
+                "Batch {} error {}, batches/s: {}",
                 num_batches,
-                error_total(&params, dataset)
+                error_total(&params, dataset),
+                num_batches as f32 / start_time.elapsed().as_secs_f32()
             );
         }
 
