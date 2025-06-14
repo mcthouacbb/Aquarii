@@ -201,7 +201,7 @@ impl PolicyFeature {
     }
 
     fn format_psqt_score(params: &Vec<f32>) -> String {
-        let mut result = "const PSQT_SCORE: [[(f32, f32); 64]; 64] = [\n".to_owned();
+        let mut result = "const PSQT_SCORE: [[(f32, f32); 64]; 6] = [\n".to_owned();
         for pt in 0..6 {
             result += "    [\n";
             for y in 0..8 {
@@ -222,7 +222,7 @@ impl PolicyFeature {
             }
             result += "    ],\n";
         }
-        result + "];\n"
+        result + "]"
     }
 
     fn format_promo_bonus(params: &Vec<f32>) -> String {
