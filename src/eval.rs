@@ -287,7 +287,7 @@ fn evaluate_piece(
 ) -> ScorePair {
     let mut eval = S(0, 0);
 
-    let opp_pawns = board.colored_pieces(Piece::new(!color, pt));
+    let opp_pawns = board.colored_pieces(Piece::new(!color, PieceType::Pawn));
     let mobility_area = !attacks::pawn_attacks_bb(!color, opp_pawns);
 
     let mut pieces = board.colored_pieces(Piece::new(color, pt));
