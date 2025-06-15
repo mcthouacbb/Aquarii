@@ -201,9 +201,7 @@ pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params:
         Params::Value::default()
     };
 
-    let bad_see_penalty = if pawn_protected.has(mv.to_sq()) {
-        Params::Value::default()
-    } else if !see::see(board, mv, 0) {
+    let bad_see_penalty = if !see::see(board, mv, 0) && !pawn_protected.has(mv.to_sq()) {
         Params::bad_see_penalty()
     } else {
         Params::Value::default()
