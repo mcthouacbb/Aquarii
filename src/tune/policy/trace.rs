@@ -104,6 +104,7 @@ pub enum PolicyFeature {
     PawnProtectedPenalty,
     PawnThreatEvasion,
     PsqtScore,
+    Mobility,
     PromoBonus,
     BadSeePenalty,
     CheckBonus,
@@ -112,7 +113,7 @@ pub enum PolicyFeature {
 use PolicyFeature::*;
 
 impl PolicyFeature {
-    pub const TOTAL_FEATURES: u32 = 7;
+    pub const TOTAL_FEATURES: u32 = 8;
 
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
@@ -125,6 +126,8 @@ impl PolicyFeature {
             Self::PawnThreatEvasion => 5,
             // 6 piece types * 64 squares * 2 phases
             Self::PsqtScore => 6 * 64 * 2,
+            // 4 piece types * 28 max mobility * 2 phases
+            Self::Mobility => 4 * 28 * 2,
             Self::PromoBonus => 2,
             Self::BadSeePenalty => 1,
             Self::CheckBonus => 1,
@@ -173,6 +176,7 @@ impl PolicyFeature {
             Self::PawnProtectedPenalty => Self::format_pawn_protected_penalty(params),
             Self::PawnThreatEvasion => Self::format_pawn_threat_evasion(params),
             Self::PsqtScore => Self::format_psqt_score(params),
+            Self::Mobility => Self::format_mobility(params),
             Self::PromoBonus => Self::format_promo_bonus(params),
             Self::BadSeePenalty => Self::format_bad_see_penalty(params),
             Self::CheckBonus => Self::format_check_bonus(params),
@@ -225,6 +229,24 @@ impl PolicyFeature {
                 result += "\n";
             }
             result += "    ],\n";
+        }
+        result + "]"
+    }
+
+    fn format_mobility(params: &Vec<f32>) -> String {
+        let mut result = "const MOBILITY: [[(f32, f32); 28]; 4] = [\n".to_owned();
+        for pt in 0..4 {
+            result += "    [";
+            for mob in 0..28 {
+                let mg_offset = Mobility.ft_offset() + pt * 28 * 2 + mob * 2;
+                let eg_offset = mg_offset + 1;
+                result += format!(
+                    "S({:.3}, {:.3}),",
+                    params[mg_offset as usize], params[eg_offset as usize]
+                )
+                .as_str();
+            }
+            result += "],\n";
         }
         result + "]"
     }
@@ -302,7 +324,20 @@ impl PolicyValues for PolicyTrace {
         let eg_weight = 1.0 - mg_weight;
 
         let mg_offset =
-            PsqtScore.ft_offset() + pt as u32 * 128 + sq.relative_sq(c).flip() as u32 * 2;
+            PsqtScore.ft_offset() + pt as u32 * 64 * 2 + sq.relative_sq(c).flip() as u32 * 2;
+        let eg_offset = mg_offset + 1;
+
+        SparseTrace {
+            features: HashMap::from([(mg_offset, mg_weight), (eg_offset, eg_weight)]),
+        }
+    }
+
+    fn mobility(pt: PieceType, mob: u32, phase: i32) -> Self::Value {
+        let mg_weight = phase.min(24) as f32 / 24.0;
+        let eg_weight = 1.0 - mg_weight;
+
+        let mg_offset =
+            Mobility.ft_offset() + (pt as u32 - PieceType::Knight as u32) * 28 * 2 + mob * 2;
         let eg_offset = mg_offset + 1;
 
         SparseTrace {
