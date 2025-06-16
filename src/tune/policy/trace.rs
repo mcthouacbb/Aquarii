@@ -104,6 +104,7 @@ pub enum PolicyFeature {
     PawnProtectedPenalty,
     PawnThreatEvasion,
     PsqtScore,
+    Threat,
     PromoBonus,
     BadSeePenalty,
     CheckBonus,
@@ -112,7 +113,7 @@ pub enum PolicyFeature {
 use PolicyFeature::*;
 
 impl PolicyFeature {
-    pub const TOTAL_FEATURES: u32 = 7;
+    pub const TOTAL_FEATURES: u32 = 8;
 
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
@@ -125,6 +126,8 @@ impl PolicyFeature {
             Self::PawnThreatEvasion => 5,
             // 6 piece types * 64 squares * 2 phases
             Self::PsqtScore => 6 * 64 * 2,
+            // 4 attackers * 5 victims
+            Self::Threat => 4 * 5,
             Self::PromoBonus => 2,
             Self::BadSeePenalty => 1,
             Self::CheckBonus => 1,
@@ -167,12 +170,23 @@ impl PolicyFeature {
         result + "]"
     }
 
+    fn format_array_2D(params: &Vec<f32>, offset: u32, size1: u32, size2: u32) -> String {
+        let mut result = "[\n".to_owned();
+        for i in 0..size1 {
+            result += "    ";
+            result += Self::format_array_1D(params, offset + size2 * i, size2).as_str();
+            result += ",\n";
+        }
+        result + "]"
+    }
+
     fn format_single_feature(feature: Self, params: &Vec<f32>) -> String {
         match feature {
             Self::CapBonus => Self::format_cap_bonus(params),
             Self::PawnProtectedPenalty => Self::format_pawn_protected_penalty(params),
             Self::PawnThreatEvasion => Self::format_pawn_threat_evasion(params),
             Self::PsqtScore => Self::format_psqt_score(params),
+            Self::Threat => Self::format_threat(params),
             Self::PromoBonus => Self::format_promo_bonus(params),
             Self::BadSeePenalty => Self::format_bad_see_penalty(params),
             Self::CheckBonus => Self::format_check_bonus(params),
@@ -227,6 +241,10 @@ impl PolicyFeature {
             result += "    ],\n";
         }
         result + "]"
+    }
+    
+    fn format_threat(params: &Vec<f32>) -> String {
+        "const THREAT: [[f32; 5]; 4] = ".to_owned() + Self::format_array_2D(params, Threat.ft_offset(), 4, 5).as_str()
     }
 
     fn format_promo_bonus(params: &Vec<f32>) -> String {
@@ -308,6 +326,11 @@ impl PolicyValues for PolicyTrace {
         SparseTrace {
             features: HashMap::from([(mg_offset, mg_weight), (eg_offset, eg_weight)]),
         }
+    }
+
+    fn threat(moving: PieceType, threatened: PieceType) -> Self::Value {
+        assert!(moving != PieceType::King && threatened != PieceType::King && moving != PieceType::Pawn);
+        SparseTrace::single(Threat.ft_offset() + 5 * (moving as u32 - PieceType::Knight as u32) + threatened as u32)
     }
 
     fn promo_bonus(pt: PieceType) -> Self::Value {
