@@ -55,7 +55,7 @@ pub fn run_datagen() {
         }));
     }
     for handle in handles {
-        handle.join();
+        let _ = handle.join();
     }
 }
 

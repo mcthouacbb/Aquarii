@@ -2,7 +2,7 @@ use std::ops;
 
 use crate::{
     chess::{attacks, Board},
-    types::{Bitboard, Color, Piece, PieceType, Square},
+    types::{Bitboard, Color, Piece, PieceType},
 };
 
 #[derive(Clone, Copy)]
@@ -76,7 +76,7 @@ impl ops::MulAssign<i32> for ScorePair {
 }
 
 #[allow(non_snake_case)]
-pub const fn S(mg: i32, eg: i32) -> ScorePair {
+const fn S(mg: i32, eg: i32) -> ScorePair {
     ScorePair::new(mg, eg)
 }
 
@@ -269,16 +269,6 @@ impl Default for EvalData {
     }
 }
 
-pub fn piece_attacks(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
-    match pt {
-        PieceType::Knight => attacks::knight_attacks(sq),
-        PieceType::Bishop => attacks::bishop_attacks(sq, occ),
-        PieceType::Rook => attacks::rook_attacks(sq, occ),
-        PieceType::Queen => attacks::queen_attacks(sq, occ),
-        _ => unreachable!(),
-    }
-}
-
 fn evaluate_piece(
     board: &Board,
     pt: PieceType,
@@ -295,7 +285,7 @@ fn evaluate_piece(
     while pieces.any() {
         let sq = pieces.poplsb();
 
-        let attacks = piece_attacks(pt, sq, board.occ());
+        let attacks = attacks::piece_attacks(pt, sq, board.occ());
         let mobility = (attacks & mobility_area).popcount();
         eval += MOBILITY[pt as usize - PieceType::Knight as usize][mobility as usize];
 

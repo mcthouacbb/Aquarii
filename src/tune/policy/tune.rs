@@ -10,7 +10,7 @@ use crate::tune::policy::{
 fn eval_policy(params: &Vec<f32>, pos: &Position) -> ArrayVec<f32, 256> {
     let mut result = ArrayVec::new();
 
-    for i in 0..pos.movecount {
+    for _ in 0..pos.movecount {
         result.push(0.0);
     }
 

@@ -1,4 +1,4 @@
-use crate::types::{Bitboard, Color, Square};
+use crate::types::{Bitboard, Color, PieceType, Square};
 
 const KNIGHT_ATTACKS: [Bitboard; 64] = {
     let mut result = [Bitboard::NONE; 64];
@@ -485,6 +485,17 @@ pub fn rook_attacks(sq: Square, occ: Bitboard) -> Bitboard {
 
 pub fn queen_attacks(sq: Square, occ: Bitboard) -> Bitboard {
     rook_attacks(sq, occ) | bishop_attacks(sq, occ)
+}
+
+pub fn piece_attacks(pt: PieceType, sq: Square, occ: Bitboard) -> Bitboard {
+    match pt {
+        PieceType::Knight => knight_attacks(sq),
+        PieceType::Bishop => bishop_attacks(sq, occ),
+        PieceType::Rook => rook_attacks(sq, occ),
+        PieceType::Queen => queen_attacks(sq, occ),
+        PieceType::King => king_attacks(sq),
+        _ => unreachable!(),
+    }
 }
 
 pub fn passed_pawn_span(color: Color, sq: Square) -> Bitboard {

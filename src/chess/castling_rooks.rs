@@ -117,7 +117,7 @@ impl fmt::Display for CastlingRooks {
                 empty = false;
             }
             if empty {
-                write!(f, "-");
+                write!(f, "-")?;
             }
         }
         Ok(())

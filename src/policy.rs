@@ -4,7 +4,8 @@ use std::{
 };
 
 use crate::{
-    chess::{attacks, see, Board, Move, MoveKind}, eval::piece_attacks, types::{Bitboard, Color, Piece, PieceType, Square}
+    chess::{attacks, see, Board, Move, MoveKind},
+    types::{Bitboard, Color, Piece, PieceType, Square},
 };
 
 // heavily inspired by Motors tuner
@@ -38,6 +39,7 @@ pub trait PolicyValues {
     fn check_bonus() -> Self::Value;
 }
 
+#[allow(non_snake_case)]
 const fn S(mg: f32, eg: f32) -> (f32, f32) {
     (mg, eg)
 }
@@ -141,7 +143,7 @@ impl PolicyValues for PolicyParams {
                 * (24 - phase.min(24)) as f32)
             / 24.0
     }
-    
+
     fn threat(moving: PieceType, threatened: PieceType) -> Self::Value {
         THREAT[moving as usize - PieceType::Knight as usize][threatened as usize]
     }
@@ -205,15 +207,24 @@ pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params:
         Params::Value::default()
     };
 
-    let threat_score = if mv.kind() == MoveKind::None && moving_piece.piece_type() != PieceType::King && moving_piece.piece_type() != PieceType::Pawn {
-        let occ_after = board.occ() | Bitboard::from_square(mv.to_sq()) & !Bitboard::from_square(mv.from_sq());
-        let attacks_after = piece_attacks(moving_piece.piece_type(), mv.to_sq(), occ_after);
+    let threat_score = if mv.kind() == MoveKind::None
+        && moving_piece.piece_type() != PieceType::King
+        && moving_piece.piece_type() != PieceType::Pawn
+    {
+        let occ_after =
+            board.occ() | Bitboard::from_square(mv.to_sq()) & !Bitboard::from_square(mv.from_sq());
+        let attacks_after =
+            attacks::piece_attacks(moving_piece.piece_type(), mv.to_sq(), occ_after);
 
-        let mut threats = attacks_after & board.colors(!board.stm()) & !board.pieces(PieceType::King);
+        let mut threats =
+            attacks_after & board.colors(!board.stm()) & !board.pieces(PieceType::King);
         let mut score = Params::Value::default();
         while threats.any() {
             let threat = threats.poplsb();
-            score += Params::threat(moving_piece.piece_type(), board.piece_at(threat).unwrap().piece_type());
+            score += Params::threat(
+                moving_piece.piece_type(),
+                board.piece_at(threat).unwrap().piece_type(),
+            );
         }
         score
     } else {
@@ -240,5 +251,6 @@ pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params:
 
     cap_bonus + promo_bonus + pawn_threat_evasion + bad_see_penalty + check_bonus
         - pawn_protected_penalty
-        + psqt / 50.0 + threat_score
+        + psqt / 50.0
+        + threat_score
 }

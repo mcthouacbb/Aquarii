@@ -158,6 +158,7 @@ impl PolicyFeature {
         format!("{:.3}", params[offset as usize])
     }
 
+    #[allow(non_snake_case)]
     fn format_array_1D(params: &Vec<f32>, offset: u32, size: u32) -> String {
         let mut result = "[".to_owned();
         for i in offset..(offset + size) {
@@ -170,6 +171,7 @@ impl PolicyFeature {
         result + "]"
     }
 
+    #[allow(non_snake_case)]
     fn format_array_2D(params: &Vec<f32>, offset: u32, size1: u32, size2: u32) -> String {
         let mut result = "[\n".to_owned();
         for i in 0..size1 {
@@ -242,9 +244,10 @@ impl PolicyFeature {
         }
         result + "]"
     }
-    
+
     fn format_threat(params: &Vec<f32>) -> String {
-        "const THREAT: [[f32; 5]; 4] = ".to_owned() + Self::format_array_2D(params, Threat.ft_offset(), 4, 5).as_str()
+        "const THREAT: [[f32; 5]; 4] = ".to_owned()
+            + Self::format_array_2D(params, Threat.ft_offset(), 4, 5).as_str()
     }
 
     fn format_promo_bonus(params: &Vec<f32>) -> String {
@@ -320,7 +323,7 @@ impl PolicyValues for PolicyTrace {
         let eg_weight = 1.0 - mg_weight;
 
         let mg_offset =
-            PsqtScore.ft_offset() + pt as u32 * 128 + sq.relative_sq(c).flip() as u32 * 2;
+            PsqtScore.ft_offset() + pt as u32 * 64 * 2 + sq.relative_sq(c).flip() as u32 * 2;
         let eg_offset = mg_offset + 1;
 
         SparseTrace {
@@ -329,8 +332,12 @@ impl PolicyValues for PolicyTrace {
     }
 
     fn threat(moving: PieceType, threatened: PieceType) -> Self::Value {
-        assert!(moving != PieceType::King && threatened != PieceType::King && moving != PieceType::Pawn);
-        SparseTrace::single(Threat.ft_offset() + 5 * (moving as u32 - PieceType::Knight as u32) + threatened as u32)
+        assert!(
+            moving != PieceType::King && threatened != PieceType::King && moving != PieceType::Pawn
+        );
+        SparseTrace::single(
+            Threat.ft_offset() + 5 * (moving as u32 - PieceType::Knight as u32) + threatened as u32,
+        )
     }
 
     fn promo_bonus(pt: PieceType) -> Self::Value {

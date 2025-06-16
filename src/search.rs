@@ -1,4 +1,3 @@
-use core::fmt;
 use std::{mem::swap, num::NonZeroI16, ops::Range, time::Instant};
 
 use arrayvec::ArrayVec;
