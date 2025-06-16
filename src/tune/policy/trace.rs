@@ -105,6 +105,7 @@ pub enum PolicyFeature {
     PawnThreatEvasion,
     PsqtScore,
     Threat,
+    PassedPawnPush,
     PromoBonus,
     BadSeePenalty,
     CheckBonus,
@@ -113,7 +114,7 @@ pub enum PolicyFeature {
 use PolicyFeature::*;
 
 impl PolicyFeature {
-    pub const TOTAL_FEATURES: u32 = 8;
+    pub const TOTAL_FEATURES: u32 = 9;
 
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
@@ -128,6 +129,8 @@ impl PolicyFeature {
             Self::PsqtScore => 6 * 64 * 2,
             // 4 attackers * 5 victims
             Self::Threat => 4 * 5,
+            // 8 ranks * 2 phases
+            Self::PassedPawnPush => 8 * 2,
             Self::PromoBonus => 2,
             Self::BadSeePenalty => 1,
             Self::CheckBonus => 1,
@@ -189,6 +192,7 @@ impl PolicyFeature {
             Self::PawnThreatEvasion => Self::format_pawn_threat_evasion(params),
             Self::PsqtScore => Self::format_psqt_score(params),
             Self::Threat => Self::format_threat(params),
+            Self::PassedPawnPush => Self::format_passed_pawn_push(params),
             Self::PromoBonus => Self::format_promo_bonus(params),
             Self::BadSeePenalty => Self::format_bad_see_penalty(params),
             Self::CheckBonus => Self::format_check_bonus(params),
@@ -248,6 +252,20 @@ impl PolicyFeature {
     fn format_threat(params: &Vec<f32>) -> String {
         "const THREAT: [[f32; 5]; 4] = ".to_owned()
             + Self::format_array_2D(params, Threat.ft_offset(), 4, 5).as_str()
+    }
+
+    fn format_passed_pawn_push(params: &Vec<f32>) -> String {
+        let mut result = "const PASSED_PAWN_PUSH: [(f32, f32); 8] = [\n".to_owned();
+        for rank in 0..8 {
+            let mg_offset = PassedPawnPush.ft_offset() + rank * 2;
+            let eg_offset = mg_offset + 1;
+            result += format!(
+                "    S({:.3}, {:.3}),\n",
+                params[mg_offset as usize], params[eg_offset as usize]
+            )
+            .as_str();
+        }
+        result + "]"
     }
 
     fn format_promo_bonus(params: &Vec<f32>) -> String {
@@ -338,6 +356,17 @@ impl PolicyValues for PolicyTrace {
         SparseTrace::single(
             Threat.ft_offset() + 5 * (moving as u32 - PieceType::Knight as u32) + threatened as u32,
         )
+    }
+
+    fn passed_pawn_push(relative_rank: u8, phase: i32) -> Self::Value {
+        let mg_weight = phase.min(24) as f32 / 24.0;
+        let eg_weight = 1.0 - mg_weight;
+
+        let mg_offset = PassedPawnPush.ft_offset() + relative_rank as u32 * 2;
+        let eg_offset = mg_offset + 1;
+        SparseTrace {
+            features: HashMap::from([(mg_offset, mg_weight), (eg_offset, eg_weight)]),
+        }
     }
 
     fn promo_bonus(pt: PieceType) -> Self::Value {
