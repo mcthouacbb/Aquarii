@@ -105,6 +105,7 @@ pub enum PolicyFeature {
     PawnThreatEvasion,
     PsqtScore,
     Threat,
+    KingRingAttacks,
     PromoBonus,
     BadSeePenalty,
     CheckBonus,
@@ -113,7 +114,7 @@ pub enum PolicyFeature {
 use PolicyFeature::*;
 
 impl PolicyFeature {
-    pub const TOTAL_FEATURES: u32 = 8;
+    pub const TOTAL_FEATURES: u32 = 9;
 
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
@@ -128,6 +129,8 @@ impl PolicyFeature {
             Self::PsqtScore => 6 * 64 * 2,
             // 4 attackers * 5 victims
             Self::Threat => 4 * 5,
+            // 4 attackers * 9 values(0-8) * 2 phases
+            Self::KingRingAttacks => 4 * 9 * 2,
             Self::PromoBonus => 2,
             Self::BadSeePenalty => 1,
             Self::CheckBonus => 1,
@@ -189,6 +192,7 @@ impl PolicyFeature {
             Self::PawnThreatEvasion => Self::format_pawn_threat_evasion(params),
             Self::PsqtScore => Self::format_psqt_score(params),
             Self::Threat => Self::format_threat(params),
+            Self::KingRingAttacks => Self::format_king_ring_attacks(params),
             Self::PromoBonus => Self::format_promo_bonus(params),
             Self::BadSeePenalty => Self::format_bad_see_penalty(params),
             Self::CheckBonus => Self::format_check_bonus(params),
@@ -248,6 +252,27 @@ impl PolicyFeature {
     fn format_threat(params: &Vec<f32>) -> String {
         "const THREAT: [[f32; 5]; 4] = ".to_owned()
             + Self::format_array_2D(params, Threat.ft_offset(), 4, 5).as_str()
+    }
+
+    fn format_king_ring_attacks(params: &Vec<f32>) -> String {
+        let mut result = "const KING_RING_ATTACKS: [[(f32, f32); 9]; 4] = [\n".to_owned();
+        for moving in 0..4 {
+            result += "    [";
+            for attacks in 0..9 {
+                let mg_offset = KingRingAttacks.ft_offset() + moving as u32 * 9 * 2 + attacks * 2;
+                let eg_offset = mg_offset + 1;
+                result += format!(
+                    "S({:.3}, {:.3}),",
+                    params[mg_offset as usize], params[eg_offset as usize]
+                )
+                .as_str();
+                if attacks != 8 {
+                    result += " ";
+                }
+            }
+            result += "],\n";
+        }
+        result + "]"
     }
 
     fn format_promo_bonus(params: &Vec<f32>) -> String {
@@ -338,6 +363,19 @@ impl PolicyValues for PolicyTrace {
         SparseTrace::single(
             Threat.ft_offset() + 5 * (moving as u32 - PieceType::Knight as u32) + threatened as u32,
         )
+    }
+
+    fn king_ring_attacks(moving: PieceType, attacks: u32, phase: i32) -> Self::Value {
+        assert!(attacks <= 8);
+        let mg_weight = phase.min(24) as f32 / 24.0;
+        let eg_weight = 1.0 - mg_weight;
+
+        let mg_offset = KingRingAttacks.ft_offset() + (moving as u32 - PieceType::Knight as u32) * 9 * 2 + attacks * 2;
+        let eg_offset = mg_offset + 1;
+
+        SparseTrace {
+            features: HashMap::from([(mg_offset, mg_weight), (eg_offset, eg_weight)]),
+        }
     }
 
     fn promo_bonus(pt: PieceType) -> Self::Value {

@@ -34,6 +34,7 @@ pub trait PolicyValues {
     fn pawn_threat_evasion(pt: PieceType) -> Self::Value;
     fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value;
     fn threat(moving: PieceType, threatened: PieceType) -> Self::Value;
+    fn king_ring_attacks(moving: PieceType, attacks: u32, phase: i32) -> Self::Value;
     fn promo_bonus(pt: PieceType) -> Self::Value;
     fn bad_see_penalty() -> Self::Value;
     fn check_bonus() -> Self::Value;
@@ -116,6 +117,7 @@ const THREAT: [[f32; 5]; 4] = [
     [0.256, 0.572, 0.577, -0.046, 1.038],
     [0.141, 0.411, 0.102, 0.092, 0.092],
 ];
+const KING_RING_ATTACKS: [[(f32, f32); 9]; 4] = [[(0.0, 0.0); 9]; 4];
 const PROMO_BONUS: [f32; 2] = [1.052, -1.822];
 const BAD_SEE_PENALTY: f32 = -2.560;
 const CHECK_BONUS: f32 = 0.559;
@@ -146,6 +148,11 @@ impl PolicyValues for PolicyParams {
 
     fn threat(moving: PieceType, threatened: PieceType) -> Self::Value {
         THREAT[moving as usize - PieceType::Knight as usize][threatened as usize]
+    }
+
+    fn king_ring_attacks(moving: PieceType, attacks: u32, phase: i32) -> Self::Value {
+        let (mg, eg) = KING_RING_ATTACKS[moving as usize - PieceType::Knight as usize][attacks as usize];
+        (mg * phase.min(24) as f32 + eg * (24 - phase.min(24)) as f32) / 24.0
     }
 
     fn promo_bonus(pt: PieceType) -> Self::Value {
@@ -195,11 +202,11 @@ pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params:
     };
 
     let moving_piece = board.piece_at(mv.from_sq()).unwrap();
+    let phase = (4 * board.pieces(PieceType::Queen).popcount()
+        + 2 * board.pieces(PieceType::Rook).popcount()
+        + board.pieces(PieceType::Bishop).popcount()
+        + board.pieces(PieceType::Knight).popcount()) as i32;
     let psqt = if mv.kind() != MoveKind::Promotion {
-        let phase = (4 * board.pieces(PieceType::Queen).popcount()
-            + 2 * board.pieces(PieceType::Rook).popcount()
-            + board.pieces(PieceType::Bishop).popcount()
-            + board.pieces(PieceType::Knight).popcount()) as i32;
 
         Params::psqt_score(board.stm(), moving_piece.piece_type(), mv.to_sq(), phase)
             - Params::psqt_score(board.stm(), moving_piece.piece_type(), mv.from_sq(), phase)
@@ -207,7 +214,9 @@ pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params:
         Params::Value::default()
     };
 
-    let threat_score = if mv.kind() == MoveKind::None
+    let mut threat_score = Params::Value::default();
+    let mut king_attack_score = Params::Value::default();
+    if mv.kind() == MoveKind::None
         && moving_piece.piece_type() != PieceType::King
         && moving_piece.piece_type() != PieceType::Pawn
     {
@@ -218,18 +227,27 @@ pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params:
 
         let mut threats =
             attacks_after & board.colors(!board.stm()) & !board.pieces(PieceType::King);
-        let mut score = Params::Value::default();
         while threats.any() {
             let threat = threats.poplsb();
-            score += Params::threat(
+            threat_score += Params::threat(
                 moving_piece.piece_type(),
                 board.piece_at(threat).unwrap().piece_type(),
             );
         }
-        score
-    } else {
-        Params::Value::default()
-    };
+
+        let opp_king_ring = {
+            let king_sq = board.king_sq(!board.stm());
+            let attacks = attacks::king_attacks(king_sq);
+            (attacks | attacks::pawn_pushes_bb(!board.stm(), attacks))
+                & !Bitboard::from_square(king_sq)
+        };
+
+        let king_ring_attacks = attacks_after & opp_king_ring;
+        if king_ring_attacks.any() {
+            king_attack_score +=
+                Params::king_ring_attacks(moving_piece.piece_type(), king_ring_attacks.popcount(), phase);
+        }
+    }
 
     let promo_bonus = if mv.kind() == MoveKind::Promotion {
         Params::promo_bonus(mv.promo_piece())
@@ -253,4 +271,5 @@ pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params:
         - pawn_protected_penalty
         + psqt / 50.0
         + threat_score
+        + king_attack_score
 }
