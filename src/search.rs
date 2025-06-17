@@ -41,6 +41,7 @@ struct Node {
     mate_dist: Option<NonZeroI16>,
     policy: f32,
     wins: f32,
+    sq_wins: f32,
     visits: u32,
 }
 
@@ -54,12 +55,17 @@ impl Node {
             mate_dist: None,
             policy: policy,
             wins: 0.0,
+            sq_wins: 0.0,
             visits: 0,
         }
     }
 
     fn q(&self) -> f32 {
         self.wins / self.visits as f32
+    }
+
+    fn var_q(&self) -> f32 {
+        (self.sq_wins / self.visits as f32 - self.q() * self.q()).max(0.0)
     }
 
     fn mate_score(&self) -> Option<MateScore> {
@@ -83,6 +89,12 @@ impl Node {
 
     fn child_indices(&self) -> Range<u32> {
         self.first_child_idx..(self.first_child_idx + self.child_count as u32)
+    }
+
+    fn update(&mut self, score: f32) {
+        self.visits += 1;
+        self.wins += score;
+        self.sq_wins += score * score;
     }
 }
 
@@ -142,6 +154,10 @@ pub struct MCTS {
     root_position: Position,
     position: Position,
     selection: Vec<u32>,
+
+    // tmp: f32,
+    // tmp2: f32,
+    // tmp_cnt: u32,
 }
 
 impl MCTS {
@@ -156,6 +172,10 @@ impl MCTS {
             root_position: Position::new(),
             position: Position::new(),
             selection: Vec::new(),
+
+            // tmp: 0.0,
+            // tmp2: 0.0,
+            // tmp_cnt: 0
         }
     }
 
@@ -175,7 +195,7 @@ impl MCTS {
             if node.is_terminal() || node.child_count == 0 {
                 break;
             } else {
-                let mut best_uct = -1f32;
+                let mut best_puct = -1f32;
                 let mut best_child_idx = 0u32;
                 for child_idx in node.child_indices() {
                     let child = &self.nodes[child_idx as usize];
@@ -191,18 +211,25 @@ impl MCTS {
                     };
                     let policy = child.policy;
                     let expl = (node.visits as f32).sqrt() / (1 + child.visits) as f32;
-                    let cpuct = if root { Self::ROOT_CPUCT } else { Self::CPUCT };
-                    let uct = q + cpuct * policy * expl;
+                    let mut cpuct = if root { Self::ROOT_CPUCT } else { Self::CPUCT };
+                    if node.visits > 1 {
+                        // self.tmp += node.var_q().sqrt() * 3.5 + 0.77;
+                        // self.tmp2 += (node.var_q().sqrt() * 3.5 + 0.77) * (node.var_q().sqrt() * 3.5 + 0.77);
+                        // self.tmp_cnt += 1;
+                        // // let frac = ;
+                        // // cpuct *= 1.0 + 0.7 * (frac - 1.0);
+                        cpuct *= node.var_q().sqrt() * 3.5 + 0.77;
+                    }
+                    let puct = q + cpuct * policy * expl;
 
-                    if uct > best_uct {
+                    if puct > best_puct {
                         best_child_idx = child_idx;
-                        best_uct = uct;
+                        best_puct = puct;
                     }
                 }
 
                 node_idx = best_child_idx;
                 let child = &self.nodes[best_child_idx as usize];
-                // println!("{}, {}", self.position.board().to_fen(), child.parent_move);
                 self.position.make_move(child.parent_move);
                 self.selection.push(node_idx);
             }
@@ -346,8 +373,7 @@ impl MCTS {
 
             let node = &mut self.nodes[*node_idx as usize];
 
-            node.visits += 1;
-            node.wins += result;
+            node.update(result);
 
             if node.result == GameResult::Mated {
                 child_mate_dist = Some(0);
@@ -502,6 +528,9 @@ impl MCTS {
         report: bool,
         position: &Position,
     ) -> SearchResults {
+        // self.tmp = 0.0;
+        // self.tmp2 = 0.0;
+        // self.tmp_cnt = 0;
         let node_idx = self.find_node(position);
 
         self.root_position = position.clone();
@@ -516,8 +545,8 @@ impl MCTS {
             self.nodes.clear();
             self.nodes.push(Node::new(Move::NULL, 0.0));
             self.expand_node(0);
-            self.nodes[0].visits += 1;
-            self.nodes[0].wins += self.eval_wdl();
+            let score = self.eval_wdl();
+            self.nodes[0].update(score);
         }
 
         let mut total_depth = 0;
@@ -579,6 +608,8 @@ impl MCTS {
                 }
             }
         }
+
+        // println!("{}, {}, {}", self.tmp / self.tmp_cnt as f32, (self.tmp2 / self.tmp_cnt as f32 - self.tmp * self.tmp / self.tmp_cnt as f32 / self.tmp_cnt as f32).max(0.0).sqrt(), self.tmp_cnt);
 
         if report {
             let curr_depth = total_depth / self.iters;
