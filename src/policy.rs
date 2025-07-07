@@ -138,9 +138,8 @@ impl PolicyValues for PolicyParams {
     }
 
     fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value {
-        (PSQT_SCORE[pt as usize][sq.relative_sq(c).flip() as usize].0 * phase.min(24) as f32
-            + PSQT_SCORE[pt as usize][sq.relative_sq(c).flip() as usize].1
-                * (24 - phase.min(24)) as f32)
+        (PSQT_SCORE[pt as usize][sq.relative_sq(c).flip() as usize].0 * phase as f32
+            + PSQT_SCORE[pt as usize][sq.relative_sq(c).flip() as usize].1 * (24 - phase) as f32)
             / 24.0
     }
 
@@ -195,12 +194,12 @@ pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params:
     };
 
     let moving_piece = board.piece_at(mv.from_sq()).unwrap();
+    let phase = (4 * board.pieces(PieceType::Queen).popcount()
+        + 2 * board.pieces(PieceType::Rook).popcount()
+        + board.pieces(PieceType::Bishop).popcount()
+        + board.pieces(PieceType::Knight).popcount())
+    .min(24) as i32;
     let psqt = if mv.kind() != MoveKind::Promotion {
-        let phase = (4 * board.pieces(PieceType::Queen).popcount()
-            + 2 * board.pieces(PieceType::Rook).popcount()
-            + board.pieces(PieceType::Bishop).popcount()
-            + board.pieces(PieceType::Knight).popcount()) as i32;
-
         Params::psqt_score(board.stm(), moving_piece.piece_type(), mv.to_sq(), phase)
             - Params::psqt_score(board.stm(), moving_piece.piece_type(), mv.from_sq(), phase)
     } else {
@@ -226,6 +225,7 @@ pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params:
                 board.piece_at(threat).unwrap().piece_type(),
             );
         }
+
         score
     } else {
         Params::Value::default()

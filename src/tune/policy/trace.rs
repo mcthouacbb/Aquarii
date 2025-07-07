@@ -319,7 +319,7 @@ impl PolicyValues for PolicyTrace {
     }
 
     fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value {
-        let mg_weight = phase.min(24) as f32 / 24.0;
+        let mg_weight = phase as f32 / 24.0;
         let eg_weight = 1.0 - mg_weight;
 
         let mg_offset =
