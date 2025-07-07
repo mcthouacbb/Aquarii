@@ -376,7 +376,7 @@ impl MCTS {
                 if let Some(mate_score) = child_node.mate_score() {
                     match mate_score {
                         MateScore::Loss(dist) => 1000.0 - dist as f32,
-                        MateScore::Win(dist) => -(dist as f32),
+                        MateScore::Win(dist) => dist as f32 - 1000.0,
                     }
                 } else {
                     1.0 - child_node.q()
