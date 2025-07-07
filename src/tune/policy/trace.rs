@@ -126,8 +126,8 @@ impl PolicyFeature {
             Self::PawnThreatEvasion => 5,
             // 6 piece types * 64 squares * 2 phases
             Self::PsqtScore => 6 * 64 * 2,
-            // 4 attackers * 5 victims
-            Self::Threat => 4 * 5,
+            // 5 attackers * 5 victims
+            Self::Threat => 5 * 5,
             Self::PromoBonus => 2,
             Self::BadSeePenalty => 1,
             Self::CheckBonus => 1,
@@ -246,8 +246,8 @@ impl PolicyFeature {
     }
 
     fn format_threat(params: &Vec<f32>) -> String {
-        "const THREAT: [[f32; 5]; 4] = ".to_owned()
-            + Self::format_array_2D(params, Threat.ft_offset(), 4, 5).as_str()
+        "const THREAT: [[f32; 5]; 5] = ".to_owned()
+            + Self::format_array_2D(params, Threat.ft_offset(), 5, 5).as_str()
     }
 
     fn format_promo_bonus(params: &Vec<f32>) -> String {
@@ -332,11 +332,9 @@ impl PolicyValues for PolicyTrace {
     }
 
     fn threat(moving: PieceType, threatened: PieceType) -> Self::Value {
-        assert!(
-            moving != PieceType::King && threatened != PieceType::King && moving != PieceType::Pawn
-        );
+        assert!(moving != PieceType::King && threatened != PieceType::King);
         SparseTrace::single(
-            Threat.ft_offset() + 5 * (moving as u32 - PieceType::Knight as u32) + threatened as u32,
+            Threat.ft_offset() + 5 * (moving as u32 - PieceType::Pawn as u32) + threatened as u32,
         )
     }
 
