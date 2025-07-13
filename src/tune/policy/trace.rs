@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     chess::{Board, Move},
-    policy::{self, PolicyValueType, PolicyValues},
+    policy::{self, PolicyScoreType, PolicyValues},
     types::{Color, PieceType, Square},
 };
 
@@ -95,7 +95,7 @@ impl Div<f32> for SparseTrace {
     }
 }
 
-impl PolicyValueType for SparseTrace {}
+impl PolicyScoreType for SparseTrace {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
