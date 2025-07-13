@@ -1,11 +1,50 @@
-use std::ops;
+use std::{
+    fmt::Debug,
+    ops::{self, Add, AddAssign, Div, Mul, Neg, Sub, SubAssign},
+};
 
 use crate::{
     chess::{attacks, Board},
     types::{Bitboard, Color, Piece, PieceType},
 };
 
-#[derive(Clone, Copy)]
+// heavily inspired by Motors tuner
+pub trait EvalScoreType:
+    Debug
+    + Default
+    + Clone
+    + PartialEq
+    + Add<Output = Self>
+    + AddAssign
+    + Sub<Output = Self>
+    + SubAssign
+    + Neg<Output = Self>
+    + Mul<i32, Output = Self>
+    + Div<i32, Output = Self>
+{
+}
+
+impl EvalScoreType for i32 {}
+
+pub trait EvalScorePairType:
+    Debug
+    + Default
+    + Clone
+    + PartialEq
+    + Add<Output = Self>
+    + AddAssign
+    + Sub<Output = Self>
+    + SubAssign
+    + Neg<Output = Self>
+    + Mul<i32, Output = Self>
+{
+    type ScoreType: EvalScoreType;
+
+    fn mg(&self) -> Self::ScoreType;
+    fn eg(&self) -> Self::ScoreType;
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 struct ScorePair(i32);
 
 impl ScorePair {
@@ -72,6 +111,18 @@ impl ops::SubAssign for ScorePair {
 impl ops::MulAssign<i32> for ScorePair {
     fn mul_assign(&mut self, rhs: i32) {
         self.0 *= rhs;
+    }
+}
+
+impl EvalScorePairType for ScorePair {
+    type ScoreType = i32;
+
+    fn mg(&self) -> Self::ScoreType {
+        self.mg()
+    }
+
+    fn eg(&self) -> Self::ScoreType {
+        self.eg()
     }
 }
 
