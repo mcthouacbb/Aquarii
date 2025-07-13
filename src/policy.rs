@@ -9,7 +9,7 @@ use crate::{
 };
 
 // heavily inspired by Motors tuner
-pub trait PolicyValueType:
+pub trait PolicyScoreType:
     Debug
     + Default
     + Clone
@@ -24,10 +24,10 @@ pub trait PolicyValueType:
 {
 }
 
-impl PolicyValueType for f32 {}
+impl PolicyScoreType for f32 {}
 
 pub trait PolicyValues {
-    type Value: PolicyValueType;
+    type Value: PolicyScoreType;
 
     fn cap_bonus(pt: PieceType) -> Self::Value;
     fn pawn_protected_penalty(pt: PieceType) -> Self::Value;
