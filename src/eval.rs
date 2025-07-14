@@ -579,7 +579,7 @@ fn evaluate_pawns<Params: EvalValues>(board: &Board, color: Color) -> Params::Sc
     eval
 }
 
-fn eval_impl<Params: EvalValues>(board: &Board) -> Params::ScoreType {
+pub fn eval_impl<Params: EvalValues>(board: &Board) -> Params::ScoreType {
     let stm = board.stm();
     let mut eval = Params::ScorePairType::default();
     for pt in [
