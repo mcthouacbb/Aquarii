@@ -13,7 +13,6 @@ pub trait EvalScoreType:
     Debug
     + Default
     + Clone
-    + Copy
     + PartialEq
     + Add<Output = Self>
     + AddAssign
@@ -31,7 +30,6 @@ pub trait EvalScorePairType:
     Debug
     + Default
     + Clone
-    + Copy
     + PartialEq
     + Add<Output = Self>
     + AddAssign
@@ -423,7 +421,7 @@ impl<ScorePairType: EvalScorePairType> Default for EvalData<ScorePairType> {
             attacked_by: [[Bitboard::NONE; 6]; 2],
             attacked_by_2: [Bitboard::NONE; 2],
             king_ring: [Bitboard::NONE; 2],
-            king_attack_weight: [ScorePairType::default(); 2],
+            king_attack_weight: [ScorePairType::default(), ScorePairType::default()],
             king_attacks: [0; 2],
         }
     }
@@ -490,7 +488,7 @@ fn evaluate_kings<Params: EvalValues>(board: &Board, color: Color, eval_data: &E
     eval += Params::safe_rook_check() * (rook_checks & safe).popcount() as i32;
     eval += Params::safe_queen_check() * (queen_checks & safe).popcount() as i32;
 
-    eval += eval_data.king_attack_weight[color as usize];
+    eval += eval_data.king_attack_weight[color as usize].clone();
     eval += Params::king_attacks(eval_data.king_attacks[color as usize].min(13) as u32);
 
     return eval;
