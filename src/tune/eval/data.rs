@@ -52,14 +52,14 @@ fn load_data_file(file: &File, positions: &mut Vec<Position>) {
 
         pos.wdl = parts[2].parse::<f32>().expect("Could not parse score");
 
-        /*let coeffs = trace::compute_coeffs(&board);
+        let coeffs = trace::compute_coeffs(&board);
 
         for c in coeffs {
             pos.coeffs.push(Coefficient {
                 index: c.0 as u16,
                 value: c.1,
             });
-        }*/
+        }
 
         positions.push(pos);
 

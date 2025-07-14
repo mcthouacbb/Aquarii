@@ -1,11 +1,20 @@
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 
-use crate::{eval::EvalScorePairType, tune::SparseTrace};
+use crate::{chess::Board, eval::{self, EvalScorePairType, EvalValues}, tune::SparseTrace, types::{Color, PieceType, Square}};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 struct SparseTracePair {
     mg: SparseTrace,
     eg: SparseTrace,
+}
+
+impl SparseTracePair {
+	fn pair(offset: u32) -> Self {
+		Self {
+			mg: SparseTrace::single(offset),
+			eg: SparseTrace::single(offset + 1),
+		}
+	}
 }
 
 impl EvalScorePairType for SparseTracePair {
@@ -353,6 +362,97 @@ impl EvalFeature {
         }
         result
     }
+}
+
+struct EvalTrace {
+
+}
+
+impl EvalValues for EvalTrace {
+	type ScoreType = SparseTrace;
+	type ScorePairType = SparseTracePair;
+	fn material(pt: PieceType) -> Self::ScorePairType {
+		SparseTracePair::pair(Material.ft_offset() + 2 * pt as u32)
+	}
+
+	fn psqt(c: Color, pt: PieceType, sq: Square) -> Self::ScorePairType {
+		SparseTracePair::pair(Psqt.ft_offset() + 2 * (64 * pt as u32 + sq.relative_sq(c).flip() as u32))
+	}
+
+	fn mobility(pt: PieceType, mob: u32) -> Self::ScorePairType {
+		SparseTracePair::pair(Mobility.ft_offset() + 2 * ((pt as u32 - PieceType::Knight as u32) * 28 + mob))
+	}
+
+	fn passed_pawn(rank: u8) -> Self::ScorePairType {
+		SparseTracePair::pair(PassedPawn.ft_offset() + 2 * rank as u32)
+	}
+
+	fn pawn_phalanx(rank: u8) -> Self::ScorePairType {
+		SparseTracePair::pair(PawnPhalanx.ft_offset() + 2 * rank as u32)
+	}
+
+	fn defended_pawn(rank: u8) -> Self::ScorePairType {
+		SparseTracePair::pair(DefendedPawn.ft_offset() + 2 * rank as u32)
+	}
+
+	fn safe_knight_check() -> Self::ScorePairType {
+		SparseTracePair::pair(SafeKnightCheck.ft_offset())
+	}
+
+	fn safe_bishop_check() -> Self::ScorePairType {
+		SparseTracePair::pair(SafeBishopCheck.ft_offset())
+	}
+
+	fn safe_rook_check() -> Self::ScorePairType {
+		SparseTracePair::pair(SafeRookCheck.ft_offset())
+	}
+
+	fn safe_queen_check() -> Self::ScorePairType {
+		SparseTracePair::pair(SafeQueenCheck.ft_offset())
+	}
+
+	fn king_attacker_weight(pt: PieceType) -> Self::ScorePairType {
+		SparseTracePair::pair(KingAttackerWeight.ft_offset() + 2 * (pt as u32 - PieceType::Knight as u32))
+	}
+
+	fn king_attacks(attacks: u32) -> Self::ScorePairType {
+		SparseTracePair::pair(KingAttacks.ft_offset() + 2 * attacks)
+	}
+
+	fn threat_by_pawn(pt: PieceType) -> Self::ScorePairType {
+		SparseTracePair::pair(ThreatByPawn.ft_offset() + 2 * pt as u32)
+	}
+
+	fn threat_by_knight(pt: PieceType, defended: bool) -> Self::ScorePairType {
+		SparseTracePair::pair(ThreatByKnight.ft_offset() + 2 * (6 * defended as u32 + pt as u32))
+	}
+
+	fn threat_by_bishop(pt: PieceType, defended: bool) -> Self::ScorePairType {
+		SparseTracePair::pair(ThreatByBishop.ft_offset() + 2 * (6 * defended as u32 + pt as u32))
+	}
+
+	fn threat_by_rook(pt: PieceType, defended: bool) -> Self::ScorePairType {
+		SparseTracePair::pair(ThreatByRook.ft_offset() + 2 * (6 * defended as u32 + pt as u32))
+	}
+
+	fn threat_by_queen(pt: PieceType, defended: bool) -> Self::ScorePairType {
+		SparseTracePair::pair(ThreatByQueen.ft_offset() + 2 * (6 * defended as u32 + pt as u32))
+	}
+
+	fn tempo() -> Self::ScoreType {
+		SparseTrace::single(Tempo.ft_offset())
+	}
+}
+
+pub fn compute_coeffs(board: &Board) -> Vec<(u32, f32)> {
+    let trace = eval::eval_impl::<EvalTrace>(board);
+    let mut result = Vec::new();
+
+    for elem in trace.features {
+        result.push(elem);
+    }
+
+    result
 }
 
 pub fn zero_params() -> Vec<f32> {
