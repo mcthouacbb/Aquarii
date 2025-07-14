@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     chess::{attacks, Board},
-    types::{Bitboard, Color, Piece, PieceType},
+    types::{Bitboard, Color, Piece, PieceType, Square},
 };
 
 // heavily inspired by Motors tuner
@@ -13,6 +13,7 @@ pub trait EvalScoreType:
     Debug
     + Default
     + Clone
+    + Copy
     + PartialEq
     + Add<Output = Self>
     + AddAssign
@@ -30,6 +31,7 @@ pub trait EvalScorePairType:
     Debug
     + Default
     + Clone
+    + Copy
     + PartialEq
     + Add<Output = Self>
     + AddAssign
@@ -45,7 +47,7 @@ pub trait EvalScorePairType:
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-struct ScorePair(i32);
+pub struct ScorePair(i32);
 
 impl ScorePair {
     const fn new(mg: i32, eg: i32) -> Self {
@@ -129,6 +131,30 @@ impl EvalScorePairType for ScorePair {
 #[allow(non_snake_case)]
 const fn S(mg: i32, eg: i32) -> ScorePair {
     ScorePair::new(mg, eg)
+}
+
+pub trait EvalValues {
+    type ScoreType: EvalScoreType;
+    type ScorePairType: EvalScorePairType<ScoreType = Self::ScoreType>;
+
+    fn material(pt: PieceType) -> Self::ScorePairType;
+    fn psqt(c: Color, pt: PieceType, sq: Square) -> Self::ScorePairType;
+    fn mobility(pt: PieceType, mob: u32) -> Self::ScorePairType;
+    fn passed_pawn(rank: u8) -> Self::ScorePairType;
+    fn pawn_phalanx(rank: u8) -> Self::ScorePairType;
+    fn defended_pawn(rank: u8) -> Self::ScorePairType;
+    fn safe_knight_check() -> Self::ScorePairType;
+    fn safe_bishop_check() -> Self::ScorePairType;
+    fn safe_rook_check() -> Self::ScorePairType;
+    fn safe_queen_check() -> Self::ScorePairType;
+    fn king_attacker_weight(pt: PieceType) -> Self::ScorePairType;
+    fn king_attacks(attacks: u32) -> Self::ScorePairType;
+    fn threat_by_pawn(pt: PieceType) -> Self::ScorePairType;
+    fn threat_by_knight(pt: PieceType, defended: bool) -> Self::ScorePairType;
+    fn threat_by_bishop(pt: PieceType, defended: bool) -> Self::ScorePairType;
+    fn threat_by_rook(pt: PieceType, defended: bool) -> Self::ScorePairType;
+    fn threat_by_queen(pt: PieceType, defended: bool) -> Self::ScorePairType;
+    fn tempo() -> Self::ScoreType;
 }
 
 #[rustfmt::skip]
@@ -298,35 +324,118 @@ const THREAT_BY_QUEEN: [[ScorePair; 6]; 2] = [
 	[S(  -3,   12), S(   1,    8), S(  -5,   14), S(  -4,    3), S( -16,  -74), S( 118,   52)]
 ];
 
-struct EvalData {
+const TEMPO: i32 = 20;
+
+pub struct EvalParams {
+
+}
+
+impl EvalValues for EvalParams {
+    type ScoreType = i32;
+    type ScorePairType = ScorePair;
+
+    fn material(pt: PieceType) -> Self::ScorePairType {
+        MATERIAL[pt as usize]
+    }
+
+    fn psqt(c: Color, pt: PieceType, sq: Square) -> Self::ScorePairType {
+        PSQT[pt as usize][sq.relative_sq(c).flip().value() as usize]
+    }
+
+    fn mobility(pt: PieceType, mob: u32) -> Self::ScorePairType {
+        MOBILITY[pt as usize - PieceType::Knight as usize][mob as usize]
+    }
+
+    fn passed_pawn(rank: u8) -> Self::ScorePairType {
+        PASSED_PAWN[rank as usize]
+    }
+
+    fn pawn_phalanx(rank: u8) -> Self::ScorePairType {
+        PAWN_PHALANX[rank as usize]
+    }
+
+    fn defended_pawn(rank: u8) -> Self::ScorePairType {
+        DEFENDED_PAWN[rank as usize]
+    }
+
+    fn safe_knight_check() -> Self::ScorePairType {
+        SAFE_KNIGHT_CHECK
+    }
+
+    fn safe_bishop_check() -> Self::ScorePairType {
+        SAFE_BISHOP_CHECK
+    }
+
+    fn safe_rook_check() -> Self::ScorePairType {
+        SAFE_ROOK_CHECK
+    }
+
+    fn safe_queen_check() -> Self::ScorePairType {
+        SAFE_QUEEN_CHECK
+    }
+
+    fn king_attacker_weight(pt: PieceType) -> Self::ScorePairType {
+        KING_ATTACKER_WEIGHT[pt as usize - PieceType::Knight as usize]
+    }
+
+    fn king_attacks(attacks: u32) -> Self::ScorePairType {
+        KING_ATTACKS[attacks as usize]
+    }
+
+    fn threat_by_pawn(pt: PieceType) -> Self::ScorePairType {
+        THREAT_BY_PAWN[pt as usize]
+    }
+
+    fn threat_by_knight(pt: PieceType, defended: bool) -> Self::ScorePairType {
+        THREAT_BY_KNIGHT[defended as usize][pt as usize]
+    }
+
+    fn threat_by_bishop(pt: PieceType, defended: bool) -> Self::ScorePairType {
+        THREAT_BY_BISHOP[defended as usize][pt as usize]
+    }
+
+    fn threat_by_rook(pt: PieceType, defended: bool) -> Self::ScorePairType {
+        THREAT_BY_ROOK[defended as usize][pt as usize]
+    }
+
+    fn threat_by_queen(pt: PieceType, defended: bool) -> Self::ScorePairType {
+        THREAT_BY_QUEEN[defended as usize][pt as usize]
+    }
+
+    fn tempo() -> Self::ScoreType {
+        TEMPO
+    }
+}
+
+struct EvalData<ScorePairType: EvalScorePairType> {
     attacked: [Bitboard; 2],
     attacked_by: [[Bitboard; 6]; 2],
     attacked_by_2: [Bitboard; 2],
     king_ring: [Bitboard; 2],
-    king_attack_weight: [ScorePair; 2],
+    king_attack_weight: [ScorePairType; 2],
     king_attacks: [i32; 2],
 }
 
-impl Default for EvalData {
+impl<ScorePairType: EvalScorePairType> Default for EvalData<ScorePairType> {
     fn default() -> Self {
         Self {
             attacked: [Bitboard::NONE; 2],
             attacked_by: [[Bitboard::NONE; 6]; 2],
             attacked_by_2: [Bitboard::NONE; 2],
             king_ring: [Bitboard::NONE; 2],
-            king_attack_weight: [S(0, 0); 2],
+            king_attack_weight: [ScorePairType::default(); 2],
             king_attacks: [0; 2],
         }
     }
 }
 
-fn evaluate_piece(
+fn evaluate_piece<Params: EvalValues>(
     board: &Board,
     pt: PieceType,
     color: Color,
-    eval_data: &mut EvalData,
-) -> ScorePair {
-    let mut eval = S(0, 0);
+    eval_data: &mut EvalData<Params::ScorePairType>,
+) -> Params::ScorePairType {
+    let mut eval = Params::ScorePairType::default();
 
     let opp_pawns = board.colored_pieces(Piece::new(!color, PieceType::Pawn));
     let mobility_area = !attacks::pawn_attacks_bb(!color, opp_pawns);
@@ -338,7 +447,7 @@ fn evaluate_piece(
 
         let attacks = attacks::piece_attacks(pt, sq, board.occ());
         let mobility = (attacks & mobility_area).popcount();
-        eval += MOBILITY[pt as usize - PieceType::Knight as usize][mobility as usize];
+        eval += Params::mobility(pt, mobility);
 
         eval_data.attacked_by_2[color as usize] |= attacks & eval_data.attacked[color as usize];
         eval_data.attacked[color as usize] |= attacks;
@@ -346,16 +455,15 @@ fn evaluate_piece(
 
         let king_ring_attacks = eval_data.king_ring[!color as usize] & attacks;
         if king_ring_attacks.any() {
-            eval_data.king_attack_weight[color as usize] +=
-                KING_ATTACKER_WEIGHT[pt as usize - PieceType::Knight as usize];
+            eval_data.king_attack_weight[color as usize] += Params::king_attacker_weight(pt);
             eval_data.king_attacks[color as usize] += king_ring_attacks.popcount() as i32;
         }
     }
     eval
 }
 
-fn evaluate_kings(board: &Board, color: Color, eval_data: &EvalData) -> ScorePair {
-    let mut eval = S(0, 0);
+fn evaluate_kings<Params: EvalValues>(board: &Board, color: Color, eval_data: &EvalData<Params::ScorePairType>) -> Params::ScorePairType {
+    let mut eval = Params::ScorePairType::default();
 
     let their_king = board.king_sq(!color);
 
@@ -377,19 +485,19 @@ fn evaluate_kings(board: &Board, color: Color, eval_data: &EvalData) -> ScorePai
     let safe = !board.colors(color)
         & (!eval_data.attacked[!color as usize] | (weak & eval_data.attacked_by_2[color as usize]));
 
-    eval += SAFE_KNIGHT_CHECK * (knight_checks & safe).popcount() as i32;
-    eval += SAFE_BISHOP_CHECK * (bishop_checks & safe).popcount() as i32;
-    eval += SAFE_ROOK_CHECK * (rook_checks & safe).popcount() as i32;
-    eval += SAFE_QUEEN_CHECK * (queen_checks & safe).popcount() as i32;
+    eval += Params::safe_knight_check() * (knight_checks & safe).popcount() as i32;
+    eval += Params::safe_bishop_check() * (bishop_checks & safe).popcount() as i32;
+    eval += Params::safe_rook_check() * (rook_checks & safe).popcount() as i32;
+    eval += Params::safe_queen_check() * (queen_checks & safe).popcount() as i32;
 
     eval += eval_data.king_attack_weight[color as usize];
-    eval += KING_ATTACKS[eval_data.king_attacks[color as usize].min(13) as usize];
+    eval += Params::king_attacks(eval_data.king_attacks[color as usize].min(13) as u32);
 
     return eval;
 }
 
-fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScorePair {
-    let mut eval = S(0, 0);
+fn evaluate_threats<Params: EvalValues>(board: &Board, color: Color, eval_data: &EvalData<Params::ScorePairType>) -> Params::ScorePairType {
+    let mut eval = Params::ScorePairType::default();
 
     let defended_bb = eval_data.attacked_by_2[!color as usize]
         | eval_data.attacked_by[!color as usize][PieceType::Pawn as usize]
@@ -399,7 +507,7 @@ fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScoreP
         eval_data.attacked_by[color as usize][PieceType::Pawn as usize] & board.colors(!color);
     while pawn_threats.any() {
         let threatened = board.piece_at(pawn_threats.poplsb()).unwrap().piece_type();
-        eval += THREAT_BY_PAWN[threatened as usize];
+        eval += Params::threat_by_pawn(threatened);
     }
 
     let mut knight_threats =
@@ -408,7 +516,7 @@ fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScoreP
         let threat = knight_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
         let defended = defended_bb.has(threat);
-        eval += THREAT_BY_KNIGHT[defended as usize][threatened as usize];
+        eval += Params::threat_by_knight(threatened, defended);
     }
 
     let mut bishop_threats =
@@ -417,7 +525,7 @@ fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScoreP
         let threat = bishop_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
         let defended = defended_bb.has(threat);
-        eval += THREAT_BY_BISHOP[defended as usize][threatened as usize];
+        eval += Params::threat_by_bishop(threatened, defended);
     }
 
     let mut rook_threats =
@@ -426,7 +534,7 @@ fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScoreP
         let threat = rook_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
         let defended = defended_bb.has(threat);
-        eval += THREAT_BY_ROOK[defended as usize][threatened as usize];
+        eval += Params::threat_by_rook(threatened, defended);
     }
 
     let mut queen_threats =
@@ -435,14 +543,14 @@ fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScoreP
         let threat = queen_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
         let defended = defended_bb.has(threat);
-        eval += THREAT_BY_QUEEN[defended as usize][threatened as usize];
+        eval += Params::threat_by_queen(threatened, defended);
     }
 
     eval
 }
 
-fn evaluate_pawns(board: &Board, color: Color) -> ScorePair {
-    let mut eval = S(0, 0);
+fn evaluate_pawns<Params: EvalValues>(board: &Board, color: Color) -> Params::ScorePairType {
+    let mut eval = Params::ScorePairType::default();
     let our_pawns = board.colored_pieces(Piece::new(color, PieceType::Pawn));
     let their_pawns = board.colored_pieces(Piece::new(!color, PieceType::Pawn));
 
@@ -452,24 +560,24 @@ fn evaluate_pawns(board: &Board, color: Color) -> ScorePair {
         let relative_rank = sq.relative_sq(color).rank();
         let stoppers = their_pawns & attacks::passed_pawn_span(color, sq);
         if stoppers.empty() {
-            eval += PASSED_PAWN[relative_rank as usize];
+            eval += Params::passed_pawn(relative_rank);
         }
     }
 
     let mut phalanxes = our_pawns & our_pawns.west();
     while phalanxes.any() {
-        eval += PAWN_PHALANX[phalanxes.poplsb().relative_sq(color).rank() as usize];
+        eval += Params::pawn_phalanx(phalanxes.poplsb().relative_sq(color).rank());
     }
     let mut defended = our_pawns & attacks::pawn_attacks_bb(color, our_pawns);
     while defended.any() {
-        eval += DEFENDED_PAWN[defended.poplsb().relative_sq(color).rank() as usize];
+        eval += Params::defended_pawn(defended.poplsb().relative_sq(color).rank());
     }
     eval
 }
 
-pub fn eval(board: &Board) -> i32 {
+fn eval_impl<Params: EvalValues>(board: &Board) -> Params::ScoreType {
     let stm = board.stm();
-    let mut eval = S(0, 0);
+    let mut eval = Params::ScorePairType::default();
     for pt in [
         PieceType::Pawn,
         PieceType::Knight,
@@ -482,15 +590,11 @@ pub fn eval(board: &Board) -> i32 {
         let mut nstm_bb = board.colored_pieces(Piece::new(!stm, pt));
 
         while stm_bb.any() {
-            let sq = stm_bb.poplsb().relative_sq(stm).flip();
-            eval += MATERIAL[pt as usize];
-            eval += PSQT[pt as usize][sq.value() as usize]
+            eval += Params::material(pt) + Params::psqt(stm, pt, stm_bb.poplsb());
         }
 
         while nstm_bb.any() {
-            let sq = nstm_bb.poplsb().relative_sq(!stm).flip();
-            eval -= MATERIAL[pt as usize];
-            eval -= PSQT[pt as usize][sq.value() as usize];
+            eval -= Params::material(pt) + Params::psqt(!stm, pt, nstm_bb.poplsb());
         }
     }
 
@@ -508,24 +612,28 @@ pub fn eval(board: &Board) -> i32 {
     eval_data.king_ring[Color::Black as usize] =
         (bking_atks | bking_atks.south()) & !Bitboard::from_square(board.king_sq(Color::Black));
 
-    eval += evaluate_piece(board, PieceType::Knight, stm, &mut eval_data)
-        - evaluate_piece(board, PieceType::Knight, !stm, &mut eval_data);
-    eval += evaluate_piece(board, PieceType::Bishop, stm, &mut eval_data)
-        - evaluate_piece(board, PieceType::Bishop, !stm, &mut eval_data);
-    eval += evaluate_piece(board, PieceType::Rook, stm, &mut eval_data)
-        - evaluate_piece(board, PieceType::Rook, !stm, &mut eval_data);
-    eval += evaluate_piece(board, PieceType::Queen, stm, &mut eval_data)
-        - evaluate_piece(board, PieceType::Queen, !stm, &mut eval_data);
+    eval += evaluate_piece::<Params>(board, PieceType::Knight, stm, &mut eval_data)
+        - evaluate_piece::<Params>(board, PieceType::Knight, !stm, &mut eval_data);
+    eval += evaluate_piece::<Params>(board, PieceType::Bishop, stm, &mut eval_data)
+        - evaluate_piece::<Params>(board, PieceType::Bishop, !stm, &mut eval_data);
+    eval += evaluate_piece::<Params>(board, PieceType::Rook, stm, &mut eval_data)
+        - evaluate_piece::<Params>(board, PieceType::Rook, !stm, &mut eval_data);
+    eval += evaluate_piece::<Params>(board, PieceType::Queen, stm, &mut eval_data)
+        - evaluate_piece::<Params>(board, PieceType::Queen, !stm, &mut eval_data);
 
-    eval += evaluate_kings(board, stm, &eval_data) - evaluate_kings(board, !stm, &eval_data);
-    eval += evaluate_threats(board, stm, &eval_data) - evaluate_threats(board, !stm, &eval_data);
+    eval += evaluate_kings::<Params>(board, stm, &eval_data) - evaluate_kings::<Params>(board, !stm, &eval_data);
+    eval += evaluate_threats::<Params>(board, stm, &eval_data) - evaluate_threats::<Params>(board, !stm, &eval_data);
 
-    eval += evaluate_pawns(board, stm) - evaluate_pawns(board, !stm);
+    eval += evaluate_pawns::<Params>(board, stm) - evaluate_pawns::<Params>(board, !stm);
 
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
         + 2 * board.pieces(PieceType::Rook).popcount()
         + board.pieces(PieceType::Bishop).popcount()
         + board.pieces(PieceType::Knight).popcount()) as i32;
 
-    (eval.mg() * phase.min(24) + eval.eg() * (24 - phase.min(24))) / 24 + 20
+    (eval.mg() * phase.min(24) + eval.eg() * (24 - phase.min(24))) / 24 + Params::tempo()
+}
+
+pub fn eval(board: &Board) -> i32 {
+    eval_impl::<EvalParams>(board)
 }
