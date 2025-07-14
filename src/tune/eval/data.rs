@@ -1,4 +1,4 @@
-use std::{fs::File, io::BufReader};
+use std::{fs::File, io::{BufRead, BufReader}};
 
 use rand::seq::SliceRandom;
 
@@ -11,8 +11,8 @@ pub struct Coefficient {
 
 pub struct Position {
     pub coeffs: Vec<Coefficient>,
-	pub score: f32,
-	pub wdl: f32,
+    pub score: f32,
+    pub wdl: f32,
 }
 
 pub struct Dataset {
@@ -44,26 +44,22 @@ fn load_data_file(file: &File, positions: &mut Vec<Position>) {
         let board = Board::from_fen(fen).expect("Invalid fen string in policy data");
         let mut pos = Position {
             coeffs: Vec::new(),
-			score: 0.0,
-			wdl: 0.0
+            score: 0.0,
+            wdl: 0.0,
         };
 
-		pos.score = parts[1]
-                .parse::<f32>()
-                .expect("Could not parse score");
+        pos.score = parts[1].parse::<f32>().expect("Could not parse score");
 
-		pos.wdl = parts[2]
-                .parse::<f32>()
-                .expect("Could not parse score");
+        pos.wdl = parts[2].parse::<f32>().expect("Could not parse score");
 
-		let coeffs = trace::compute_coeffs(&board);
+        /*let coeffs = trace::compute_coeffs(&board);
 
-		for c in coeffs {
-			pos.coeffs.push(Coefficient {
-				index: c.0 as u16,
-				value: c.1,
-			});
-		}
+        for c in coeffs {
+            pos.coeffs.push(Coefficient {
+                index: c.0 as u16,
+                value: c.1,
+            });
+        }*/
 
         positions.push(pos);
 

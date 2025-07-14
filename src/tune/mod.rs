@@ -1,4 +1,7 @@
-use std::{collections::HashMap, ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign}};
+use std::{
+    collections::HashMap,
+    ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign},
+};
 
 use crate::{eval::EvalScoreType, policy::PolicyScoreType};
 
@@ -94,14 +97,14 @@ impl Div<f32> for SparseTrace {
 impl Mul<i32> for SparseTrace {
     type Output = Self;
     fn mul(self, rhs: i32) -> Self::Output {
-		self * rhs as f32
+        self * rhs as f32
     }
 }
 
 impl Div<i32> for SparseTrace {
     type Output = Self;
     fn div(self, rhs: i32) -> Self::Output {
-		self / rhs as f32
+        self / rhs as f32
     }
 }
 
