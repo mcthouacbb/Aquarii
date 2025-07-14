@@ -90,6 +90,11 @@ fn main() {
         return;
     }
 
+    if args.len() >= 2 && args[1] == "tuneeval" {
+        tune::eval::main(&args[2..args.len()]);
+        return;
+    }
+
     let mut pos = Position::new();
     let mut searcher = search::MCTS::new();
 

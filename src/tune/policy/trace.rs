@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    chess::{Board, Move}, policy::{self, PolicyValues}, tune::SparseTrace, types::{Color, PieceType, Square}
+    chess::{Board, Move},
+    policy::{self, PolicyValues},
+    tune::SparseTrace,
+    types::{Color, PieceType, Square},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

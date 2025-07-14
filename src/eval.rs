@@ -324,9 +324,7 @@ const THREAT_BY_QUEEN: [[ScorePair; 6]; 2] = [
 
 const TEMPO: i32 = 20;
 
-pub struct EvalParams {
-
-}
+pub struct EvalParams {}
 
 impl EvalValues for EvalParams {
     type ScoreType = i32;
@@ -460,7 +458,11 @@ fn evaluate_piece<Params: EvalValues>(
     eval
 }
 
-fn evaluate_kings<Params: EvalValues>(board: &Board, color: Color, eval_data: &EvalData<Params::ScorePairType>) -> Params::ScorePairType {
+fn evaluate_kings<Params: EvalValues>(
+    board: &Board,
+    color: Color,
+    eval_data: &EvalData<Params::ScorePairType>,
+) -> Params::ScorePairType {
     let mut eval = Params::ScorePairType::default();
 
     let their_king = board.king_sq(!color);
@@ -494,7 +496,11 @@ fn evaluate_kings<Params: EvalValues>(board: &Board, color: Color, eval_data: &E
     return eval;
 }
 
-fn evaluate_threats<Params: EvalValues>(board: &Board, color: Color, eval_data: &EvalData<Params::ScorePairType>) -> Params::ScorePairType {
+fn evaluate_threats<Params: EvalValues>(
+    board: &Board,
+    color: Color,
+    eval_data: &EvalData<Params::ScorePairType>,
+) -> Params::ScorePairType {
     let mut eval = Params::ScorePairType::default();
 
     let defended_bb = eval_data.attacked_by_2[!color as usize]
@@ -623,8 +629,10 @@ fn eval_impl<Params: EvalValues>(board: &Board) -> Params::ScoreType {
     eval += evaluate_piece::<Params>(board, PieceType::Queen, stm, &mut eval_data)
         - evaluate_piece::<Params>(board, PieceType::Queen, !stm, &mut eval_data);
 
-    eval += evaluate_kings::<Params>(board, stm, &eval_data) - evaluate_kings::<Params>(board, !stm, &eval_data);
-    eval += evaluate_threats::<Params>(board, stm, &eval_data) - evaluate_threats::<Params>(board, !stm, &eval_data);
+    eval += evaluate_kings::<Params>(board, stm, &eval_data)
+        - evaluate_kings::<Params>(board, !stm, &eval_data);
+    eval += evaluate_threats::<Params>(board, stm, &eval_data)
+        - evaluate_threats::<Params>(board, !stm, &eval_data);
 
     eval += evaluate_pawns::<Params>(board, stm) - evaluate_pawns::<Params>(board, !stm);
 
