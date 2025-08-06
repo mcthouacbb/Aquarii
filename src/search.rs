@@ -4,8 +4,7 @@ use arrayvec::ArrayVec;
 
 use crate::{
     chess::{
-        movegen::{movegen, MoveList},
-        Move,
+        movegen::{movegen, MoveList}, Board, Move
     },
     eval,
     policy::get_policy,
@@ -232,6 +231,25 @@ impl MCTS {
 
         for (i, mv) in moves.iter().enumerate() {
             self.nodes.push(Node::new(*mv, policies[i]));
+        }
+    }
+
+    fn relabel_policies(&mut self, node_idx: u32, board: &Board) {
+        let mut policies = ArrayVec::<f32, 256>::new();
+        let mut max_policy = 0f32;
+
+        let tmp = if node_idx == 0 { 3.0 } else { 1.0 };
+
+        for child_idx in self.nodes[node_idx as usize].child_indices() {
+            let policy = get_policy(board, self.nodes[child_idx as usize].parent_move) / tmp;
+            max_policy = max_policy.max(policy);
+            policies.push(policy);
+        }
+
+        softmax(&mut policies, max_policy);
+
+        for (i, child_idx) in self.nodes[node_idx as usize].child_indices().enumerate() {
+            self.nodes[child_idx as usize].policy = policies[i];
         }
     }
 
@@ -512,6 +530,7 @@ impl MCTS {
             let mut old_nodes = Vec::with_capacity(self.nodes.capacity());
             swap(&mut old_nodes, &mut self.nodes);
             self.build_tree(&old_nodes, old_node_idx);
+            self.relabel_policies(0, &self.root_position.board().clone());
         } else {
             self.nodes.clear();
             self.nodes.push(Node::new(Move::NULL, 0.0));
