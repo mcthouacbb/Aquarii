@@ -2,7 +2,7 @@ use std::{fs::File, io::{BufRead, BufReader}};
 
 use rand::seq::SliceRandom;
 
-use crate::{chess::Board, tune::eval::trace};
+use crate::{chess::Board, tune::eval::trace, types::Color};
 
 pub struct Coefficient {
     pub index: u16,
@@ -49,8 +49,13 @@ fn load_data_file(file: &File, positions: &mut Vec<Position>) {
         };
 
         pos.score = parts[1].parse::<f32>().expect("Could not parse score");
-
         pos.wdl = parts[2].parse::<f32>().expect("Could not parse score");
+
+        // make stm relative
+        if board.stm() == Color::Black {
+            pos.score = 1.0 - pos.score;
+            pos.wdl = 1.0 - pos.wdl;
+        }
 
         let coeffs = trace::compute_coeffs(&board);
 

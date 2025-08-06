@@ -457,7 +457,7 @@ pub fn compute_coeffs(board: &Board) -> Vec<(u32, f32)> {
 
 pub fn zero_params() -> Vec<f32> {
     let mut result = Vec::new();
-    for _ in 0..EvalFeature::total_fts() {
+    for i in 0..EvalFeature::total_fts() {
         result.push(0.0);
     }
     result
