@@ -275,14 +275,10 @@ impl MCTS {
         if depth <= 0 {
             return;
         }
-        let indentation = || {
-            "    ".repeat(ply as usize)
-        };
+        let indentation = || "    ".repeat(ply as usize);
         let node = &self.tree[node_idx];
         let mut children: Vec<u32> = node.child_indices().collect();
-        children.sort_by(|a, b| {
-            self.tree[*b].visits().cmp(&self.tree[*a].visits())
-        });
+        children.sort_by(|a, b| self.tree[*b].visits().cmp(&self.tree[*a].visits()));
         for child_idx in children {
             let child_node = &self.tree[child_idx];
             println!(
