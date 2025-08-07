@@ -1,5 +1,7 @@
 use std::{num::NonZeroI16, time::Instant};
 
+use rand::distr;
+
 use crate::{
     chess::{
         movegen::{movegen, MoveList},
@@ -12,10 +14,6 @@ use crate::{
 
 fn sigmoid(x: f32, scale: f32) -> f32 {
     1.0 / (1.0 + (-x / scale).exp())
-}
-
-fn sigmoid_inv(x: f32, scale: f32) -> f32 {
-    scale * (x / (1.0 - x)).ln()
 }
 
 #[derive(Copy, Clone)]
@@ -243,20 +241,12 @@ impl MCTS {
         self.iters += 1;
     }
 
-    fn root_move_score(child_node: &Node) -> f32 {
-        match child_node.game_result() {
-            GameResult::NonTerminal => {
-                if let Some(mate_score) = child_node.mate_score() {
-                    match mate_score {
-                        MateScore::Loss(dist) => 1000.0 - dist as f32,
-                        MateScore::Win(dist) => dist as f32 - 1000.0,
-                    }
-                } else {
-                    1.0 - child_node.q()
-                }
-            }
-            GameResult::Mated => 1000.0,
-            GameResult::Drawn => 0.5,
+    fn pv_score(node: &Node) -> f32 {
+        match node.score().flip() {
+            Score::Win(dist) => 1000.0 - dist as f32,
+            Score::Draw => 0.5,
+            Score::Loss(dist) => -1000.0 + dist as f32,
+            Score::Normal(score) => score,
         }
     }
 
@@ -269,7 +259,7 @@ impl MCTS {
             if child_node.visits() == 0 {
                 continue;
             }
-            let score = Self::root_move_score(child_node);
+            let score = Self::pv_score(child_node);
             if score > best_score {
                 best_score = score;
                 best_move = child_node.parent_move();
@@ -282,20 +272,11 @@ impl MCTS {
         let root_node = &self.tree[0];
         for child_idx in root_node.child_indices() {
             let child_node = &self.tree[child_idx];
-            let score_str = if let Some(mate_score) = child_node.mate_score() {
-                // child win = parent loss and vice versa
-                match mate_score {
-                    MateScore::Loss(dist) => format!("win {} plies", dist),
-                    MateScore::Win(dist) => format!("loss {} plies", dist),
-                }
-            } else {
-                format!("{} cp", sigmoid_inv(1.0 - child_node.q(), Self::EVAL_SCALE))
-            };
             println!(
                 "{} => {} visits {}",
                 child_node.parent_move(),
                 child_node.visits(),
-                score_str
+                child_node.score()
             );
         }
     }
@@ -385,26 +366,13 @@ impl MCTS {
                 prev_depth = curr_depth;
                 if report {
                     let elapsed = start_time.elapsed().as_secs_f64();
-                    let score_str =
-                        if let Some(mate_score) = self.tree[self.tree.root_node()].mate_score() {
-                            match mate_score {
-                                MateScore::Loss(dist) => format!("mate {}", -(dist as i32) / 2),
-                                MateScore::Win(dist) => format!("mate {}", (dist as i32 + 1) / 2),
-                            }
-                        } else {
-                            format!(
-                                "cp {}",
-                                sigmoid_inv(self.tree[self.tree.root_node()].q(), Self::EVAL_SCALE)
-                                    .round()
-                            )
-                        };
                     println!(
                         "info depth {} nodes {} time {} nps {} score {} pv {}",
                         curr_depth,
                         self.nodes,
                         (elapsed * 1000.0) as u64,
                         (self.nodes as f64 / elapsed as f64) as u64,
-                        score_str,
+                        self.tree[self.tree.root_node()].score(),
                         self.get_best_move()
                     );
                 }
@@ -427,24 +395,13 @@ impl MCTS {
         if report {
             let curr_depth = self.depth();
             let elapsed = start_time.elapsed().as_secs_f64();
-            let score_str = if let Some(mate_score) = self.tree[0].mate_score() {
-                match mate_score {
-                    MateScore::Loss(dist) => format!("mate {}", -(dist as i32) / 2),
-                    MateScore::Win(dist) => format!("mate {}", (dist as i32 + 1) / 2),
-                }
-            } else {
-                format!(
-                    "cp {}",
-                    sigmoid_inv(self.tree[0].q(), Self::EVAL_SCALE).round()
-                )
-            };
             println!(
                 "info depth {} nodes {} time {} nps {} score {} pv {}",
                 curr_depth,
                 self.nodes,
                 (elapsed * 1000.0) as u64,
                 (self.nodes as f64 / elapsed as f64) as u64,
-                score_str,
+                self.tree[self.tree.root_node()].score(),
                 self.get_best_move()
             );
         }
@@ -452,11 +409,7 @@ impl MCTS {
         SearchResults {
             best_move: self.get_best_move(),
             nodes: self.nodes as u64,
-            score: if let Some(mate_score) = self.tree[0].mate_score() {
-                Score::Mate(mate_score)
-            } else {
-                Score::Normal(self.tree[0].q())
-            },
+            score: self.tree[self.tree.root_node()].score(),
             visit_dist: self.get_visit_dist(),
         }
     }

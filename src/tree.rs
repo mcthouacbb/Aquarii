@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{
     num::NonZeroI16,
     ops::{Index, IndexMut, Range},
@@ -27,10 +28,38 @@ pub enum MateScore {
     Win(u16),
 }
 
+fn sigmoid_inv(x: f32, scale: f32) -> f32 {
+    scale * (x / (1.0 - x)).ln()
+}
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum Score {
-    Mate(MateScore),
+    Win(u16),
+    Draw,
+    Loss(u16),
     Normal(f32),
+}
+
+impl Score {
+    pub fn flip(&self) -> Self {
+        match self {
+            Self::Win(dist) => Self::Loss(*dist),
+            Self::Draw => Self::Draw,
+            Self::Loss(dist) => Self::Win(*dist),
+            Self::Normal(score) => Self::Normal(-score),
+        }
+    }
+}
+
+impl fmt::Display for Score {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Win(dist) => write!(f, "win {} plies", *dist),
+            Self::Draw => write!(f, "draw"),
+            Self::Loss(dist) => write!(f, "loss {} plies", *dist),
+            Self::Normal(score) => write!(f, "{} cp", sigmoid_inv(*score, 400.0).round()),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -75,6 +104,19 @@ impl Node {
             }
         } else {
             None
+        }
+    }
+
+    pub fn score(&self) -> Score {
+        if self.game_result() == GameResult::Drawn {
+            Score::Draw
+        } else if let Some(mate_score) = self.mate_score() {
+            match mate_score {
+                MateScore::Loss(dist) => Score::Loss(dist),
+                MateScore::Win(dist) => Score::Win(dist),
+            }
+        } else {
+            Score::Normal(self.q())
         }
     }
 

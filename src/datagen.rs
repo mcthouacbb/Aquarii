@@ -168,10 +168,9 @@ fn run_game(search: &mut MCTS, rng: &mut XorShiftRng) -> Game {
     loop {
         let results = search.run(limits, false, &pos);
         let mut datapt_score = match results.score {
-            Score::Mate(mate_score) => match mate_score {
-                MateScore::Loss(_) => 0.0,
-                MateScore::Win(_) => 1.0,
-            },
+            Score::Win(_) => 1.0,
+            Score::Draw => 0.5,
+            Score::Loss(_) => 0.0,
             Score::Normal(wdl) => wdl,
         };
         if pos.board().stm() == Color::Black {
