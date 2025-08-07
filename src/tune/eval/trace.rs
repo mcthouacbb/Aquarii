@@ -354,10 +354,57 @@ impl EvalFeature {
             + format!("{}", params[Tempo.ft_offset() as usize]).as_str()
     }
 
+    fn normalize_range(params: &mut Vec<f32>, piece: PieceType, start: u32, len: u32) {
+        let mut total_mg = 0f32;
+        let mut total_eg = 0f32;
+        for i in 0..len {
+            let mg_idx = start + 2 * i;
+            let eg_idx = mg_idx + 1;
+
+            total_mg += params[mg_idx as usize];
+            total_eg += params[eg_idx as usize];
+        }
+
+        let avg_mg = total_mg / len as f32;
+        let avg_eg = total_eg / len as f32;
+
+        params[piece as usize * 2] += avg_mg;
+        params[piece as usize * 2 + 1] += avg_eg;
+
+        for i in 0..len {
+            let mg_idx = start + 2 * i;
+            let eg_idx = mg_idx + 1;
+
+            params[mg_idx as usize] -= avg_mg;
+            params[eg_idx as usize] -= avg_eg;
+        }
+    }
+
+    fn normalize_params(params: &Vec<f32>) -> Vec<f32> {
+        let mut new = params.clone();
+        Self::normalize_range(&mut new, PieceType::Pawn, Psqt.ft_offset() + 2 * 8, 48);
+        Self::normalize_range(&mut new, PieceType::Knight, Psqt.ft_offset() + 2 * 64, 64);
+        Self::normalize_range(&mut new, PieceType::Bishop, Psqt.ft_offset() + 2 * 2 * 64, 64);
+        Self::normalize_range(&mut new, PieceType::Rook, Psqt.ft_offset() + 2 * 3 * 64, 64);
+        Self::normalize_range(&mut new, PieceType::Queen, Psqt.ft_offset() + 2 * 4 * 64, 64);
+        Self::normalize_range(&mut new, PieceType::King, Psqt.ft_offset() + 2 * 5 * 64, 64);
+
+        Self::normalize_range(&mut new, PieceType::Knight, Mobility.ft_offset(), 9);
+        Self::normalize_range(&mut new, PieceType::Bishop, Mobility.ft_offset() + 2 * 28, 14);
+        Self::normalize_range(&mut new, PieceType::Rook, Mobility.ft_offset() + 2 * 2 * 28, 15);
+        Self::normalize_range(&mut new, PieceType::Queen, Mobility.ft_offset() + 2 * 3 * 28, 28);
+
+        new[PieceType::King as usize * 2] = 0.0;
+        new[PieceType::King as usize * 2 + 1] = 0.0;
+
+        new
+    }
+
     pub fn format_all_features(params: &Vec<f32>) -> String {
+        let params = Self::normalize_params(params);
         let mut result = String::new();
         for feature in Self::iter() {
-            result += Self::format_single_feature(feature, params).as_str();
+            result += Self::format_single_feature(feature, &params).as_str();
             result += ";\n";
         }
         result
