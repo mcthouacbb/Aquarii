@@ -451,8 +451,10 @@ pub fn eval(board: &Board) -> i32 {
     eval_data.attacked[Color::Black as usize] = bking_atks;
     eval_data.attacked_by[Color::White as usize][PieceType::King as usize] = wking_atks;
     eval_data.attacked_by[Color::Black as usize][PieceType::King as usize] = bking_atks;
-    eval_data.attacked_by[Color::White as usize][PieceType::Pawn as usize] = attacks::pawn_attacks_bb(Color::White, board.colored_pieces(Piece::WhitePawn));
-    eval_data.attacked_by[Color::Black as usize][PieceType::Pawn as usize] = attacks::pawn_attacks_bb(Color::Black, board.colored_pieces(Piece::BlackPawn));
+    eval_data.attacked_by[Color::White as usize][PieceType::Pawn as usize] =
+        attacks::pawn_attacks_bb(Color::White, board.colored_pieces(Piece::WhitePawn));
+    eval_data.attacked_by[Color::Black as usize][PieceType::Pawn as usize] =
+        attacks::pawn_attacks_bb(Color::Black, board.colored_pieces(Piece::BlackPawn));
 
     eval_data.king_ring[Color::White as usize] =
         (wking_atks | wking_atks.north()) & !Bitboard::from_square(board.king_sq(Color::White));

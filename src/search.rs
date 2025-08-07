@@ -4,7 +4,8 @@ use arrayvec::ArrayVec;
 
 use crate::{
     chess::{
-        movegen::{movegen, MoveList}, Board, Move
+        movegen::{movegen, MoveList},
+        Board, Move,
     },
     eval,
     policy::get_policy,
