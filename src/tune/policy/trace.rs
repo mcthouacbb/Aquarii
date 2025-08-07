@@ -121,7 +121,7 @@ impl PolicyFeature {
 
     fn ft_cnt(self) -> u32 {
         match self {
-            Self::CapBonus => 5,
+            Self::CapBonus => 6 * 5,
             Self::PawnProtectedPenalty => 5,
             Self::PawnThreatEvasion => 5,
             // 6 piece types * 64 squares * 2 phases
@@ -196,8 +196,8 @@ impl PolicyFeature {
     }
 
     fn format_cap_bonus(params: &Vec<f32>) -> String {
-        "const CAP_BONUS: [f32; 5] = ".to_owned()
-            + Self::format_array_1D(params, CapBonus.ft_offset(), CapBonus.ft_cnt()).as_str()
+        "const CAP_BONUS: [[f32; 5]; 6] = ".to_owned()
+            + Self::format_array_2D(params, CapBonus.ft_offset(), 6, 5).as_str()
     }
 
     fn format_pawn_protected_penalty(params: &Vec<f32>) -> String {
@@ -282,15 +282,8 @@ impl PolicyTrace {}
 impl PolicyValues for PolicyTrace {
     type Value = SparseTrace;
 
-    fn cap_bonus(pt: PieceType) -> Self::Value {
-        let idx = match pt {
-            PieceType::Pawn => CapBonus.ft_offset(),
-            PieceType::Knight => CapBonus.ft_offset() + 1,
-            PieceType::Bishop => CapBonus.ft_offset() + 2,
-            PieceType::Rook => CapBonus.ft_offset() + 3,
-            PieceType::Queen => CapBonus.ft_offset() + 4,
-            _ => unreachable!(),
-        };
+    fn cap_bonus(moving: PieceType, captured: PieceType) -> Self::Value {
+        let idx = moving as u32 * 5 + captured as u32;
         SparseTrace::single(idx)
     }
 

@@ -98,6 +98,7 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
             batch_idx = 0;
             continue;
         }
+        grads.fill(0.0);
         compute_grads(&params, &mut grads, &dataset.positions[begin_idx..end_idx]);
         // compare_slow_fast(&params, dataset);
         for i in 0..params.len() {
