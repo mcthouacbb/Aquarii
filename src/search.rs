@@ -271,17 +271,33 @@ impl MCTS {
         best_move
     }
 
-    pub fn display_tree(&self) {
-        let root_node = &self.tree[0];
-        for child_idx in root_node.child_indices() {
+    fn display_tree_impl(&self, node_idx: u32, depth: i32, ply: i32) {
+        if depth <= 0 {
+            return;
+        }
+        let indentation = || {
+            "    ".repeat(ply as usize)
+        };
+        let node = &self.tree[node_idx];
+        let mut children: Vec<u32> = node.child_indices().collect();
+        children.sort_by(|a, b| {
+            self.tree[*b].visits().cmp(&self.tree[*a].visits())
+        });
+        for child_idx in children {
             let child_node = &self.tree[child_idx];
             println!(
-                "{} => {} visits {}",
+                "{}{} => {} visits {}",
+                indentation(),
                 child_node.parent_move(),
                 child_node.visits(),
                 child_node.score()
             );
+            self.display_tree_impl(child_idx, depth - 1, ply + 1);
         }
+    }
+
+    pub fn display_tree(&self, depth: i32) {
+        self.display_tree_impl(self.tree.root_node(), depth, 0);
     }
 
     fn get_visit_dist(&self) -> Vec<(Move, f32)> {

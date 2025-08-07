@@ -203,7 +203,7 @@ fn main() {
                 println!("bestmove {}", results.best_move);
             }
             Some("tree") => {
-                searcher.display_tree();
+                searcher.display_tree(1);
             }
             Some("quit") => {
                 return;
