@@ -14,7 +14,7 @@ pub fn main(filenames: &[String]) {
 
     let dataset = data::load_dataset(files.as_slice());
     let params = &trace::zero_params();
-	println!("{}", trace::EvalFeature::format_all_features(params));
+    println!("{}", trace::EvalFeature::format_all_features(params));
     println!(
         "Draw eval error: {}",
         tune::error_total(params, &dataset, 400.0)
