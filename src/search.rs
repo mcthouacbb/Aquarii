@@ -3,7 +3,7 @@ use std::{num::NonZeroI16, time::Instant};
 use crate::{
     chess::{
         movegen::{movegen, MoveList},
-        Board, Move,
+        Move,
     },
     eval,
     position::Position,
@@ -119,8 +119,6 @@ impl MCTS {
             }
         }
     }
-
-    fn expand_node(&mut self, node_idx: u32) {}
 
     fn eval_wdl(&self) -> f32 {
         let board = self.position.board();
