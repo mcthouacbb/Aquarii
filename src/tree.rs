@@ -46,7 +46,7 @@ impl Score {
             Self::Win(dist) => Self::Loss(*dist),
             Self::Draw => Self::Draw,
             Self::Loss(dist) => Self::Win(*dist),
-            Self::Normal(score) => Self::Normal(-score),
+            Self::Normal(score) => Self::Normal(1.0 - score),
         }
     }
 }
