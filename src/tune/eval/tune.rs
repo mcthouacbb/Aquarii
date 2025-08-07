@@ -1,13 +1,16 @@
 use std::time::Instant;
 
-use crate::tune::eval::{data::{Dataset, Position}, trace};
+use crate::tune::eval::{
+    data::{Dataset, Position},
+    trace,
+};
 
 fn eval_eval_cp(params: &Vec<f32>, pos: &Position) -> f32 {
     let mut result = 0.0;
     for coeff in &pos.coeffs {
         result += params[coeff.index as usize] * coeff.value;
     }
-    
+
     return result;
 }
 
@@ -76,7 +79,12 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
             continue;
         }
         grads.fill(0.0);
-        compute_grads(&params, &mut grads, &dataset.positions[begin_idx..end_idx], scale);
+        compute_grads(
+            &params,
+            &mut grads,
+            &dataset.positions[begin_idx..end_idx],
+            scale,
+        );
         // compare_slow_fast(&params, dataset);
         // println!("{:?}", &grads[0..5]);
         for i in 0..params.len() {
