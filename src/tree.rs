@@ -57,7 +57,7 @@ impl fmt::Display for Score {
             Self::Win(dist) => write!(f, "win {} plies", *dist),
             Self::Draw => write!(f, "draw"),
             Self::Loss(dist) => write!(f, "loss {} plies", *dist),
-            Self::Normal(score) => write!(f, "{} cp", sigmoid_inv(*score, 400.0).round()),
+            Self::Normal(score) => write!(f, "cp {}", sigmoid_inv(*score, 400.0).round()),
         }
     }
 }
