@@ -189,7 +189,7 @@ impl MCTS {
                         1.0 - child.q()
                     };
                     let policy = child.policy;
-                    let expl = (node.visits as f32).sqrt() / (1 + child.visits) as f32;
+                    let expl = (node.visits as f32).powf(0.55) / (1 + child.visits) as f32;
                     let cpuct = if root { Self::ROOT_CPUCT } else { Self::CPUCT };
                     let uct = q + cpuct * policy * expl;
 
