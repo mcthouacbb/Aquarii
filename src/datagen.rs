@@ -10,7 +10,8 @@ use crate::{
         Move,
     },
     position::Position,
-    search::{GameResult, MateScore, Score, SearchLimits, MCTS},
+    search::{SearchLimits, MCTS},
+    tree::{GameResult, MateScore, Score},
     types::Color,
 };
 
@@ -60,7 +61,7 @@ pub fn run_datagen() {
 }
 
 pub fn datagen_thread(thread_id: i32) {
-    let mut search = MCTS::new(10000);
+    let mut search = MCTS::new();
     let seed = rand::rng().next_u64();
     println!("Thread {} RNG seed: {}", thread_id, seed);
 

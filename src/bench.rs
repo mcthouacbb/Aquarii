@@ -62,7 +62,7 @@ pub fn run_bench() {
     let start_time = Instant::now();
     let mut nodes = 0;
 
-    let mut searcher = MCTS::new(16777216);
+    let mut searcher = MCTS::new();
     let mut limits = SearchLimits::new();
     limits.max_depth = BENCH_DEPTH;
 
