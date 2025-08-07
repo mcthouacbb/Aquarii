@@ -182,11 +182,14 @@ impl MCTS {
 
             self.nodes += ply + 1;
 
-            return (score, if game_result == GameResult::Mated {
-                Some(0)
-            } else {
-                None
-            });
+            return (
+                score,
+                if game_result == GameResult::Mated {
+                    Some(0)
+                } else {
+                    None
+                },
+            );
         } else {
             let mut best_uct = -1f32;
             let mut best_child_idx = 0u32;
@@ -213,13 +216,13 @@ impl MCTS {
                 }
             }
 
-            self.position.make_move(self.tree[best_child_idx].parent_move());
+            self.position
+                .make_move(self.tree[best_child_idx].parent_move());
             let (child_score, mut child_mate_dist) = self.perform_one_impl(best_child_idx, ply + 1);
-            
+
             if let Some(mate_dist) = child_mate_dist {
                 if mate_dist <= 0 {
-                    child_mate_dist =
-                        Self::try_prove_mate_win(&mut self.tree[node_idx], mate_dist);
+                    child_mate_dist = Self::try_prove_mate_win(&mut self.tree[node_idx], mate_dist);
                 } else {
                     child_mate_dist = Self::try_prove_mate_loss(&mut self.tree, node_idx);
                 }
