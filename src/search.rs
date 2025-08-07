@@ -8,7 +8,7 @@ use crate::{
         Board, Move,
     },
     eval,
-    policy::get_policy,
+    policy::{get_policy, PolicyData},
     position::Position,
 };
 
@@ -218,7 +218,7 @@ impl MCTS {
         let mut policies = ArrayVec::<f32, 256>::new();
         let mut max_policy = 0f32;
         for mv in moves.iter() {
-            let policy = get_policy(self.position.board(), *mv) / tmp;
+            let policy = get_policy(self.position.board(), PolicyData::new(self.position.board()), *mv) / tmp;
             max_policy = max_policy.max(policy);
             policies.push(policy);
         }
@@ -242,7 +242,7 @@ impl MCTS {
         let tmp = if node_idx == 0 { 3.0 } else { 1.0 };
 
         for child_idx in self.nodes[node_idx as usize].child_indices() {
-            let policy = get_policy(board, self.nodes[child_idx as usize].parent_move) / tmp;
+            let policy = get_policy(board, PolicyData::new(board), self.nodes[child_idx as usize].parent_move) / tmp;
             max_policy = max_policy.max(policy);
             policies.push(policy);
         }
