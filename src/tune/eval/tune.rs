@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::{tune::eval::{data::{Dataset, Position}, trace}, types::Color};
+use crate::tune::eval::{data::{Dataset, Position}, trace};
 
 fn eval_eval_cp(params: &Vec<f32>, pos: &Position) -> f32 {
     let mut result = 0.0;
@@ -52,11 +52,11 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
     const BETA2: f32 = 0.999;
     const EPSILON: f32 = 1e-8;
     const LR: f32 = 0.05;
-    const BATCH_SIZE: u32 = 65536;
+    const BATCH_SIZE: u32 = 16384;
     const SUPERBATCH_SIZE: u32 = 6104;
 
     // change this soon
-    let scale = 122.0;
+    let scale = 400.0;
 
     let mut grads = params.clone();
     let mut velocity = params.clone();

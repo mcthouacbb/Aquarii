@@ -17,7 +17,7 @@ pub fn main(filenames: &[String]) {
 	println!("{}", trace::EvalFeature::format_all_features(params));
     println!(
         "Draw eval error: {}",
-        tune::error_total(params, &dataset, 122.0)
+        tune::error_total(params, &dataset, 400.0)
     );
     tune::optimize(params.clone(), &dataset);
 }
