@@ -44,7 +44,6 @@ const fn S(mg: f32, eg: f32) -> (f32, f32) {
     (mg, eg)
 }
 
-SuperBatch 2 error 2.562613
 #[rustfmt::skip]
 const CAP_BONUS: [f32; 5] = [1.518, 2.568, 2.750, 2.713, 3.453];
 #[rustfmt::skip]
@@ -274,7 +273,14 @@ pub fn get_policy_impl<Params: PolicyValues>(
         && policy_data.attacked[!board.stm() as usize].has(mv.from_sq())
         && !policy_data.attacked[!board.stm() as usize].has(mv.to_sq())
     {
-        for pt in [PieceType::Pawn, PieceType::Knight, PieceType::Bishop, PieceType::Rook, PieceType::Queen, PieceType::King] {
+        for pt in [
+            PieceType::Pawn,
+            PieceType::Knight,
+            PieceType::Bishop,
+            PieceType::Rook,
+            PieceType::Queen,
+            PieceType::King,
+        ] {
             if policy_data.attacked_by(!board.stm(), pt).has(mv.from_sq()) {
                 threat_evasion += Params::threat_evasion(moving_piece.piece_type(), pt);
                 break;

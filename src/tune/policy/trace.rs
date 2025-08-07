@@ -212,12 +212,7 @@ impl PolicyFeature {
 
     fn format_threat_evasion(params: &Vec<f32>) -> String {
         "const THREAT_EVASION: [[f32; 5]; 6] = ".to_owned()
-            + Self::format_array_2D(
-                params,
-                ThreatEvasion.ft_offset(),
-                6, 5
-            )
-            .as_str()
+            + Self::format_array_2D(params, ThreatEvasion.ft_offset(), 6, 5).as_str()
     }
 
     fn format_psqt_score(params: &Vec<f32>) -> String {
