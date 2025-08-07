@@ -354,10 +354,6 @@ impl MCTS {
         while limits.max_nodes < 0 || self.iters <= limits.max_nodes as u32 {
             self.perform_one_iter();
 
-            // self.iters += 1;
-
-            // nodes += self.selection.len() as u64;
-
             let curr_depth = self.depth();
             if curr_depth > prev_depth {
                 if limits.max_depth > 0 && curr_depth >= limits.max_depth as u32 {
