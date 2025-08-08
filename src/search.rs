@@ -62,7 +62,7 @@ impl MCTS {
 
     pub fn new() -> Self {
         Self {
-            tree: Tree::new(16),
+            tree: Tree::new(24),
             iters: 0,
             root_position: Position::new(),
             position: Position::new(),
