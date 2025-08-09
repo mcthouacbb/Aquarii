@@ -8,6 +8,7 @@ mod perft;
 mod policy;
 mod position;
 mod search;
+mod tree;
 mod tune;
 mod types;
 
@@ -90,7 +91,7 @@ fn main() {
     }
 
     let mut pos = Position::new();
-    let mut searcher = search::MCTS::new(1000000);
+    let mut searcher = search::MCTS::new();
     loop {
         let mut cmd = String::new();
 
@@ -202,7 +203,7 @@ fn main() {
                 println!("bestmove {}", results.best_move);
             }
             Some("tree") => {
-                searcher.display_tree();
+                searcher.display_tree(1);
             }
             Some("quit") => {
                 return;

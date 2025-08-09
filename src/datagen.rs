@@ -10,7 +10,8 @@ use crate::{
         Move,
     },
     position::Position,
-    search::{GameResult, MateScore, Score, SearchLimits, MCTS},
+    search::{SearchLimits, MCTS},
+    tree::{GameResult, MateScore, Score},
     types::Color,
 };
 
@@ -60,7 +61,7 @@ pub fn run_datagen() {
 }
 
 pub fn datagen_thread(thread_id: i32) {
-    let mut search = MCTS::new(10000);
+    let mut search = MCTS::new();
     let seed = rand::rng().next_u64();
     println!("Thread {} RNG seed: {}", thread_id, seed);
 
@@ -167,10 +168,9 @@ fn run_game(search: &mut MCTS, rng: &mut XorShiftRng) -> Game {
     loop {
         let results = search.run(limits, false, &pos);
         let mut datapt_score = match results.score {
-            Score::Mate(mate_score) => match mate_score {
-                MateScore::Loss(_) => 0.0,
-                MateScore::Win(_) => 1.0,
-            },
+            Score::Win(_) => 1.0,
+            Score::Draw => 0.5,
+            Score::Loss(_) => 0.0,
             Score::Normal(wdl) => wdl,
         };
         if pos.board().stm() == Color::Black {
