@@ -7,8 +7,7 @@ use arrayvec::ArrayVec;
 
 use crate::{
     chess::{
-        movegen::{self, MoveList},
-        Board, Move,
+        movegen::{self, MoveList}, Board, Move
     },
     policy,
 };
@@ -66,6 +65,8 @@ pub struct NodeIndex(u32);
 
 impl NodeIndex {
     pub const INDEX_BITS: u32 = !(1u32 << 31);
+    pub const NULL: Self = Self(u32::MAX);
+
     pub fn new(half: u8, index: u32) -> Self {
         Self(((half as u32) << 31) | index)
     }
@@ -138,7 +139,7 @@ pub struct Node {
 impl Node {
     fn new(mv: Move, policy: f32) -> Self {
         Node {
-            first_child_idx: NodeIndex(0),
+            first_child_idx: NodeIndex::NULL,
             child_count: 0,
             parent_move: mv,
             result: GameResult::NonTerminal,
@@ -234,7 +235,7 @@ fn softmax(vals: &mut ArrayVec<f32, 256>, max_val: f32) {
     }
 }
 
-struct Half {
+pub struct Half {
     nodes: Vec<Node>,
     used: u32
 }
@@ -257,6 +258,12 @@ impl Half {
     pub fn used_nodes(&self) -> u32 {
         self.used
     }
+
+    fn clear_indices(&mut self) {
+        for node in &mut self.nodes {
+            node.first_child_idx = NodeIndex::NULL
+        }
+    }
 }
 
 pub struct Tree {
@@ -272,16 +279,12 @@ impl Tree {
             halves: [Half::new(half_nodes), Half::new(half_nodes)],
             active_half: 0
         };
-        result.curr_half_mut().used = 1;
+        result.clear();
         result
     }
 
     pub fn curr_half(&self) -> &Half {
         &self.halves[self.active_half as usize]
-    }
-
-    pub fn curr_half_mut(&mut self) -> &mut Half {
-        &mut self.halves[self.active_half as usize]
     }
 
     pub fn size(&self) -> u32 {
@@ -294,22 +297,41 @@ impl Tree {
 
     pub fn clear(&mut self) {
         self.curr_half_mut().used = 1;
+        self.reset_root_node();
+    }
+
+    pub fn reset_root_node(&mut self) {
         let root = self.root_node();
         self[root] = Node::new(Move::NULL, 0.0);
     }
 
-    // pub fn add_root_node(&mut self) {
-    //     assert!(self.nodes.len() == 0);
-    //     self.nodes.push(Node::new(Move::NULL, 0.0));
-    // }
+    pub fn flip(&mut self) {
+        let old_root = self.root_node();
+        self.active_half ^= 1;
+        let new_root = self.root_node();
+        self.curr_half_mut().used = 1;
+        self.curr_half_mut().clear_indices();
+        self.copy_node_across(old_root, new_root);
+    }
 
-    pub fn expand_node(&mut self, node_idx: NodeIndex, board: &Board) -> Result<(), ()> {
+    pub fn fetch_children(&mut self, node_idx: NodeIndex) -> Option<()> {
+        let old_first_child_idx = self[node_idx].first_child_idx;
+        if old_first_child_idx.half() == self.active_half {
+            return Some(());
+        }
+
+        let new_first_child_idx = self.alloc_nodes(self[node_idx].child_count())?; 
+
+        self.copy_nodes_across(old_first_child_idx, new_first_child_idx, self[node_idx].child_count());
+
+        Some(())
+    }
+
+    pub fn expand_node(&mut self, node_idx: NodeIndex, board: &Board) -> Option<()> {
         let mut moves = MoveList::new();
         movegen::movegen(board, &mut moves);
 
-        if self.curr_half().used_nodes() + moves.len() as u32 > self.curr_half().max_nodes() {
-            return Err(())
-        }
+        let first_child_idx = self.alloc_nodes(moves.len() as u32)?;
 
         let tmp = if node_idx.index() == 0 { 3.0 } else { 1.0 };
 
@@ -323,7 +345,6 @@ impl Tree {
 
         softmax(&mut policies, max_policy);
 
-        let first_child_idx = self.alloc_nodes(moves.len() as u32);
         let node = &mut self[node_idx];
         node.first_child_idx = first_child_idx;
         node.child_count = moves.len() as u8;
@@ -333,7 +354,7 @@ impl Tree {
             self[index] = Node::new(*mv, policies[i]);
         }
 
-        return Ok(())
+        Some(())
     }
 
     pub fn relabel_policies(&mut self, node_idx: NodeIndex, board: &Board) {
@@ -356,10 +377,27 @@ impl Tree {
         }
     }
 
-    fn alloc_nodes(&mut self, count: u32) -> NodeIndex {
+    fn copy_node_across(&mut self, old_index: NodeIndex, new_index: NodeIndex) {
+        self[new_index] = self[old_index].clone();
+    }
+
+    fn copy_nodes_across(&mut self, old_index: NodeIndex, new_index: NodeIndex, count: u32) {
+        for i in 0..count {
+            self.copy_node_across(old_index + i, new_index + i);
+        }
+    }
+
+    fn curr_half_mut(&mut self) -> &mut Half {
+        &mut self.halves[self.active_half as usize]
+    }
+
+    fn alloc_nodes(&mut self, count: u32) -> Option<NodeIndex> {
+        if self.curr_half().used_nodes() + count > self.curr_half().max_nodes() {
+            return None;
+        }
         let index = self.curr_half().used_nodes();
         self.curr_half_mut().used += count;
-        NodeIndex::new(self.active_half, index)
+        Some(NodeIndex::new(self.active_half, index))
     }
 }
 
