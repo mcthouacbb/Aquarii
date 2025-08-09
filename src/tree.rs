@@ -178,8 +178,8 @@ pub struct Tree {
 }
 
 impl Tree {
-    pub fn new(mb: usize) -> Self {
-        let nodes = mb * 1024 * 1024 / std::mem::size_of::<Node>();
+    pub fn new(mb: u64) -> Self {
+        let nodes = mb as usize * 1024 * 1024 / std::mem::size_of::<Node>();
         Self {
             nodes: Vec::with_capacity(nodes),
         }
