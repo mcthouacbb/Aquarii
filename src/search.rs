@@ -176,11 +176,8 @@ impl MCTS {
     }
 
     fn perform_one_impl(&mut self, node_idx: NodeIndex, ply: u32) -> Option<(f32, Option<i32>)> {
-        if self.tree[node_idx].child_count() == 0 && self.tree[node_idx].visits() == 1 {
-            self.tree.expand_node(node_idx, self.position.board())?;
-        }
         let root = node_idx == self.tree.root_node();
-        if self.tree[node_idx].is_terminal() || self.tree[node_idx].child_count() == 0 {
+        if self.tree[node_idx].is_terminal() || self.tree[node_idx].visits() == 0 {
             let (score, game_result) = self.simulate();
 
             let node = &mut self.tree[node_idx];
@@ -198,7 +195,12 @@ impl MCTS {
                 },
             ));
         } else {
+            // node can't be terminal here, must be unexpanded
+            if self.tree[node_idx].child_count() == 0 {
+                self.tree.expand_node(node_idx, self.position.board())?;
+            }
             self.tree.fetch_children(node_idx);
+
             let node = &self.tree[node_idx];
 
             let mut best_uct = -1f32;
