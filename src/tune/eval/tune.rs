@@ -60,7 +60,7 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
     // let BATCH_SIZE: u32 = dataset.positions.len() as u32;
     const SUPERBATCH_SIZE: u32 = 6104;
 
-    let scale = 400f32;
+    let scale = 130f32;
 
     let mut grads = params.clone();
     let mut velocity = params.clone();
