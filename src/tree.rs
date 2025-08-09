@@ -185,45 +185,6 @@ impl Tree {
         }
     }
 
-    fn build_tree_impl(&mut self, old_tree: &Tree, old_node_idx: u32, new_node_idx: u32) {
-        let old_node = &old_tree[old_node_idx];
-        let first_child_idx = self.nodes.len() as u32;
-        if old_node.child_count == 0 {
-            return;
-        }
-
-        {
-            let new_node: &mut Node = &mut self[new_node_idx];
-            new_node.child_count = old_node.child_count;
-            new_node.first_child_idx = first_child_idx as u32;
-        }
-
-        for old_child_idx in old_node.child_indices() {
-            let old_child = &old_tree[old_child_idx];
-            self.nodes.push(old_child.clone());
-        }
-
-        for (iter, old_child_idx) in old_node.child_indices().enumerate() {
-            let new_node = &self[new_node_idx];
-            self.build_tree_impl(
-                old_tree,
-                old_child_idx,
-                new_node.first_child_idx + iter as u32,
-            );
-        }
-    }
-
-    pub fn rebuild(old_tree: &Tree, node_idx: u32) -> Self {
-        let mut new_tree = Self {
-            nodes: Vec::with_capacity(old_tree.nodes.capacity()),
-        };
-
-        new_tree.nodes.push(old_tree[node_idx].clone());
-        new_tree.build_tree_impl(old_tree, node_idx, 0);
-
-        new_tree
-    }
-
     pub fn add_root_node(&mut self) {
         assert!(self.nodes.len() == 0);
         self.nodes.push(Node::new(Move::NULL, 0.0));

@@ -362,11 +362,11 @@ impl MCTS {
         self.iters = 0;
         self.nodes = 0;
 
-        if let Some(old_node_idx) = node_idx {
-            self.tree = Tree::rebuild(&self.tree, old_node_idx);
-            self.tree
-                .relabel_policies(self.tree.root_node(), &self.root_position.board().clone());
-        } else {
+        // if let Some(old_node_idx) = node_idx {
+            // self.tree = Tree::rebuild(&self.tree, old_node_idx);
+            // self.tree
+                // .relabel_policies(self.tree.root_node(), &self.root_position.board().clone());
+        // } else {
             self.tree.clear();
             self.tree.add_root_node();
             self.tree
@@ -374,7 +374,7 @@ impl MCTS {
             let eval = self.eval_wdl();
             let root = self.tree.root_node();
             self.tree[root].add_score(eval);
-        }
+        // }
 
         let mut prev_depth = 0;
 
