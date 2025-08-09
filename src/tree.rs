@@ -229,14 +229,13 @@ impl Tree {
         self.nodes.push(Node::new(Move::NULL, 0.0));
     }
 
-    pub fn expand_node(&mut self, node_idx: u32, board: &Board) {
+    pub fn expand_node(&mut self, node_idx: u32, board: &Board) -> Result<(), ()> {
         let mut moves = MoveList::new();
         movegen::movegen(board, &mut moves);
 
-        // overflow check for later when implementing LRU
-        // if self.nodes.len() + moves.len() > self.nodes.capacity() {
-        //     return None
-        // }
+        if self.nodes.len() + moves.len() > self.nodes.capacity() {
+            return Err(())
+        }
 
         let tmp = if node_idx == 0 { 3.0 } else { 1.0 };
 
@@ -258,6 +257,8 @@ impl Tree {
         for (i, mv) in moves.iter().enumerate() {
             self.nodes.push(Node::new(*mv, policies[i]));
         }
+
+        return Ok(())
     }
 
     pub fn relabel_policies(&mut self, node_idx: u32, board: &Board) {

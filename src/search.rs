@@ -175,9 +175,12 @@ impl MCTS {
         }
     }
 
-    fn perform_one_impl(&mut self, node_idx: u32, ply: u32) -> (f32, Option<i32>) {
+    fn perform_one_impl(&mut self, node_idx: u32, ply: u32) -> Option<(f32, Option<i32>)> {
         if self.tree[node_idx].child_count() == 0 && self.tree[node_idx].visits() == 1 {
-            self.tree.expand_node(node_idx, self.position.board());
+            let result = self.tree.expand_node(node_idx, self.position.board());
+            if result.is_err() {
+                return None;
+            }
         }
         let node = &self.tree[node_idx];
         let root = node_idx == 0;
@@ -190,14 +193,14 @@ impl MCTS {
 
             self.nodes += ply + 1;
 
-            return (
+            return Some((
                 score,
                 if game_result == GameResult::Mated {
                     Some(0)
                 } else {
                     None
                 },
-            );
+            ));
         } else {
             let mut best_uct = -1f32;
             let mut best_child_idx = 0u32;
@@ -226,7 +229,7 @@ impl MCTS {
 
             self.position
                 .make_move(self.tree[best_child_idx].parent_move());
-            let (child_score, mut child_mate_dist) = self.perform_one_impl(best_child_idx, ply + 1);
+            let (child_score, mut child_mate_dist) = self.perform_one_impl(best_child_idx, ply + 1)?;
 
             if let Some(mate_dist) = child_mate_dist {
                 if mate_dist <= 0 {
@@ -242,14 +245,17 @@ impl MCTS {
 
             node.add_score(score);
 
-            (score, child_mate_dist)
+            Some((score, child_mate_dist))
         }
     }
 
-    fn perform_one_iter(&mut self) {
+    fn perform_one_iter(&mut self) -> Result<(), ()> {
         self.position = self.root_position.clone();
-        self.perform_one_impl(self.tree.root_node(), 0);
+        if self.perform_one_impl(self.tree.root_node(), 0).is_none() {
+            return Err(());
+        }
         self.iters += 1;
+        Ok(())
     }
 
     fn pv_score(node: &Node) -> f32 {
@@ -364,7 +370,7 @@ impl MCTS {
             self.tree.clear();
             self.tree.add_root_node();
             self.tree
-                .expand_node(self.tree.root_node(), self.root_position.board());
+                .expand_node(self.tree.root_node(), self.root_position.board()).expect("Cannot expand root node in tree");
             let eval = self.eval_wdl();
             let root = self.tree.root_node();
             self.tree[root].add_score(eval);
@@ -375,7 +381,10 @@ impl MCTS {
         let start_time = Instant::now();
 
         while limits.max_nodes < 0 || self.iters <= limits.max_nodes as u32 {
-            self.perform_one_iter();
+            let result = self.perform_one_iter();
+            if result.is_err() {
+                break;
+            }
 
             let curr_depth = self.depth();
             if curr_depth > prev_depth {
