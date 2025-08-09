@@ -348,7 +348,7 @@ impl MCTS {
     }
 
     fn depth(&self) -> u32 {
-        (self.nodes - self.iters) / self.iters
+        (self.nodes - self.iters) / self.iters.max(1)
     }
 
     pub fn run(
@@ -386,6 +386,7 @@ impl MCTS {
             let result = self.perform_one_iter();
             if result.is_err() {
                 self.tree.flip();
+                continue;
             }
 
             let curr_depth = self.depth();
@@ -393,6 +394,7 @@ impl MCTS {
                 if limits.max_depth > 0 && curr_depth >= limits.max_depth as u32 {
                     break;
                 }
+
                 prev_depth = curr_depth;
                 if report {
                     let elapsed = start_time.elapsed().as_secs_f64();

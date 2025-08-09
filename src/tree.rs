@@ -329,7 +329,6 @@ impl Tree {
 
     pub fn set_as_root(&mut self, node_idx: NodeIndex) {
         let root = self.root_node();
-        println!("info string root {} curr half {} children ({}, {}) child index {} parent move {} game result {} wins {} visits", self.active_half, self[node_idx].child_count, self[node_idx].first_child_idx.half(), self[node_idx].first_child_idx.index(), self[node_idx].parent_move, self[node_idx].game_result() as i32, self[node_idx].wins, self[node_idx].visits);
         self.copy_node_across(node_idx, root);
     }
 
