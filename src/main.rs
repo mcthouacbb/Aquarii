@@ -106,8 +106,8 @@ fn main() {
             Some("uci") => {
                 println!("id name Aquarii");
                 println!("id author Mcthouacbb");
-                // println!("option name Threads type spin default 1 min 1 max 1");
-                // println!("option name Hash type spin default 1 min 1 max 1");
+                println!("option name Threads type spin default 1 min 1 max 1");
+                println!("option name Hash type spin default 24 min 1 max 1048576");
                 println!("uciok");
             }
             Some("ucinewgame") => {
