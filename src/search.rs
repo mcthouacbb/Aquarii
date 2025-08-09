@@ -9,7 +9,7 @@ use crate::{
     },
     eval,
     position::Position,
-    tree::{GameResult, MateScore, Node, Score, Tree},
+    tree::{GameResult, MateScore, Node, NodeIndex, Score, Tree},
 };
 
 fn sigmoid(x: f32, scale: f32) -> f32 {
@@ -132,7 +132,7 @@ impl MCTS {
         }
     }
 
-    fn try_prove_mate_loss(tree: &mut Tree, node_idx: u32) -> Option<i32> {
+    fn try_prove_mate_loss(tree: &mut Tree, node_idx: NodeIndex) -> Option<i32> {
         // a node is only proven to be a loss if every child is a win for the opponent
         let node = &tree[node_idx];
         let mut max_dist = 0;
@@ -175,7 +175,7 @@ impl MCTS {
         }
     }
 
-    fn perform_one_impl(&mut self, node_idx: u32, ply: u32) -> Option<(f32, Option<i32>)> {
+    fn perform_one_impl(&mut self, node_idx: NodeIndex, ply: u32) -> Option<(f32, Option<i32>)> {
         if self.tree[node_idx].child_count() == 0 && self.tree[node_idx].visits() == 1 {
             let result = self.tree.expand_node(node_idx, self.position.board());
             if result.is_err() {
@@ -183,7 +183,7 @@ impl MCTS {
             }
         }
         let node = &self.tree[node_idx];
-        let root = node_idx == 0;
+        let root = node_idx == self.tree.root_node();
         if node.is_terminal() || node.child_count() == 0 {
             let (score, game_result) = self.simulate();
 
@@ -203,7 +203,7 @@ impl MCTS {
             ));
         } else {
             let mut best_uct = -1f32;
-            let mut best_child_idx = 0u32;
+            let mut best_child_idx = self.tree.root_node();
             for child_idx in node.child_indices() {
                 let child = &self.tree[child_idx];
                 let q = if child.visits() == 0 {
@@ -268,7 +268,7 @@ impl MCTS {
     }
 
     fn get_best_move(&self) -> Move {
-        let root_node = &self.tree[0];
+        let root_node = &self.tree[self.tree.root_node()];
         let mut best_score = -1000.0;
         let mut best_move = Move::NULL;
         for child_idx in root_node.child_indices() {
@@ -285,13 +285,13 @@ impl MCTS {
         best_move
     }
 
-    fn display_tree_impl(&self, node_idx: u32, depth: i32, ply: i32) {
+    fn display_tree_impl(&self, node_idx: NodeIndex, depth: i32, ply: i32) {
         if depth <= 0 {
             return;
         }
         let indentation = || "    ".repeat(ply as usize);
         let node = &self.tree[node_idx];
-        let mut children: Vec<u32> = node.child_indices().collect();
+        let mut children: Vec<NodeIndex> = node.child_indices().collect();
         children.sort_by(|a, b| self.tree[*b].visits().cmp(&self.tree[*a].visits()));
         for child_idx in children {
             let child_node = &self.tree[child_idx];
@@ -313,7 +313,7 @@ impl MCTS {
     fn get_visit_dist(&self) -> Vec<(Move, f32)> {
         let mut result = Vec::new();
         let total = self.tree[self.tree.root_node()].visits();
-        for child_idx in self.tree[0].child_indices() {
+        for child_idx in self.tree[self.tree.root_node()].child_indices() {
             let child_node = &self.tree[child_idx];
             result.push((
                 child_node.parent_move(),
@@ -324,11 +324,11 @@ impl MCTS {
     }
 
     // depth 2 perft to find the node
-    fn find_node(&self, position: &Position) -> Option<u32> {
+    fn find_node(&self, position: &Position) -> Option<NodeIndex> {
         if self.tree.size() == 0 {
             return None;
         }
-        let root_node = &self.tree[0];
+        let root_node = &self.tree[self.tree.root_node()];
         for child_idx in root_node.child_indices() {
             let child_node = &self.tree[child_idx];
             let mut new_pos = self.root_position.clone();
@@ -362,18 +362,18 @@ impl MCTS {
         self.iters = 0;
         self.nodes = 0;
 
+        // for tree reuse later
         // if let Some(old_node_idx) = node_idx {
             // self.tree = Tree::rebuild(&self.tree, old_node_idx);
             // self.tree
                 // .relabel_policies(self.tree.root_node(), &self.root_position.board().clone());
         // } else {
-            self.tree.clear();
-            self.tree.add_root_node();
-            self.tree
-                .expand_node(self.tree.root_node(), self.root_position.board()).expect("Cannot expand root node in tree");
-            let eval = self.eval_wdl();
-            let root = self.tree.root_node();
-            self.tree[root].add_score(eval);
+        self.tree.clear();
+        self.tree
+            .expand_node(self.tree.root_node(), self.root_position.board()).expect("Cannot expand root node in tree");
+        let eval = self.eval_wdl();
+        let root = self.tree.root_node();
+        self.tree[root].add_score(eval);
         // }
 
         let mut prev_depth = 0;
