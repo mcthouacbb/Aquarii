@@ -1,13 +1,15 @@
 use core::fmt;
 use std::{
-    num::NonZeroI16, ops::{Index, IndexMut}
+    num::NonZeroI16,
+    ops::{Index, IndexMut},
 };
 
 use arrayvec::ArrayVec;
 
 use crate::{
     chess::{
-        movegen::{self, MoveList}, Board, Move
+        movegen::{self, MoveList},
+        Board, Move,
     },
     policy,
 };
@@ -104,7 +106,7 @@ impl NodeIndexIter {
         Self {
             start: start,
             end: end,
-            curr: start
+            curr: start,
         }
     }
 }
@@ -195,7 +197,10 @@ impl Node {
     }
 
     pub fn child_indices(&self) -> NodeIndexIter {
-        NodeIndexIter::new(self.first_child_idx, self.first_child_idx + self.child_count())
+        NodeIndexIter::new(
+            self.first_child_idx,
+            self.first_child_idx + self.child_count(),
+        )
     }
 
     pub fn visits(&self) -> u32 {
@@ -237,17 +242,19 @@ fn softmax(vals: &mut ArrayVec<f32, 256>, max_val: f32) {
 
 pub struct Half {
     nodes: Vec<Node>,
-    used: u32
+    used: u32,
 }
 
 impl Half {
     pub fn new(nodes: u64) -> Self {
         let mut result = Self {
             nodes: Vec::new(),
-            used: 0
+            used: 0,
         };
         result.nodes.reserve_exact(nodes as usize);
-        result.nodes.resize(nodes as usize, Node::new(Move::NULL, 0.0));
+        result
+            .nodes
+            .resize(nodes as usize, Node::new(Move::NULL, 0.0));
         result
     }
 
@@ -281,7 +288,7 @@ impl Tree {
         let half_nodes = total_nodes / 2;
         let mut result = Self {
             halves: [Half::new(half_nodes), Half::new(half_nodes)],
-            active_half: 0
+            active_half: 0,
         };
         result.clear();
         result
@@ -313,7 +320,7 @@ impl Tree {
         let old_root = self.root_node();
         let half = self.active_half;
         self.curr_half_mut().clear_indices(half);
-        
+
         self.active_half ^= 1;
         let new_root = self.root_node();
         self.curr_half_mut().used = 1;
@@ -322,6 +329,7 @@ impl Tree {
 
     pub fn set_as_root(&mut self, node_idx: NodeIndex) {
         let root = self.root_node();
+        println!("info string root {} curr half {} children ({}, {}) child index {} parent move {} game result {} wins {} visits", self.active_half, self[node_idx].child_count, self[node_idx].first_child_idx.half(), self[node_idx].first_child_idx.index(), self[node_idx].parent_move, self[node_idx].game_result() as i32, self[node_idx].wins, self[node_idx].visits);
         self.copy_node_across(node_idx, root);
     }
 
@@ -333,9 +341,13 @@ impl Tree {
             return Some(());
         }
 
-        let new_first_child_idx = self.alloc_nodes(self[node_idx].child_count())?; 
+        let new_first_child_idx = self.alloc_nodes(self[node_idx].child_count())?;
 
-        self.copy_nodes_across(old_first_child_idx, new_first_child_idx, self[node_idx].child_count());
+        self.copy_nodes_across(
+            old_first_child_idx,
+            new_first_child_idx,
+            self[node_idx].child_count(),
+        );
         self[node_idx].first_child_idx = new_first_child_idx;
 
         Some(())
@@ -375,11 +387,14 @@ impl Tree {
         let mut policies = ArrayVec::<f32, 256>::new();
         let mut max_policy = 0f32;
 
-        let tmp = if node_idx == self.root_node() { 3.0 } else { 1.0 };
+        let tmp = if node_idx == self.root_node() {
+            3.0
+        } else {
+            1.0
+        };
 
         for child_idx in self[node_idx].child_indices() {
-            let policy =
-                policy::get_policy(board, self[child_idx].parent_move) / tmp;
+            let policy = policy::get_policy(board, self[child_idx].parent_move) / tmp;
             max_policy = max_policy.max(policy);
             policies.push(policy);
         }

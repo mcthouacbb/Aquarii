@@ -230,7 +230,8 @@ impl MCTS {
 
             self.position
                 .make_move(self.tree[best_child_idx].parent_move());
-            let (child_score, mut child_mate_dist) = self.perform_one_impl(best_child_idx, ply + 1)?;
+            let (child_score, mut child_mate_dist) =
+                self.perform_one_impl(best_child_idx, ply + 1)?;
 
             if let Some(mate_dist) = child_mate_dist {
                 if mate_dist <= 0 {
@@ -325,9 +326,9 @@ impl MCTS {
     }
 
     // depth 2 perft to find the node
-    fn find_node(&self, position: &Position) -> Option<NodeIndex> {
+    fn find_node(&self, position: &Position) -> NodeIndex {
         if self.tree.size() == 0 {
-            return None;
+            return NodeIndex::NULL;
         }
         let root_node = &self.tree[self.tree.root_node()];
         for child_idx in root_node.child_indices() {
@@ -339,11 +340,11 @@ impl MCTS {
                 let mut new_pos2 = new_pos.clone();
                 new_pos2.make_move(child2_node.parent_move());
                 if new_pos2 == *position {
-                    return Some(child2_idx);
+                    return child2_idx;
                 }
             }
         }
-        None
+        NodeIndex::NULL
     }
 
     fn depth(&self) -> u32 {
@@ -356,20 +357,22 @@ impl MCTS {
         report: bool,
         position: &Position,
     ) -> SearchResults {
-        let node_idx = self.find_node(position);
+        let new_root_idx = self.find_node(position);
 
         self.root_position = position.clone();
         self.position = self.root_position.clone();
         self.iters = 0;
         self.nodes = 0;
 
-        if let Some(new_root_idx) = node_idx {
+        if new_root_idx != NodeIndex::NULL && self.tree[new_root_idx].child_count() > 0 {
             self.tree.set_as_root(new_root_idx);
-            self.tree.relabel_policies(self.tree.root_node(), &self.root_position.board());
+            self.tree
+                .relabel_policies(self.tree.root_node(), &self.root_position.board());
         } else {
             self.tree.clear();
             self.tree
-                .expand_node(self.tree.root_node(), self.root_position.board()).expect("Cannot expand root node in tree");
+                .expand_node(self.tree.root_node(), self.root_position.board())
+                .expect("Cannot expand root node in tree");
             let eval = self.eval_wdl();
             let root = self.tree.root_node();
             self.tree[root].add_score(eval);
