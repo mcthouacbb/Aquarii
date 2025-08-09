@@ -92,6 +92,7 @@ fn main() {
 
     let mut pos = Position::new();
     let mut searcher = search::MCTS::new();
+
     loop {
         let mut cmd = String::new();
 
@@ -105,8 +106,8 @@ fn main() {
             Some("uci") => {
                 println!("id name Aquarii");
                 println!("id author Mcthouacbb");
-                println!("option name Threads type spin default 1 min 1 max 1");
-                println!("option name Hash type spin default 1 min 1 max 1");
+                // println!("option name Threads type spin default 1 min 1 max 1");
+                // println!("option name Hash type spin default 1 min 1 max 1");
                 println!("uciok");
             }
             Some("ucinewgame") => {
@@ -204,6 +205,23 @@ fn main() {
             }
             Some("tree") => {
                 searcher.display_tree(1);
+            }
+            Some("setoption") => {
+                if tokens.next() != Some("name") {
+                    continue;
+                }
+                let name = tokens.next().expect("no name in setoption");
+                if tokens.next() != Some("value") {
+                    continue;
+                }
+                let value = tokens.next().expect("no value in setoption");
+
+                match name.to_lowercase().as_str() {
+                    "hash" => {
+                        searcher.set_hash(value.parse::<u64>().expect("Cannot parse hash into u64"))
+                    }
+                    _ => {}
+                }
             }
             Some("quit") => {
                 return;

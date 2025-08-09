@@ -70,6 +70,14 @@ impl MCTS {
         }
     }
 
+    pub fn set_hash(&mut self, hash: u64) {
+        self.tree = Tree::new(hash);
+    }
+
+    pub fn new_game(&mut self) {
+        self.tree.clear();
+    }
+
     fn eval_wdl(&self) -> f32 {
         let board = self.position.board();
         let eval = eval::eval(board);
@@ -423,9 +431,5 @@ impl MCTS {
             score: self.tree[self.tree.root_node()].score(),
             visit_dist: self.get_visit_dist(),
         }
-    }
-
-    pub fn new_game(&mut self) {
-        self.tree.clear();
     }
 }
