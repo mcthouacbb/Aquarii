@@ -375,7 +375,7 @@ impl Tree {
         let mut policies = ArrayVec::<f32, 256>::new();
         let mut max_policy = 0f32;
 
-        let tmp = if node_idx.index() == 0 { 3.0 } else { 1.0 };
+        let tmp = if node_idx == self.root_node() { 3.0 } else { 1.0 };
 
         for child_idx in self[node_idx].child_indices() {
             let policy =

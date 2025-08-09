@@ -365,6 +365,7 @@ impl MCTS {
 
         if let Some(new_root_idx) = node_idx {
             self.tree.set_as_root(new_root_idx);
+            self.tree.relabel_policies(self.tree.root_node(), &self.root_position.board());
         } else {
             self.tree.clear();
             self.tree
