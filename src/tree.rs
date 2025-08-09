@@ -275,6 +275,10 @@ impl Half {
             }
         }
     }
+
+    fn clear(&mut self) {
+        self.used = 0;
+    }
 }
 
 pub struct Tree {
@@ -307,12 +311,13 @@ impl Tree {
     }
 
     pub fn clear(&mut self) {
-        self.curr_half_mut().used = 1;
-        self.reset_root_node();
+        self.halves[0].clear();
+        self.halves[1].clear();
     }
 
-    pub fn reset_root_node(&mut self) {
-        let root = self.root_node();
+    pub fn add_root_node(&mut self) {
+        let root = self.alloc_nodes(1).unwrap();
+        assert!(root == self.root_node());
         self[root] = Node::new(Move::NULL, 0.0);
     }
 
@@ -322,8 +327,9 @@ impl Tree {
         self.curr_half_mut().clear_indices(half);
 
         self.active_half ^= 1;
-        let new_root = self.root_node();
-        self.curr_half_mut().used = 1;
+        self.curr_half_mut().clear();
+        let new_root = self.alloc_nodes(1).unwrap();
+        assert!(new_root == self.root_node());
         self.copy_node_across(old_root, new_root);
     }
 

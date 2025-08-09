@@ -370,6 +370,7 @@ impl MCTS {
                 .relabel_policies(self.tree.root_node(), &self.root_position.board());
         } else {
             self.tree.clear();
+            self.tree.add_root_node();
             self.tree
                 .expand_node(self.tree.root_node(), self.root_position.board())
                 .expect("Cannot expand root node in tree");
