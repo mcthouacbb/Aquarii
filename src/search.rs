@@ -363,19 +363,16 @@ impl MCTS {
         self.iters = 0;
         self.nodes = 0;
 
-        // for tree reuse later
-        // if let Some(old_node_idx) = node_idx {
-            // self.tree = Tree::rebuild(&self.tree, old_node_idx);
-            // self.tree
-                // .relabel_policies(self.tree.root_node(), &self.root_position.board().clone());
-        // } else {
-        self.tree.clear();
-        self.tree
-            .expand_node(self.tree.root_node(), self.root_position.board()).expect("Cannot expand root node in tree");
-        let eval = self.eval_wdl();
-        let root = self.tree.root_node();
-        self.tree[root].add_score(eval);
-        // }
+        if let Some(new_root_idx) = node_idx {
+            self.tree.set_as_root(new_root_idx);
+        } else {
+            self.tree.clear();
+            self.tree
+                .expand_node(self.tree.root_node(), self.root_position.board()).expect("Cannot expand root node in tree");
+            let eval = self.eval_wdl();
+            let root = self.tree.root_node();
+            self.tree[root].add_score(eval);
+        }
 
         let mut prev_depth = 0;
 

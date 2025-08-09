@@ -320,6 +320,12 @@ impl Tree {
         self.copy_node_across(old_root, new_root);
     }
 
+    pub fn set_as_root(&mut self, node_idx: NodeIndex) {
+        assert!(node_idx.half() == self.active_half);
+        let root = self.root_node();
+        self[root] = self[node_idx].clone();
+    }
+
     pub fn fetch_children(&mut self, node_idx: NodeIndex) -> Option<()> {
         let old_first_child_idx = self[node_idx].first_child_idx;
 
