@@ -46,7 +46,7 @@ pub fn compute_grads(params: &Vec<f32>, grads: &mut Vec<f32>, positions: &[Posit
         compute_single_grad(params, grads, pos, scale);
     }
     for grad in grads {
-        *grad /= positions.len() as f32;
+        *grad /= scale * positions.len() as f32;
     }
 }
 
@@ -54,12 +54,13 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
     const BETA1: f32 = 0.9;
     const BETA2: f32 = 0.999;
     const EPSILON: f32 = 1e-8;
-    const LR: f32 = 0.05;
-    const BATCH_SIZE: u32 = 16384;
+    const LR: f32 = 1.0;
+    // const LR: f32 = 0.05;
+    const BATCH_SIZE: u32 = 65536;
+    // let BATCH_SIZE: u32 = dataset.positions.len() as u32;
     const SUPERBATCH_SIZE: u32 = 6104;
 
-    // change this soon
-    let scale = 400.0;
+    let scale = 400f32;
 
     let mut grads = params.clone();
     let mut velocity = params.clone();
