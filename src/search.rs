@@ -1,7 +1,5 @@
 use std::{num::NonZeroI16, time::Instant};
 
-use rand::distr;
-
 use crate::{
     chess::{
         movegen::{movegen, MoveList},
@@ -9,7 +7,7 @@ use crate::{
     },
     eval,
     position::Position,
-    tree::{GameResult, MateScore, Node, Score, Tree},
+    tree::{GameResult, MateScore, Node, NodeIndex, Score, Tree},
 };
 
 fn sigmoid(x: f32, scale: f32) -> f32 {
@@ -132,7 +130,7 @@ impl MCTS {
         }
     }
 
-    fn try_prove_mate_loss(tree: &mut Tree, node_idx: u32) -> Option<i32> {
+    fn try_prove_mate_loss(tree: &mut Tree, node_idx: NodeIndex) -> Option<i32> {
         // a node is only proven to be a loss if every child is a win for the opponent
         let node = &tree[node_idx];
         let mut max_dist = 0;
@@ -175,13 +173,9 @@ impl MCTS {
         }
     }
 
-    fn perform_one_impl(&mut self, node_idx: u32, ply: u32) -> (f32, Option<i32>) {
-        if self.tree[node_idx].child_count() == 0 && self.tree[node_idx].visits() == 1 {
-            self.tree.expand_node(node_idx, self.position.board());
-        }
-        let node = &self.tree[node_idx];
-        let root = node_idx == 0;
-        if node.is_terminal() || node.child_count() == 0 {
+    fn perform_one_impl(&mut self, node_idx: NodeIndex, ply: u32) -> Option<(f32, Option<i32>)> {
+        let root = node_idx == self.tree.root_node();
+        if self.tree[node_idx].is_terminal() || self.tree[node_idx].visits() == 0 {
             let (score, game_result) = self.simulate();
 
             let node = &mut self.tree[node_idx];
@@ -190,17 +184,25 @@ impl MCTS {
 
             self.nodes += ply + 1;
 
-            return (
+            return Some((
                 score,
                 if game_result == GameResult::Mated {
                     Some(0)
                 } else {
                     None
                 },
-            );
+            ));
         } else {
+            // node can't be terminal here, must be unexpanded
+            if self.tree[node_idx].child_count() == 0 {
+                self.tree.expand_node(node_idx, self.position.board())?;
+            }
+            self.tree.fetch_children(node_idx);
+
+            let node = &self.tree[node_idx];
+
             let mut best_uct = -1f32;
-            let mut best_child_idx = 0u32;
+            let mut best_child_idx = self.tree.root_node();
             for child_idx in node.child_indices() {
                 let child = &self.tree[child_idx];
                 let q = if child.visits() == 0 {
@@ -226,7 +228,8 @@ impl MCTS {
 
             self.position
                 .make_move(self.tree[best_child_idx].parent_move());
-            let (child_score, mut child_mate_dist) = self.perform_one_impl(best_child_idx, ply + 1);
+            let (child_score, mut child_mate_dist) =
+                self.perform_one_impl(best_child_idx, ply + 1)?;
 
             if let Some(mate_dist) = child_mate_dist {
                 if mate_dist <= 0 {
@@ -242,14 +245,17 @@ impl MCTS {
 
             node.add_score(score);
 
-            (score, child_mate_dist)
+            Some((score, child_mate_dist))
         }
     }
 
-    fn perform_one_iter(&mut self) {
+    fn perform_one_iter(&mut self) -> Result<(), ()> {
         self.position = self.root_position.clone();
-        self.perform_one_impl(self.tree.root_node(), 0);
+        if self.perform_one_impl(self.tree.root_node(), 0).is_none() {
+            return Err(());
+        }
         self.iters += 1;
+        Ok(())
     }
 
     fn pv_score(node: &Node) -> f32 {
@@ -262,7 +268,7 @@ impl MCTS {
     }
 
     fn get_best_move(&self) -> Move {
-        let root_node = &self.tree[0];
+        let root_node = &self.tree[self.tree.root_node()];
         let mut best_score = -1000.0;
         let mut best_move = Move::NULL;
         for child_idx in root_node.child_indices() {
@@ -279,13 +285,13 @@ impl MCTS {
         best_move
     }
 
-    fn display_tree_impl(&self, node_idx: u32, depth: i32, ply: i32) {
+    fn display_tree_impl(&self, node_idx: NodeIndex, depth: i32, ply: i32) {
         if depth <= 0 {
             return;
         }
         let indentation = || "    ".repeat(ply as usize);
         let node = &self.tree[node_idx];
-        let mut children: Vec<u32> = node.child_indices().collect();
+        let mut children: Vec<NodeIndex> = node.child_indices().collect();
         children.sort_by(|a, b| self.tree[*b].visits().cmp(&self.tree[*a].visits()));
         for child_idx in children {
             let child_node = &self.tree[child_idx];
@@ -307,7 +313,7 @@ impl MCTS {
     fn get_visit_dist(&self) -> Vec<(Move, f32)> {
         let mut result = Vec::new();
         let total = self.tree[self.tree.root_node()].visits();
-        for child_idx in self.tree[0].child_indices() {
+        for child_idx in self.tree[self.tree.root_node()].child_indices() {
             let child_node = &self.tree[child_idx];
             result.push((
                 child_node.parent_move(),
@@ -318,11 +324,11 @@ impl MCTS {
     }
 
     // depth 2 perft to find the node
-    fn find_node(&self, position: &Position) -> Option<u32> {
+    fn find_node(&self, position: &Position) -> NodeIndex {
         if self.tree.size() == 0 {
-            return None;
+            return NodeIndex::NULL;
         }
-        let root_node = &self.tree[0];
+        let root_node = &self.tree[self.tree.root_node()];
         for child_idx in root_node.child_indices() {
             let child_node = &self.tree[child_idx];
             let mut new_pos = self.root_position.clone();
@@ -332,15 +338,15 @@ impl MCTS {
                 let mut new_pos2 = new_pos.clone();
                 new_pos2.make_move(child2_node.parent_move());
                 if new_pos2 == *position {
-                    return Some(child2_idx);
+                    return child2_idx;
                 }
             }
         }
-        None
+        NodeIndex::NULL
     }
 
     fn depth(&self) -> u32 {
-        (self.nodes - self.iters) / self.iters
+        (self.nodes - self.iters) / self.iters.max(1)
     }
 
     pub fn run(
@@ -349,22 +355,23 @@ impl MCTS {
         report: bool,
         position: &Position,
     ) -> SearchResults {
-        let node_idx = self.find_node(position);
+        let new_root_idx = self.find_node(position);
 
         self.root_position = position.clone();
         self.position = self.root_position.clone();
         self.iters = 0;
         self.nodes = 0;
 
-        if let Some(old_node_idx) = node_idx {
-            self.tree = Tree::rebuild(&self.tree, old_node_idx);
+        if new_root_idx != NodeIndex::NULL && self.tree[new_root_idx].child_count() > 0 {
+            self.tree.set_as_root(new_root_idx);
             self.tree
-                .relabel_policies(self.tree.root_node(), &self.root_position.board().clone());
+                .relabel_policies(self.tree.root_node(), &self.root_position.board());
         } else {
             self.tree.clear();
             self.tree.add_root_node();
             self.tree
-                .expand_node(self.tree.root_node(), self.root_position.board());
+                .expand_node(self.tree.root_node(), self.root_position.board())
+                .expect("Cannot expand root node in tree");
             let eval = self.eval_wdl();
             let root = self.tree.root_node();
             self.tree[root].add_score(eval);
@@ -375,13 +382,18 @@ impl MCTS {
         let start_time = Instant::now();
 
         while limits.max_nodes < 0 || self.iters <= limits.max_nodes as u32 {
-            self.perform_one_iter();
+            let result = self.perform_one_iter();
+            if result.is_err() {
+                self.tree.flip();
+                continue;
+            }
 
             let curr_depth = self.depth();
             if curr_depth > prev_depth {
                 if limits.max_depth > 0 && curr_depth >= limits.max_depth as u32 {
                     break;
                 }
+
                 prev_depth = curr_depth;
                 if report {
                     let elapsed = start_time.elapsed().as_secs_f64();
