@@ -1,7 +1,5 @@
 use std::{num::NonZeroI16, time::Instant};
 
-use rand::distr;
-
 use crate::{
     chess::{
         movegen::{movegen, MoveList},
