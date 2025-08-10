@@ -49,6 +49,15 @@ impl Score {
             Self::Normal(score) => Self::Normal(1.0 - score),
         }
     }
+
+    pub fn uci_str(&self) -> String {
+        match self {
+            Self::Win(dist) => format!("mate {}", (*dist + 1) / 2),
+            Self::Draw => format!("cp 0"),
+            Self::Loss(dist) => format!("mate -{}", *dist / 2),
+            Self::Normal(score) => format!("cp {}", sigmoid_inv(*score, 400.0).round()),
+        }
+    }
 }
 
 impl fmt::Display for Score {

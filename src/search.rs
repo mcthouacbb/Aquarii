@@ -403,7 +403,7 @@ impl MCTS {
                         self.nodes,
                         (elapsed * 1000.0) as u64,
                         (self.nodes as f64 / elapsed as f64) as u64,
-                        self.tree[self.tree.root_node()].score(),
+                        self.tree[self.tree.root_node()].score().uci_str(),
                         self.get_best_move()
                     );
                 }
@@ -432,7 +432,7 @@ impl MCTS {
                 self.nodes,
                 (elapsed * 1000.0) as u64,
                 (self.nodes as f64 / elapsed as f64) as u64,
-                self.tree[self.tree.root_node()].score(),
+                self.tree[self.tree.root_node()].score().uci_str(),
                 self.get_best_move()
             );
         }
