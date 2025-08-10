@@ -5,7 +5,7 @@ use crate::{
         movegen::{movegen, MoveList},
         Move,
     },
-    eval,
+    eval::{self, qsearch},
     position::Position,
     tree::{GameResult, MateScore, Node, NodeIndex, Score, Tree},
 };
@@ -78,7 +78,8 @@ impl MCTS {
 
     fn eval_wdl(&self) -> f32 {
         let board = self.position.board();
-        let eval = eval::eval(board);
+        // let eval = eval::eval(board);
+        let eval = qsearch(board, -100000, 100000);
 
         sigmoid(eval as f32, Self::EVAL_SCALE)
     }

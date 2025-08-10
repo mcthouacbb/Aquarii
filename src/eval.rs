@@ -1,7 +1,7 @@
 use std::ops;
 
 use crate::{
-    chess::{attacks, Board},
+    chess::{attacks, movegen::{self, MoveList}, see, Board},
     types::{Bitboard, Color, Piece, PieceType},
 };
 
@@ -481,4 +481,47 @@ pub fn eval(board: &Board) -> i32 {
         + board.pieces(PieceType::Knight).popcount()) as i32;
 
     (eval.mg() * phase.min(24) + eval.eg() * (24 - phase.min(24))) / 24 + 20
+}
+
+pub fn qsearch(board: &Board, mut alpha: i32, beta: i32) -> i32 {
+    let static_eval = eval(board);
+    if static_eval >= beta {
+        return static_eval;
+    }
+
+    if static_eval > alpha {
+        alpha = static_eval;
+    }
+
+    let mut best_score = static_eval;
+
+    let mut moves = MoveList::new();
+    movegen::movegen(board, &mut moves);
+    for mv in moves {
+        if board.piece_at(mv.to_sq()).is_none() {
+            continue;
+        }
+
+        if !see::see(board, mv, 0) {
+            continue;
+        }
+
+        let mut new_board = board.clone();
+        new_board.make_move(mv);
+        let score = -qsearch(&new_board, -beta, -alpha);
+
+        if score > best_score {
+            best_score = score;
+        }
+
+        if score > alpha {
+            alpha = score;
+        }
+
+        if score >= beta {
+            break;
+        }
+    }
+
+    best_score
 }
