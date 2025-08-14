@@ -145,6 +145,7 @@ pub struct Node {
     policy: f32,
     wins: f32,
     visits: u32,
+    corr: f32,
 }
 
 impl Node {
@@ -158,6 +159,7 @@ impl Node {
             policy: policy,
             wins: 0.0,
             visits: 0,
+            corr: 0.0,
         }
     }
 
