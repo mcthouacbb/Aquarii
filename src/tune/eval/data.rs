@@ -16,6 +16,7 @@ pub struct Position {
     pub coeffs: Vec<Coefficient>,
     pub score: f32,
     pub wdl: f32,
+    pub default_material: i32,
 }
 
 pub struct Dataset {
@@ -52,6 +53,7 @@ fn load_data_file(file: &File, positions: &mut Vec<Position>) {
             coeffs: Vec::new(),
             score: 0.0,
             wdl: 0.0,
+            default_material: trace::compute_default_material(&board),
         };
 
         pos.score = parts[1].parse::<f32>().expect("Could not parse score");

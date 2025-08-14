@@ -32,6 +32,42 @@ pub fn error_total(params: &Vec<f32>, dataset: &Dataset, scale: f32) -> f32 {
     total / dataset.positions.len() as f32
 }
 
+fn material_error(dataset: &Dataset, k: f32) -> f32 {
+    let mut total = 0.0;
+    for pos in &dataset.positions {
+        let material = 1.0 / (1.0 + (-pos.default_material as f32 * k).exp());
+        total += (material - pos.wdl) * (material - pos.wdl);
+    }
+    total
+}
+
+pub fn compute_eval_scale(dataset: &Dataset) -> f32 {
+    let mut best_k = 1f32 / 200f32;
+    let mut best_error = 100f32;
+    let mut start = 0f32;
+    let mut end = 1f32 / 50f32;
+    let mut step = 1f32 / 400f32;
+
+    for _ in 0..7 {
+        println!("{} {} {}", start, end, step);
+        let mut curr_k = start + step;
+        while curr_k < end + step {
+            let error = material_error(dataset, curr_k);
+            if error < best_error {
+                best_error = error;
+                best_k = curr_k;
+            }
+            curr_k += step;
+        }
+
+        start = best_k - step;
+        end = best_k + step;
+        step *= 0.1;
+    }
+
+    1.0 / best_k
+}
+
 pub fn compute_single_grad(params: &Vec<f32>, grads: &mut Vec<f32>, pos: &Position, scale: f32) {
     let eval = eval_eval_wdl(params, pos, scale);
     let grad_base = (eval - pos.wdl) * eval * (1.0 - eval);
@@ -60,7 +96,8 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
     // let BATCH_SIZE: u32 = dataset.positions.len() as u32;
     const SUPERBATCH_SIZE: u32 = 6104;
 
-    let scale = 210f32;
+    let eval_scale = compute_eval_scale(dataset);
+    println!("Eval scale: {}", eval_scale);
 
     let mut grads = params.clone();
     let mut velocity = params.clone();
@@ -84,7 +121,7 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
             &params,
             &mut grads,
             &dataset.positions[begin_idx..end_idx],
-            scale,
+            eval_scale,
         );
         // compare_slow_fast(&params, dataset);
         // println!("{:?}", &grads[0..5]);
@@ -100,7 +137,7 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
             println!(
                 "Batch {} error {}, batches/s: {}",
                 num_batches,
-                error_total(&params, dataset, scale),
+                error_total(&params, dataset, eval_scale),
                 num_batches as f32 / start_time.elapsed().as_secs_f32()
             );
         }
@@ -109,7 +146,7 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
             println!(
                 "SuperBatch {} error {}",
                 num_batches / SUPERBATCH_SIZE,
-                error_total(&params, dataset, scale)
+                error_total(&params, dataset, eval_scale)
             );
             println!("{}", trace::EvalFeature::format_all_features(&params));
         }
