@@ -275,16 +275,6 @@ impl Half {
         self.used
     }
 
-    fn clear_indices(&mut self, half: u8) {
-        for node in &mut self.nodes {
-            // node's children were not copied across, clear its children to be reexpanded
-            if node.first_child_idx.half() != half {
-                node.first_child_idx = NodeIndex::NULL;
-                node.child_count = 0;
-            }
-        }
-    }
-
     fn clear(&mut self) {
         self.used = 0;
     }
@@ -332,8 +322,6 @@ impl Tree {
 
     pub fn flip(&mut self) {
         let old_root = self.root_node();
-        let half = self.active_half;
-        self.curr_half_mut().clear_indices(half);
 
         self.active_half ^= 1;
         self.curr_half_mut().clear();
@@ -344,7 +332,11 @@ impl Tree {
 
     pub fn set_as_root(&mut self, node_idx: NodeIndex) {
         let root = self.root_node();
-        self.copy_node_across(node_idx, root);
+        if node_idx.half() != self.active_half {
+            self.copy_node_across(node_idx, root);
+        } else {
+            self[root] = self[node_idx].clone();
+        }
     }
 
     pub fn fetch_children(&mut self, node_idx: NodeIndex) -> Option<()> {
@@ -422,6 +414,10 @@ impl Tree {
 
     fn copy_node_across(&mut self, old_index: NodeIndex, new_index: NodeIndex) {
         self[new_index] = self[old_index].clone();
+        if self[new_index].first_child_idx.half() == self.active_half {
+            self[new_index].first_child_idx = NodeIndex::NULL;
+            self[new_index].child_count = 0;
+        }
     }
 
     fn copy_nodes_across(&mut self, old_index: NodeIndex, new_index: NodeIndex, count: u32) {
