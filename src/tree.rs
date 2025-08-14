@@ -145,6 +145,8 @@ pub struct Node {
     policy: f32,
     wins: f32,
     visits: u32,
+    static_eval: f32,
+    qeval: f32,
 }
 
 impl Node {
@@ -158,6 +160,8 @@ impl Node {
             policy: policy,
             wins: 0.0,
             visits: 0,
+            static_eval: 0.0,
+            qeval: 0.0,
         }
     }
 
@@ -227,6 +231,15 @@ impl Node {
     pub fn add_score(&mut self, score: f32) {
         self.visits += 1;
         self.wins += score;
+    }
+
+    pub fn apply_eval_diff(&mut self, eval_diff: f32) {
+        self.wins += eval_diff;
+    }
+
+    pub fn set_static_eval(&mut self, static_eval: f32) {
+        self.static_eval = static_eval;
+        self.qeval = static_eval;
     }
 
     pub fn set_mate_dist(&mut self, mate_dist: Option<NonZeroI16>) {
@@ -418,6 +431,25 @@ impl Tree {
         for (i, child_idx) in self[node_idx].child_indices().enumerate() {
             self[child_idx].policy = policies[i];
         }
+    }
+
+    pub fn update_qeval(&mut self, board: &Board, node_idx: NodeIndex) -> f32 {
+        let mut best = self[node_idx].static_eval;
+        for child_idx in self[node_idx].child_indices() {
+            if board
+                .piece_at(self[child_idx].parent_move.to_sq())
+                .is_none()
+            {
+                continue;
+            }
+            if self[child_idx].visits == 0 {
+                continue;
+            }
+            best = best.max(1.0 - self[child_idx].qeval);
+        }
+        let eval_diff = best - self[node_idx].qeval;
+        self[node_idx].qeval = best;
+        eval_diff
     }
 
     fn copy_node_across(&mut self, old_index: NodeIndex, new_index: NodeIndex) {

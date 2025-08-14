@@ -173,7 +173,11 @@ impl MCTS {
         }
     }
 
-    fn perform_one_impl(&mut self, node_idx: NodeIndex, ply: u32) -> Option<(f32, Option<i32>)> {
+    fn perform_one_impl(
+        &mut self,
+        node_idx: NodeIndex,
+        ply: u32,
+    ) -> Option<(f32, Option<i32>, f32)> {
         let root = node_idx == self.tree.root_node();
         if self.tree[node_idx].is_terminal() || self.tree[node_idx].visits() == 0 {
             let (score, game_result) = self.simulate();
@@ -181,6 +185,7 @@ impl MCTS {
             let node = &mut self.tree[node_idx];
             node.set_game_result(game_result);
             node.add_score(score);
+            node.set_static_eval(score);
 
             self.nodes += ply + 1;
 
@@ -191,6 +196,7 @@ impl MCTS {
                 } else {
                     None
                 },
+                0.0,
             ));
         } else {
             // node can't be terminal here, must be unexpanded
@@ -226,10 +232,13 @@ impl MCTS {
                 }
             }
 
+            let board = self.position.board().clone();
             self.position
                 .make_move(self.tree[best_child_idx].parent_move());
-            let (child_score, mut child_mate_dist) =
+            let (child_score, mut child_mate_dist, child_eval_diff) =
                 self.perform_one_impl(best_child_idx, ply + 1)?;
+
+            let qeval_diff = self.tree.update_qeval(&board, node_idx);
 
             if let Some(mate_dist) = child_mate_dist {
                 if mate_dist <= 0 {
@@ -240,12 +249,14 @@ impl MCTS {
             }
 
             let score = 1.0 - child_score;
+            let eval_diff = qeval_diff - child_eval_diff;
 
             let node = &mut self.tree[node_idx];
 
             node.add_score(score);
+            node.apply_eval_diff(eval_diff);
 
-            Some((score, child_mate_dist))
+            Some((score, child_mate_dist, eval_diff))
         }
     }
 
