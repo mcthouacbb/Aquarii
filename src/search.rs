@@ -185,7 +185,7 @@ impl MCTS {
             node.set_game_result(game_result);
             node.set_static_eval(score);
             if game_result != GameResult::NonTerminal {
-                score += self.corr_hist.get_corr(self.position.board());
+                score += 0.4 * self.corr_hist.get_corr(self.position.board());
                 score = score.clamp(0.0, 1.0);
             }
             node.set_corrected_eval(score);
