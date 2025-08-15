@@ -188,7 +188,6 @@ impl MCTS {
                 score += 0.4 * self.corr_hist.get_corr(self.position.board());
                 score = score.clamp(0.0, 1.0);
             }
-            node.set_corrected_eval(score);
             node.add_score(score);
 
             self.nodes += ply + 1;
@@ -256,7 +255,7 @@ impl MCTS {
 
             self.corr_hist.update_corr(
                 &board,
-                node.subtree_value(),
+                node.q(),
                 node.static_eval(),
                 node.visits(),
             );
