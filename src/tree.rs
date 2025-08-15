@@ -169,6 +169,10 @@ impl Node {
         self.wins / self.visits as f32
     }
 
+    pub fn subtree_value(&self) -> f32 {
+        (self.wins - self.static_eval) / (self.visits as f32 - 1.0)
+    }
+
     pub fn static_eval(&self) -> f32 {
         self.static_eval
     }

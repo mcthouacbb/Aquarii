@@ -252,12 +252,11 @@ impl MCTS {
             let score = 1.0 - child_score;
 
             let node = &mut self.tree[node_idx];
-
             node.add_score(score);
 
-            let corr_delta = node.update_corr(0.4 * self.corr_hist.get_corr(&board));
             self.corr_hist
-                .update_corr(&board, node.q(), node.static_eval(), node.visits());
+                .update_corr(&board, node.subtree_value(), node.static_eval(), node.visits());
+            let corr_delta = node.update_corr(0.4 * self.corr_hist.get_corr(&board));
 
             let corr_update = corr_delta - child_corr_update;
             node.adjust_score(corr_update);
