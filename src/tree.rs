@@ -145,6 +145,7 @@ pub struct Node {
     policy: f32,
     wins: f32,
     visits: u32,
+    static_eval: f32,
     corr: f32,
 }
 
@@ -159,12 +160,17 @@ impl Node {
             policy: policy,
             wins: 0.0,
             visits: 0,
+            static_eval: 0.0,
             corr: 0.0,
         }
     }
 
     pub fn q(&self) -> f32 {
         self.wins / self.visits as f32
+    }
+
+    pub fn static_eval(&self) -> f32 {
+        self.static_eval
     }
 
     pub fn mate_score(&self) -> Option<MateScore> {
@@ -229,6 +235,20 @@ impl Node {
     pub fn add_score(&mut self, score: f32) {
         self.visits += 1;
         self.wins += score;
+    }
+
+    pub fn set_static_eval(&mut self, static_eval: f32) {
+        self.static_eval = static_eval;
+    }
+
+    pub fn update_corr(&mut self, new_corr: f32) -> f32 {
+        let diff = new_corr - self.corr;
+        self.corr = new_corr;
+        diff
+    }
+
+    pub fn adjust_score(&mut self, delta: f32) {
+        self.wins += delta;
     }
 
     pub fn set_mate_dist(&mut self, mate_dist: Option<NonZeroI16>) {

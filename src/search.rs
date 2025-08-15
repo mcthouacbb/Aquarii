@@ -5,6 +5,7 @@ use crate::{
         movegen::{movegen, MoveList},
         Move,
     },
+    corr_hist::CorrHist,
     eval,
     position::Position,
     tree::{GameResult, MateScore, Node, NodeIndex, Score, Tree},
@@ -51,6 +52,7 @@ pub struct MCTS {
     root_position: Position,
     position: Position,
     nodes: u32,
+    corr_hist: CorrHist,
 }
 
 impl MCTS {
@@ -65,6 +67,7 @@ impl MCTS {
             root_position: Position::new(),
             position: Position::new(),
             nodes: 0,
+            corr_hist: CorrHist::new(),
         }
     }
 
@@ -173,7 +176,11 @@ impl MCTS {
         }
     }
 
-    fn perform_one_impl(&mut self, node_idx: NodeIndex, ply: u32) -> Option<(f32, Option<i32>)> {
+    fn perform_one_impl(
+        &mut self,
+        node_idx: NodeIndex,
+        ply: u32,
+    ) -> Option<(f32, Option<i32>, f32)> {
         let root = node_idx == self.tree.root_node();
         if self.tree[node_idx].is_terminal() || self.tree[node_idx].visits() == 0 {
             let (score, game_result) = self.simulate();
@@ -181,6 +188,7 @@ impl MCTS {
             let node = &mut self.tree[node_idx];
             node.set_game_result(game_result);
             node.add_score(score);
+            node.set_static_eval(score);
 
             self.nodes += ply + 1;
 
@@ -191,6 +199,7 @@ impl MCTS {
                 } else {
                     None
                 },
+                0.0,
             ));
         } else {
             // node can't be terminal here, must be unexpanded
@@ -226,9 +235,10 @@ impl MCTS {
                 }
             }
 
+            let board = self.position.board().clone();
             self.position
                 .make_move(self.tree[best_child_idx].parent_move());
-            let (child_score, mut child_mate_dist) =
+            let (child_score, mut child_mate_dist, child_corr_update) =
                 self.perform_one_impl(best_child_idx, ply + 1)?;
 
             if let Some(mate_dist) = child_mate_dist {
@@ -245,7 +255,14 @@ impl MCTS {
 
             node.add_score(score);
 
-            Some((score, child_mate_dist))
+            self.corr_hist
+                .update_corr(&board, node.q(), node.static_eval(), node.visits());
+            let corr_delta = node.update_corr(self.corr_hist.get_corr(&board));
+
+            let corr_update = corr_delta - child_corr_update;
+            node.adjust_score(corr_update);
+
+            Some((score, child_mate_dist, corr_update))
         }
     }
 
