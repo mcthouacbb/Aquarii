@@ -5,6 +5,7 @@ use crate::{
         movegen::{movegen, MoveList},
         Move,
     },
+    corr_hist::CorrHist,
     eval,
     position::Position,
     tree::{GameResult, MateScore, Node, NodeIndex, Score, Tree},
@@ -51,6 +52,7 @@ pub struct MCTS {
     root_position: Position,
     position: Position,
     nodes: u32,
+    corr_hist: CorrHist,
 }
 
 impl MCTS {
@@ -65,6 +67,7 @@ impl MCTS {
             root_position: Position::new(),
             position: Position::new(),
             nodes: 0,
+            corr_hist: CorrHist::new(),
         }
     }
 
@@ -176,10 +179,16 @@ impl MCTS {
     fn perform_one_impl(&mut self, node_idx: NodeIndex, ply: u32) -> Option<(f32, Option<i32>)> {
         let root = node_idx == self.tree.root_node();
         if self.tree[node_idx].is_terminal() || self.tree[node_idx].visits() == 0 {
-            let (score, game_result) = self.simulate();
+            let (mut score, game_result) = self.simulate();
 
             let node = &mut self.tree[node_idx];
             node.set_game_result(game_result);
+            node.set_static_eval(score);
+            if game_result != GameResult::NonTerminal {
+                score += self.corr_hist.get_corr(self.position.board());
+                score = score.clamp(0.0, 1.0);
+            }
+            node.set_corrected_eval(score);
             node.add_score(score);
 
             self.nodes += ply + 1;
@@ -226,6 +235,7 @@ impl MCTS {
                 }
             }
 
+            let board = self.position.board().clone();
             self.position
                 .make_move(self.tree[best_child_idx].parent_move());
             let (child_score, mut child_mate_dist) =
@@ -242,8 +252,14 @@ impl MCTS {
             let score = 1.0 - child_score;
 
             let node = &mut self.tree[node_idx];
-
             node.add_score(score);
+
+            self.corr_hist.update_corr(
+                &board,
+                node.subtree_value(),
+                node.static_eval(),
+                node.visits(),
+            );
 
             Some((score, child_mate_dist))
         }
