@@ -255,9 +255,9 @@ impl MCTS {
 
             node.add_score(score);
 
+            let corr_delta = node.update_corr(0.4 * self.corr_hist.get_corr(&board));
             self.corr_hist
                 .update_corr(&board, node.q(), node.static_eval(), node.visits());
-            let corr_delta = node.update_corr(self.corr_hist.get_corr(&board));
 
             let corr_update = corr_delta - child_corr_update;
             node.adjust_score(corr_update);
