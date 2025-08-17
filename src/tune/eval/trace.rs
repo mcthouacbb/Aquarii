@@ -548,6 +548,8 @@ pub fn compute_coeffs(board: &Board) -> Vec<(u32, f32)> {
 
 // used for computing scale factor
 pub fn compute_default_material(board: &Board) -> i32 {
+    use PieceType::*;
+
     const MATERIAL: [ScorePair; 6] = [
         ScorePair::new(63, 119),
         ScorePair::new(267, 337),
@@ -557,26 +559,18 @@ pub fn compute_default_material(board: &Board) -> i32 {
         ScorePair::new(0, 0),
     ];
 
-    let material = ScorePair::new(63, 119)
-        * (board.piece_count(Color::White, PieceType::Pawn)
-            - board.piece_count(Color::Black, PieceType::Pawn))
-        + ScorePair::new(267, 337)
-            * (board.piece_count(Color::White, PieceType::Knight)
-                - board.piece_count(Color::Black, PieceType::Knight))
-        + ScorePair::new(301, 360)
-            * (board.piece_count(Color::White, PieceType::Bishop)
-                - board.piece_count(Color::Black, PieceType::Bishop))
-        + ScorePair::new(381, 631)
-            * (board.piece_count(Color::White, PieceType::Rook)
-                - board.piece_count(Color::Black, PieceType::Rook))
-        + ScorePair::new(769, 1197)
-            * (board.piece_count(Color::White, PieceType::Queen)
-                - board.piece_count(Color::Black, PieceType::Queen));
+    let stm = board.stm();
 
-    let phase = (4 * board.pieces(PieceType::Queen).popcount()
-        + 2 * board.pieces(PieceType::Rook).popcount()
-        + board.pieces(PieceType::Bishop).popcount()
-        + board.pieces(PieceType::Knight).popcount()) as i32;
+    let material = MATERIAL[0] * (board.piece_count(stm, Pawn) - board.piece_count(!stm, Pawn))
+        + MATERIAL[1] * (board.piece_count(stm, Knight) - board.piece_count(!stm, Knight))
+        + MATERIAL[2] * (board.piece_count(stm, Bishop) - board.piece_count(!stm, Bishop))
+        + MATERIAL[3] * (board.piece_count(stm, Rook) - board.piece_count(!stm, Rook))
+        + MATERIAL[4] * (board.piece_count(stm, Queen) - board.piece_count(!stm, Queen));
+
+    let phase = (4 * board.pieces(Queen).popcount()
+        + 2 * board.pieces(Rook).popcount()
+        + board.pieces(Bishop).popcount()
+        + board.pieces(Knight).popcount()) as i32;
 
     (material.mg() * phase.min(24) + material.eg() * (24 - phase.min(24))) / 24
 }

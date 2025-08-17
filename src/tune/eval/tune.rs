@@ -38,7 +38,7 @@ fn material_error(dataset: &Dataset, k: f32) -> f32 {
         let material = 1.0 / (1.0 + (-pos.default_material as f32 * k).exp());
         total += (material - pos.wdl) * (material - pos.wdl);
     }
-    total
+    total / dataset.positions.len() as f32
 }
 
 pub fn compute_eval_scale(dataset: &Dataset) -> f32 {
@@ -56,6 +56,7 @@ pub fn compute_eval_scale(dataset: &Dataset) -> f32 {
             if error < best_error {
                 best_error = error;
                 best_k = curr_k;
+                println!("New best: {}, error: {}", best_k, best_error);
             }
             curr_k += step;
         }
