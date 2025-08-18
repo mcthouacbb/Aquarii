@@ -31,7 +31,7 @@ pub trait PolicyValues {
 
     fn cap_bonus(pt: PieceType) -> Self::Value;
     fn pawn_protected_penalty(pt: PieceType) -> Self::Value;
-    fn pawn_threat_evasion(pt: PieceType) -> Self::Value;
+    fn threat_evasion(threat: PieceType, moving: PieceType) -> Self::Value;
     fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value;
     fn threat(moving: PieceType, threatened: PieceType) -> Self::Value;
     fn promo_bonus(pt: PieceType) -> Self::Value;
@@ -49,7 +49,13 @@ const CAP_BONUS: [f32; 5] = [1.600, 2.524, 2.755, 2.757, 3.398];
 #[rustfmt::skip]
 const PAWN_PROTECTED_PENALTY: [f32; 5] = [-0.325, 2.296, 1.939, 3.109, 3.428];
 #[rustfmt::skip]
-const PAWN_THREAT_EVASION: [f32; 5] = [0.232, 2.465, 2.186, 2.223, 2.692];
+const THREAT_EVASION: [[f32; 5]; 5] = [
+    [0.232, 2.465, 2.186, 2.223, 2.692],
+    [0.000, 0.000, 0.000, 0.000, 0.000],
+    [0.000, 0.000, 0.000, 0.000, 0.000],
+    [0.000, 0.000, 0.000, 0.000, 0.000],
+    [0.000, 0.000, 0.000, 0.000, 0.000],
+];
 #[rustfmt::skip]
 const PSQT_SCORE: [[(f32, f32); 64]; 6] = [
     [
@@ -141,8 +147,8 @@ impl PolicyValues for PolicyParams {
         PAWN_PROTECTED_PENALTY[pt as usize]
     }
 
-    fn pawn_threat_evasion(pt: PieceType) -> Self::Value {
-        PAWN_THREAT_EVASION[pt as usize]
+    fn threat_evasion(threat: PieceType, moving: PieceType) -> Self::Value {
+        THREAT_EVASION[threat as usize][moving as usize]
     }
 
     fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value {
@@ -171,13 +177,69 @@ impl PolicyValues for PolicyParams {
     }
 }
 
-pub fn get_policy(board: &Board, mv: Move) -> f32 {
-    get_policy_impl::<PolicyParams>(board, mv)
+#[derive(Debug, Clone)]
+pub struct PolicyData {
+    attacked: Bitboard,
+    attacked_by: [Bitboard; 6],
 }
 
-pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params::Value {
+impl PolicyData {
+    pub fn new(board: &Board) -> Self {
+        let mut result: PolicyData = Self {
+            attacked: Bitboard::NONE,
+            attacked_by: [Bitboard::NONE; 6],
+        };
+
+        let stm = board.stm();
+
+        result.add_attacks(
+            PieceType::Pawn,
+            attacks::pawn_attacks_bb(
+                !stm,
+                board.colored_pieces(Piece::new(!stm, PieceType::Pawn)),
+            ),
+        );
+
+        result.add_attacks(PieceType::King, attacks::king_attacks(board.king_sq(!stm)));
+
+        for pt in [
+            PieceType::Knight,
+            PieceType::Bishop,
+            PieceType::Rook,
+            PieceType::Queen,
+        ] {
+            let mut bb = board.colored_pieces(Piece::new(!stm, pt));
+            while bb.any() {
+                let sq = bb.poplsb();
+                let attacks = attacks::piece_attacks(pt, sq, board.occ());
+                result.add_attacks(pt, attacks);
+            }
+        }
+
+        result
+    }
+
+    fn add_attacks(&mut self, pt: PieceType, attacks: Bitboard) {
+        self.attacked |= attacks;
+        self.attacked_by[pt as usize] |= attacks;
+    }
+
+    fn attacked_by(&self, pt: PieceType) -> Bitboard {
+        self.attacked_by[pt as usize]
+    }
+}
+
+pub fn get_policy(board: &Board, mv: Move, data: &PolicyData) -> f32 {
+    get_policy_impl::<PolicyParams>(board, mv, data)
+}
+
+pub fn get_policy_impl<Params: PolicyValues>(
+    board: &Board,
+    mv: Move,
+    data: &PolicyData,
+) -> Params::Value {
     let opp_pawns = board.colored_pieces(Piece::new(!board.stm(), PieceType::Pawn));
-    let pawn_protected = attacks::pawn_attacks_bb(!board.stm(), opp_pawns);
+    let pawn_protected = data.attacked_by(PieceType::Pawn);
     let moving_piece = board.piece_at(mv.from_sq()).unwrap();
     let captured_piece = board.piece_at(mv.to_sq());
     let cap_bonus = if let Some(captured) = captured_piece {
@@ -192,14 +254,26 @@ pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params:
         Params::Value::default()
     };
 
-    let pawn_threat_evasion = if pawn_protected.has(mv.from_sq())
-        && !pawn_protected.has(mv.to_sq())
-        && moving_piece.piece_type() != PieceType::King
-    {
-        Params::pawn_threat_evasion(moving_piece.piece_type())
-    } else {
-        Params::Value::default()
-    };
+    let mut threat_evasion = Params::Value::default();
+    if moving_piece.piece_type() != PieceType::King {
+        for pt in [
+            PieceType::Pawn,
+            PieceType::Knight,
+            PieceType::Bishop,
+            PieceType::Rook,
+            PieceType::Queen,
+        ] {
+            let from_threat = data.attacked_by(pt).has(mv.from_sq());
+            let to_threat = data.attacked_by(pt).has(mv.to_sq());
+            if from_threat && !to_threat {
+                threat_evasion += Params::threat_evasion(pt, moving_piece.piece_type());
+            }
+
+            if from_threat || to_threat {
+                break;
+            }
+        }
+    }
 
     let moving_piece = board.piece_at(mv.from_sq()).unwrap();
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
@@ -258,7 +332,7 @@ pub fn get_policy_impl<Params: PolicyValues>(board: &Board, mv: Move) -> Params:
         Params::Value::default()
     };
 
-    cap_bonus + promo_bonus + pawn_threat_evasion + bad_see_penalty + check_bonus
+    cap_bonus + promo_bonus + threat_evasion + bad_see_penalty + check_bonus
         - pawn_protected_penalty
         + psqt / 50.0
         + threat_score

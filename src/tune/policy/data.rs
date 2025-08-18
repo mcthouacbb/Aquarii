@@ -10,6 +10,7 @@ use crate::{
         movegen::{self, MoveList},
         Board,
     },
+    policy,
     tune::policy::trace,
 };
 
@@ -70,8 +71,10 @@ fn load_data_file(file: &File, positions: &mut Vec<Position>) {
 
         pos.movecount = moves.len() as u8;
 
+        let data = policy::PolicyData::new(&board);
+
         for (mv_idx, mv) in moves.iter().enumerate() {
-            let coeffs = trace::compute_coeffs(&board, *mv);
+            let coeffs = trace::compute_coeffs(&board, *mv, &data);
             for c in coeffs {
                 pos.coeffs.push(Coefficient {
                     mv_idx: mv_idx as u16,

@@ -377,8 +377,9 @@ impl Tree {
 
         let mut policies = ArrayVec::<f32, 256>::new();
         let mut max_policy = 0f32;
+        let data = policy::PolicyData::new(board);
         for mv in moves.iter() {
-            let policy = policy::get_policy(board, *mv) / tmp;
+            let policy = policy::get_policy(board, *mv, &data) / tmp;
             max_policy = max_policy.max(policy);
             policies.push(policy);
         }
@@ -407,8 +408,9 @@ impl Tree {
             1.0
         };
 
+        let data = policy::PolicyData::new(board);
         for child_idx in self[node_idx].child_indices() {
-            let policy = policy::get_policy(board, self[child_idx].parent_move) / tmp;
+            let policy = policy::get_policy(board, self[child_idx].parent_move, &data) / tmp;
             max_policy = max_policy.max(policy);
             policies.push(policy);
         }
