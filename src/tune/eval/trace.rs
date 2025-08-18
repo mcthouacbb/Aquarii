@@ -156,11 +156,11 @@ impl EvalFeature {
             SafeQueenCheck => 2,
             KingAttackerWeight => 2 * 4,
             KingAttacks => 2 * 14,
-            ThreatByPawn => 2 * 6,
-            ThreatByKnight => 2 * 2 * 6,
-            ThreatByBishop => 2 * 2 * 6,
-            ThreatByRook => 2 * 2 * 6,
-            ThreatByQueen => 2 * 2 * 6,
+            ThreatByPawn => 2 * 2 * 6,
+            ThreatByKnight => 2 * 2 * 2 * 6,
+            ThreatByBishop => 2 * 2 * 2 * 6,
+            ThreatByRook => 2 * 2 * 2 * 6,
+            ThreatByQueen => 2 * 2 * 2 * 6,
             Tempo => 1,
         }
     }
@@ -212,10 +212,44 @@ impl EvalFeature {
 
     #[allow(non_snake_case)]
     fn format_array_2D_pair(params: &Vec<f32>, offset: u32, size1: u32, size2: u32) -> String {
+        Self::format_array_2D_pair_impl(params, offset, size1, size2, 0)
+    }
+
+    #[allow(non_snake_case)]
+    fn format_array_2D_pair_impl(
+        params: &Vec<f32>,
+        offset: u32,
+        size1: u32,
+        size2: u32,
+        indents: usize,
+    ) -> String {
+        let mut result = "    ".repeat(indents) + "[\n";
+        for i in 0..size1 {
+            result += "    ".repeat(indents + 1).as_str();
+            result += Self::format_array_1D_pair(params, offset + size2 * i * 2, size2).as_str();
+            result += ",\n";
+        }
+        result + "    ".repeat(indents).as_str() + "]"
+    }
+
+    #[allow(non_snake_case)]
+    fn format_array_3D_pair(
+        params: &Vec<f32>,
+        offset: u32,
+        size1: u32,
+        size2: u32,
+        size3: u32,
+    ) -> String {
         let mut result = "[\n".to_owned();
         for i in 0..size1 {
-            result += "    ";
-            result += Self::format_array_1D_pair(params, offset + size2 * i * 2, size2).as_str();
+            result += Self::format_array_2D_pair_impl(
+                params,
+                offset + size2 * size3 * i * 2,
+                size2,
+                size3,
+                1,
+            )
+            .as_str();
             result += ",\n";
         }
         result + "]"
@@ -334,33 +368,28 @@ impl EvalFeature {
     }
 
     fn format_threat_by_pawn(params: &Vec<f32>) -> String {
-        "const THREAT_BY_PAWN: [ScorePair; 6] = ".to_owned()
-            + Self::format_array_1D_pair(
-                params,
-                ThreatByPawn.ft_offset(),
-                ThreatByPawn.ft_cnt() / 2,
-            )
-            .as_str()
+        "const THREAT_BY_PAWN: [[ScorePair; 6]; 2] = ".to_owned()
+            + Self::format_array_2D_pair(params, ThreatByPawn.ft_offset(), 2, 6).as_str()
     }
 
     fn format_threat_by_knight(params: &Vec<f32>) -> String {
-        "const THREAT_BY_KNIGHT: [[ScorePair; 6]; 2] = ".to_owned()
-            + Self::format_array_2D_pair(params, ThreatByKnight.ft_offset(), 2, 6).as_str()
+        "const THREAT_BY_KNIGHT: [[[ScorePair; 6]; 2]; 2] = ".to_owned()
+            + Self::format_array_3D_pair(params, ThreatByKnight.ft_offset(), 2, 2, 6).as_str()
     }
 
     fn format_threat_by_bishop(params: &Vec<f32>) -> String {
-        "const THREAT_BY_BISHOP: [[ScorePair; 6]; 2] = ".to_owned()
-            + Self::format_array_2D_pair(params, ThreatByBishop.ft_offset(), 2, 6).as_str()
+        "const THREAT_BY_BISHOP: [[[ScorePair; 6]; 2]; 2] = ".to_owned()
+            + Self::format_array_3D_pair(params, ThreatByBishop.ft_offset(), 2, 2, 6).as_str()
     }
 
     fn format_threat_by_rook(params: &Vec<f32>) -> String {
-        "const THREAT_BY_ROOK: [[ScorePair; 6]; 2] = ".to_owned()
-            + Self::format_array_2D_pair(params, ThreatByRook.ft_offset(), 2, 6).as_str()
+        "const THREAT_BY_ROOK: [[[ScorePair; 6]; 2]; 2] = ".to_owned()
+            + Self::format_array_3D_pair(params, ThreatByRook.ft_offset(), 2, 2, 6).as_str()
     }
 
     fn format_threat_by_queen(params: &Vec<f32>) -> String {
-        "const THREAT_BY_QUEEN: [[ScorePair; 6]; 2] = ".to_owned()
-            + Self::format_array_2D_pair(params, ThreatByQueen.ft_offset(), 2, 6).as_str()
+        "const THREAT_BY_QUEEN: [[[ScorePair; 6]; 2]; 2] = ".to_owned()
+            + Self::format_array_3D_pair(params, ThreatByQueen.ft_offset(), 2, 2, 6).as_str()
     }
 
     fn format_tempo(params: &Vec<f32>) -> String {
@@ -510,24 +539,32 @@ impl EvalValues for EvalTrace {
         SparseTracePair::pair(KingAttacks.ft_offset() + 2 * attacks)
     }
 
-    fn threat_by_pawn(pt: PieceType) -> Self::ScorePairType {
-        SparseTracePair::pair(ThreatByPawn.ft_offset() + 2 * pt as u32)
+    fn threat_by_pawn(stm: bool, pt: PieceType) -> Self::ScorePairType {
+        SparseTracePair::pair(ThreatByPawn.ft_offset() + 2 * (6 * stm as u32 + pt as u32))
     }
 
-    fn threat_by_knight(pt: PieceType, defended: bool) -> Self::ScorePairType {
-        SparseTracePair::pair(ThreatByKnight.ft_offset() + 2 * (6 * defended as u32 + pt as u32))
+    fn threat_by_knight(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType {
+        SparseTracePair::pair(
+            ThreatByKnight.ft_offset() + 2 * (2 * 6 * stm as u32 + 6 * defended as u32 + pt as u32),
+        )
     }
 
-    fn threat_by_bishop(pt: PieceType, defended: bool) -> Self::ScorePairType {
-        SparseTracePair::pair(ThreatByBishop.ft_offset() + 2 * (6 * defended as u32 + pt as u32))
+    fn threat_by_bishop(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType {
+        SparseTracePair::pair(
+            ThreatByBishop.ft_offset() + 2 * (2 * 6 * stm as u32 + 6 * defended as u32 + pt as u32),
+        )
     }
 
-    fn threat_by_rook(pt: PieceType, defended: bool) -> Self::ScorePairType {
-        SparseTracePair::pair(ThreatByRook.ft_offset() + 2 * (6 * defended as u32 + pt as u32))
+    fn threat_by_rook(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType {
+        SparseTracePair::pair(
+            ThreatByRook.ft_offset() + 2 * (2 * 6 * stm as u32 + 6 * defended as u32 + pt as u32),
+        )
     }
 
-    fn threat_by_queen(pt: PieceType, defended: bool) -> Self::ScorePairType {
-        SparseTracePair::pair(ThreatByQueen.ft_offset() + 2 * (6 * defended as u32 + pt as u32))
+    fn threat_by_queen(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType {
+        SparseTracePair::pair(
+            ThreatByQueen.ft_offset() + 2 * (2 * 6 * stm as u32 + 6 * defended as u32 + pt as u32),
+        )
     }
 
     fn tempo() -> Self::ScoreType {
