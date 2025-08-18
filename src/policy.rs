@@ -242,7 +242,6 @@ pub fn get_policy_impl<Params: PolicyValues>(
     mv: Move,
     data: &PolicyData,
 ) -> Params::Value {
-    let opp_pawns = board.colored_pieces(Piece::new(!board.stm(), PieceType::Pawn));
     let pawn_protected = data.attacked_by(PieceType::Pawn);
     let moving_piece = board.piece_at(mv.from_sq()).unwrap();
     let captured_piece = board.piece_at(mv.to_sq());
