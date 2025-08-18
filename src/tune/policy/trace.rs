@@ -121,7 +121,7 @@ impl PolicyFeature {
     }
 
     fn pawn_threat_evasion(params: &Vec<f32>) -> String {
-        "const PAWN_THREAT_EVASION: [[f32; 5]; 5] = ".to_owned()
+        "const THREAT_EVASION: [[f32; 5]; 5] = ".to_owned()
             + Self::format_array_2D(params, ThreatEvasion.ft_offset(), 5, 5).as_str()
     }
 
@@ -173,6 +173,7 @@ impl PolicyFeature {
     pub fn format_all_features(params: &Vec<f32>) -> String {
         let mut result = String::new();
         for feature in Self::iter() {
+            result += "#[rustfmt::skip]\n";
             result += Self::format_single_feature(feature, params).as_str();
             result += ";\n";
         }
