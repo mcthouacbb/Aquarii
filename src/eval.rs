@@ -1,23 +1,62 @@
-use std::ops;
+use std::{
+    fmt::Debug,
+    ops::{self, Add, AddAssign, Div, Mul, Neg, Sub, SubAssign},
+};
 
 use crate::{
     chess::{attacks, Board},
-    types::{Bitboard, Color, Piece, PieceType},
+    types::{Bitboard, Color, Piece, PieceType, Square},
 };
 
-#[derive(Clone, Copy)]
-struct ScorePair(i32);
+// heavily inspired by Motors tuner
+pub trait EvalScoreType:
+    Debug
+    + Default
+    + Clone
+    + PartialEq
+    + Add<Output = Self>
+    + AddAssign
+    + Sub<Output = Self>
+    + SubAssign
+    + Neg<Output = Self>
+    + Mul<i32, Output = Self>
+    + Div<i32, Output = Self>
+{
+}
+
+impl EvalScoreType for i32 {}
+
+pub trait EvalScorePairType:
+    Debug
+    + Default
+    + Clone
+    + PartialEq
+    + Add<Output = Self>
+    + AddAssign
+    + Sub<Output = Self>
+    + SubAssign
+    + Neg<Output = Self>
+    + Mul<i32, Output = Self>
+{
+    type ScoreType: EvalScoreType;
+
+    fn mg(&self) -> Self::ScoreType;
+    fn eg(&self) -> Self::ScoreType;
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ScorePair(i32);
 
 impl ScorePair {
-    const fn new(mg: i32, eg: i32) -> Self {
+    pub const fn new(mg: i32, eg: i32) -> Self {
         Self((((eg as u32) << 16).wrapping_add(mg as u32)) as i32)
     }
 
-    const fn mg(&self) -> i32 {
+    pub const fn mg(&self) -> i32 {
         self.0 as i16 as i32
     }
 
-    const fn eg(&self) -> i32 {
+    pub const fn eg(&self) -> i32 {
         ((self.0.wrapping_add(0x8000)) as u32 >> 16) as i16 as i32
     }
 }
@@ -75,207 +114,270 @@ impl ops::MulAssign<i32> for ScorePair {
     }
 }
 
+impl EvalScorePairType for ScorePair {
+    type ScoreType = i32;
+
+    fn mg(&self) -> Self::ScoreType {
+        self.mg()
+    }
+
+    fn eg(&self) -> Self::ScoreType {
+        self.eg()
+    }
+}
+
 #[allow(non_snake_case)]
 const fn S(mg: i32, eg: i32) -> ScorePair {
     ScorePair::new(mg, eg)
 }
 
-#[rustfmt::skip]
-const MATERIAL: [ScorePair; 6] = [
-    S(63, 119), S(267, 337), S(301, 360), S(381, 631), S(769, 1197), S(0, 0)
-];
+pub trait EvalValues {
+    type ScoreType: EvalScoreType;
+    type ScorePairType: EvalScorePairType<ScoreType = Self::ScoreType>;
 
+    fn material(pt: PieceType) -> Self::ScorePairType;
+    fn psqt(c: Color, pt: PieceType, sq: Square) -> Self::ScorePairType;
+    fn mobility(pt: PieceType, mob: u32) -> Self::ScorePairType;
+    fn passed_pawn(rank: u8) -> Self::ScorePairType;
+    fn pawn_phalanx(rank: u8) -> Self::ScorePairType;
+    fn defended_pawn(rank: u8) -> Self::ScorePairType;
+    fn safe_knight_check() -> Self::ScorePairType;
+    fn safe_bishop_check() -> Self::ScorePairType;
+    fn safe_rook_check() -> Self::ScorePairType;
+    fn safe_queen_check() -> Self::ScorePairType;
+    fn king_attacker_weight(pt: PieceType) -> Self::ScorePairType;
+    fn king_attacks(attacks: u32) -> Self::ScorePairType;
+    fn threat_by_pawn(pt: PieceType) -> Self::ScorePairType;
+    fn threat_by_knight(pt: PieceType, defended: bool) -> Self::ScorePairType;
+    fn threat_by_bishop(pt: PieceType, defended: bool) -> Self::ScorePairType;
+    fn threat_by_rook(pt: PieceType, defended: bool) -> Self::ScorePairType;
+    fn threat_by_queen(pt: PieceType, defended: bool) -> Self::ScorePairType;
+    fn tempo() -> Self::ScoreType;
+}
+
+#[rustfmt::skip]
+const MATERIAL: [ScorePair; 6] = [S(73,126), S(288,243), S(371,271), S(440,487), S(875,914), S(0,0)];
 #[rustfmt::skip]
 const PSQT: [[ScorePair; 64]; 6] = [
-    // pawn
     [
-        S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0),
-        S(  73,  163), S(  95,  155), S(  73,  156), S( 102,  107), S(  86,  103), S(  69,  114), S(   3,  159), S( -22,  173),
-        S(  -5,  104), S(   9,  112), S(  41,   78), S(  47,   57), S(  50,   49), S(  71,   34), S(  51,   81), S(   9,   79),
-        S( -20,   36), S(   4,   25), S(   8,    5), S(  10,   -3), S(  31,  -12), S(  22,   -9), S(  26,   10), S(   3,   10),
-        S( -30,   11), S(  -3,    8), S(  -4,   -9), S(  12,  -12), S(  12,  -14), S(   4,  -12), S(  13,   -1), S(  -9,   -8),
-        S( -32,    5), S(  -7,    7), S(  -7,  -10), S(  -6,    2), S(   8,   -6), S(  -3,   -8), S(  27,   -3), S(  -2,  -12),
-        S( -31,   10), S(  -7,   11), S( -11,   -3), S( -21,    3), S(  -1,    8), S(  13,   -3), S(  36,   -4), S( -10,  -11),
-        S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0),
+        S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0),
+        S(58,103), S(-35,105), S(63,71), S(64,9), S(25,37), S(-26,54), S(11,48), S(-37,101),
+        S(5,55), S(-10,53), S(13,10), S(46,-20), S(36,-30), S(20,-12), S(7,23), S(9,37),
+        S(-24,22), S(-17,8), S(-7,-15), S(8,-43), S(15,-39), S(6,-33), S(-4,-13), S(-3,-16),
+        S(-34,5), S(-31,6), S(-6,-28), S(7,-38), S(7,-53), S(11,-38), S(-9,-32), S(-17,-20),
+        S(-35,-5), S(-17,-17), S(-15,-26), S(-19,-23), S(-3,-34), S(-18,-24), S(19,-44), S(-13,-28),
+        S(-32,14), S(-5,-1), S(-15,-10), S(-22,-9), S(-14,-29), S(16,-18), S(31,-32), S(-8,-27),
+        S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0),
     ],
-    // knight
     [
-        S(-142,  -75), S(-110,  -15), S( -46,   -1), S( -14,   -9), S(  17,   -6), S( -39,  -29), S( -92,   -8), S( -87,  -97),
-        S( -11,  -22), S(   6,   -1), S(  31,    7), S(  48,    6), S(  32,   -1), S(  93,  -16), S(   5,   -5), S(  28,  -37),
-        S(   4,   -6), S(  37,    9), S(  54,   25), S(  66,   26), S( 102,   11), S( 103,    6), S(  60,   -1), S(  29,  -16),
-        S(   0,    5), S(  13,   26), S(  37,   37), S(  57,   39), S(  40,   40), S(  64,   34), S(  23,   25), S(  33,   -2),
-        S( -13,    6), S(   2,   15), S(  16,   39), S(  17,   39), S(  26,   42), S(  21,   32), S(  20,   18), S(  -3,   -2),
-        S( -32,   -9), S( -10,    9), S(   4,   19), S(   7,   32), S(  18,   31), S(   8,   15), S(  11,    4), S( -16,   -7),
-        S( -45,  -18), S( -33,   -2), S( -17,    6), S(  -5,   10), S(  -4,    9), S(  -2,    4), S( -15,  -11), S( -18,   -8),
-        S( -87,  -25), S( -34,  -38), S( -47,   -9), S( -33,   -6), S( -29,   -5), S( -16,  -15), S( -32,  -31), S( -58,  -37),
+        S(-133,-30), S(-53,16), S(-80,-34), S(-24,-33), S(-10,-68), S(-166,-7), S(22,-60), S(-16,-119),
+        S(-44,16), S(2,13), S(7,-22), S(26,-8), S(14,4), S(-19,-2), S(6,-14), S(-55,18),
+        S(49,-31), S(-23,1), S(0,25), S(39,29), S(33,21), S(8,53), S(18,3), S(5,3),
+        S(46,-22), S(21,1), S(30,15), S(49,28), S(24,34), S(39,24), S(20,19), S(40,17),
+        S(9,-19), S(30,-25), S(22,42), S(11,47), S(21,53), S(27,34), S(13,12), S(25,25),
+        S(-11,-5), S(8,-28), S(-6,44), S(12,33), S(10,51), S(1,32), S(26,-17), S(0,6),
+        S(-64,-66), S(10,-25), S(-6,7), S(-4,26), S(10,-11), S(10,-9), S(-2,7), S(37,-35),
+        S(-74,-18), S(-12,23), S(-34,13), S(-8,-15), S(9,2), S(16,28), S(-5,-12), S(45,-90),
     ],
-    // bishop
     [
-        S( -26,   -9), S( -44,    2), S( -33,   -1), S( -74,   13), S( -63,    6), S( -45,   -3), S( -16,  -10), S( -53,  -12),
-        S(  -9,  -22), S(  14,   -3), S(   8,    1), S(  -9,    4), S(  19,   -5), S(  19,   -7), S(  11,    1), S(   0,  -24),
-        S(   0,    7), S(  23,    1), S(  24,   12), S(  47,    1), S(  33,    6), S(  64,    7), S(  41,    0), S(  29,    0),
-        S(  -8,    2), S(   6,   18), S(  27,   13), S(  37,   26), S(  34,   19), S(  30,   16), S(   6,   15), S(  -8,    2),
-        S( -14,   -2), S(  -2,   15), S(   4,   23), S(  24,   19), S(  21,   19), S(   7,   18), S(  -1,   13), S(  -6,  -12),
-        S(  -4,   -2), S(   3,    8), S(   3,   16), S(   6,   15), S(   7,   19), S(   2,   16), S(   4,   -1), S(   8,  -12),
-        S(  -2,   -8), S(  -1,   -7), S(  10,   -9), S( -11,    6), S(  -4,    8), S(   9,   -4), S(  15,   -2), S(   2,  -27),
-        S( -23,  -24), S(  -4,   -7), S( -19,  -26), S( -28,   -5), S( -23,   -8), S( -24,   -8), S(   0,  -22), S( -13,  -37),
+        S(6,-47), S(-32,27), S(-101,11), S(-40,-39), S(-122,-2), S(-193,28), S(-137,52), S(17,52),
+        S(30,-49), S(4,8), S(-52,14), S(-14,-12), S(-93,6), S(13,-2), S(-72,20), S(-42,15),
+        S(32,-48), S(55,-22), S(9,13), S(30,-32), S(39,2), S(-49,52), S(30,0), S(18,7),
+        S(51,-32), S(20,-8), S(29,-1), S(50,6), S(21,26), S(-13,21), S(15,2), S(47,-13),
+        S(35,-10), S(2,-20), S(26,-8), S(17,38), S(18,28), S(8,18), S(36,5), S(8,13),
+        S(20,-1), S(63,-17), S(8,-1), S(17,1), S(7,16), S(35,1), S(31,-37), S(23,1),
+        S(53,-6), S(10,1), S(33,-20), S(1,-14), S(19,-21), S(19,-28), S(31,-30), S(31,-41),
+        S(-28,55), S(12,7), S(9,-5), S(-58,15), S(-3,-37), S(-5,-7), S(-19,-0), S(-13,51),
     ],
-    // rook
     [
-        S(  29,    9), S(  21,   16), S(  28,   25), S(  33,   21), S(  51,   12), S(  67,    2), S(  50,    4), S(  69,   -1),
-        S(  11,    9), S(  10,   21), S(  29,   25), S(  49,   16), S(  35,   16), S(  63,    2), S(  50,   -2), S(  80,  -15),
-        S(  -9,    9), S(  11,   12), S(  13,   14), S(  16,   12), S(  44,   -1), S(  45,   -7), S(  82,  -16), S(  60,  -20),
-        S( -25,   11), S( -12,   10), S(  -9,   19), S(  -1,   15), S(   5,    0), S(   5,   -5), S(  13,   -9), S(  16,  -15),
-        S( -43,    4), S( -41,    9), S( -31,   11), S( -19,   10), S( -19,    6), S( -34,    4), S( -11,   -9), S( -19,  -14),
-        S( -50,    0), S( -41,    0), S( -33,   -1), S( -33,    4), S( -28,    0), S( -30,   -8), S(   3,  -28), S( -18,  -27),
-        S( -53,   -5), S( -41,   -1), S( -26,   -1), S( -30,    1), S( -25,   -7), S( -24,  -11), S(  -7,  -20), S( -36,  -15),
-        S( -34,  -10), S( -33,    0), S( -24,    7), S( -18,    6), S( -14,   -2), S( -24,   -7), S( -10,  -11), S( -33,  -18),
+        S(-6,40), S(124,-26), S(169,-59), S(52,-34), S(60,-27), S(32,-12), S(-41,42), S(4,33),
+        S(20,18), S(47,-10), S(93,-20), S(72,-10), S(115,-24), S(59,-10), S(2,12), S(-27,33),
+        S(-27,24), S(0,3), S(-2,7), S(28,-3), S(13,4), S(-26,11), S(22,6), S(-25,29),
+        S(6,2), S(-38,14), S(0,19), S(39,-11), S(2,-9), S(-20,18), S(-6,29), S(20,-16),
+        S(-22,-3), S(-38,10), S(7,16), S(-42,26), S(-1,-10), S(-29,5), S(-8,-3), S(-37,5),
+        S(-51,6), S(-5,-18), S(-21,-3), S(-59,25), S(1,-15), S(-16,-24), S(-29,13), S(-44,2),
+        S(-60,-6), S(-33,-8), S(-15,-14), S(-4,-31), S(-10,-37), S(-29,7), S(-12,-23), S(-72,-27),
+        S(-40,14), S(-28,10), S(-10,7), S(-8,8), S(19,-16), S(1,-4), S(-36,18), S(-28,-6),
     ],
-    // queen
     [
-        S( -36,    2), S( -28,   15), S(   2,   32), S(  35,   18), S(  35,   15), S(  40,    8), S(  58,  -35), S(   5,   -4),
-        S(   1,  -33), S( -21,    9), S( -14,   43), S( -21,   60), S( -16,   78), S(  21,   37), S(   1,   21), S(  44,   -3),
-        S(   1,  -22), S(  -1,   -5), S(  -3,   37), S(  13,   38), S(  18,   52), S(  59,   32), S(  60,   -4), S(  57,  -17),
-        S( -15,  -12), S( -11,   11), S(  -7,   25), S(  -8,   49), S(  -6,   61), S(   7,   47), S(   6,   33), S(  13,   12),
-        S( -13,  -15), S( -15,   14), S( -17,   23), S(  -8,   42), S(  -9,   41), S( -10,   32), S(   1,   12), S(   4,   -1),
-        S( -16,  -26), S(  -9,  -10), S( -14,   13), S( -15,   11), S( -12,   15), S(  -5,    6), S(   7,  -16), S(   1,  -28),
-        S( -18,  -31), S( -13,  -27), S(  -2,  -30), S(  -3,  -20), S(  -5,  -17), S(   4,  -43), S(  10,  -71), S(  21, -101),
-        S( -20,  -38), S( -30,  -30), S( -23,  -26), S(  -8,  -35), S( -16,  -31), S( -29,  -32), S(  -7,  -62), S( -14,  -62),
+        S(26,12), S(22,15), S(-38,117), S(-63,91), S(114,-37), S(103,-19), S(-73,129), S(44,-22),
+        S(-7,-15), S(-38,41), S(-74,98), S(-22,54), S(4,55), S(-31,122), S(-5,-17), S(12,5),
+        S(-17,44), S(-17,32), S(-20,38), S(-47,96), S(-34,79), S(14,76), S(1,48), S(43,-22),
+        S(21,-15), S(16,26), S(-36,113), S(-25,106), S(-5,89), S(-30,56), S(4,13), S(35,-48),
+        S(5,-45), S(-12,-29), S(4,41), S(-9,46), S(-8,72), S(-12,20), S(8,23), S(20,-24),
+        S(9,-80), S(9,-36), S(20,-31), S(8,-27), S(7,-27), S(2,11), S(17,-51), S(17,-108),
+        S(-41,87), S(-3,-48), S(23,-99), S(20,-74), S(7,-18), S(38,-132), S(23,-71), S(-9,-120),
+        S(-7,9), S(17,-119), S(32,-124), S(22,-72), S(33,-130), S(8,-154), S(-40,-81), S(-80,30),
     ],
-    // king
     [
-        S(  64, -103), S(  40,  -53), S(  73,  -44), S( -68,    6), S( -12,  -14), S(  38,  -11), S(  87,  -19), S( 194, -126),
-        S( -53,  -11), S( -14,   18), S( -57,   31), S(  50,   12), S(  -3,   33), S(   3,   45), S(  42,   34), S(  21,    4),
-        S( -74,    5), S(  28,   23), S( -39,   42), S( -58,   53), S( -17,   52), S(  58,   44), S(  38,   43), S(   2,   14),
-        S( -42,   -5), S( -52,   29), S( -68,   46), S(-112,   59), S( -99,   58), S( -62,   53), S( -62,   44), S( -85,   19),
-        S( -36,  -17), S( -45,   14), S( -75,   37), S(-102,   52), S( -99,   51), S( -63,   38), S( -67,   27), S( -90,   10),
-        S(   8,  -27), S(  23,   -4), S( -33,   17), S( -45,   29), S( -39,   28), S( -37,   20), S(   9,    0), S(  -8,  -12),
-        S(  95,  -49), S(  55,  -22), S(  41,   -9), S(   7,    1), S(   6,    5), S(  24,   -5), S(  71,  -23), S(  80,  -41),
-        S(  91,  -83), S( 114,  -64), S(  88,  -45), S( -11,  -27), S(  53,  -52), S(  14,  -29), S(  95,  -55), S(  96,  -83),
+        S(88,-144), S(-229,-26), S(323,-63), S(183,-22), S(-138,152), S(-287,182), S(12,-22), S(115,-43),
+        S(-334,41), S(-23,27), S(-6,33), S(-259,135), S(-244,162), S(-384,127), S(13,18), S(-198,9),
+        S(32,1), S(-72,55), S(-175,70), S(-153,59), S(-16,30), S(-312,111), S(-349,146), S(-419,162),
+        S(-137,26), S(75,23), S(114,12), S(185,-50), S(391,-70), S(138,9), S(-20,51), S(-8,5),
+        S(58,-64), S(173,-26), S(69,-8), S(118,-8), S(208,-36), S(88,7), S(41,-8), S(-57,-4),
+        S(118,-56), S(108,-49), S(13,-4), S(75,-13), S(18,6), S(65,-13), S(90,-46), S(1,-28),
+        S(110,-78), S(65,-54), S(64,-32), S(32,-24), S(23,-16), S(38,-21), S(91,-42), S(79,-64),
+        S(13,-73), S(84,-61), S(65,-49), S(-14,-32), S(65,-83), S(26,-65), S(97,-70), S(70,-95),
     ],
 ];
-
 #[rustfmt::skip]
 const MOBILITY: [[ScorePair; 28]; 4] = [
-	[S(  -3,  -30), S( -37,  -46), S( -16,  -16), S(  -8,    0), S(   2,    8), S(   6,   18), S(  13,   21), S(  21,   26), S(  30,   19), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0)],
-	[S( -10,  -46), S( -30,  -60), S( -18,  -32), S( -11,  -13), S(  -3,   -4), S(   2,    7), S(   3,   15), S(   6,   19), S(   6,   22), S(   8,   23), S(  10,   23), S(  14,   18), S(  12,   25), S(  18,    4), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0)],
-	[S( -13,  -46), S( -30,  -69), S( -14,  -53), S(  -3,  -31), S(   0,  -17), S(  -2,   -6), S(  -1,    1), S(   2,    7), S(   3,   11), S(   6,   17), S(   3,   27), S(   4,   34), S(   6,   38), S(   9,   39), S(  16,   36), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0), S(   0,    0)],
-	[S(  -2,    6), S( -35,  -72), S( -61, -116), S( -18, -202), S( -23,  -63), S( -15,  -11), S(  -6,  -24), S(  -3,   -5), S(  -2,   12), S(   0,   21), S(   3,   24), S(   6,   27), S(   7,   37), S(  10,   36), S(  11,   42), S(  12,   44), S(  13,   45), S(  16,   46), S(  15,   46), S(  21,   39), S(  26,   29), S(  32,   12), S(  29,   18), S(  37,   -7), S(  36,   -8), S(   7,   -3), S( -12,   -9), S(-118,   16)]
-];
-
-const PASSED_PAWN: [ScorePair; 8] = [
-    S(0, 0),
-    S(-10, 5),
-    S(-14, 13),
-    S(-27, 48),
-    S(9, 88),
-    S(28, 102),
-    S(46, 95),
-    S(0, 0),
-];
-
-const PAWN_PHALANX: [ScorePair; 8] = [
-    S(0, 0),
-    S(5, -2),
-    S(18, 11),
-    S(22, 26),
-    S(46, 64),
-    S(175, 267),
-    S(183, 252),
-    S(0, 0),
-];
-
-const DEFENDED_PAWN: [ScorePair; 8] = [
-    S(0, 0),
-    S(0, 0),
-    S(18, 22),
-    S(15, 22),
-    S(23, 34),
-    S(61, 100),
-    S(179, 171),
-    S(0, 0),
-];
-
-const SAFE_KNIGHT_CHECK: ScorePair = S(73, -3);
-const SAFE_BISHOP_CHECK: ScorePair = S(15, -6);
-const SAFE_ROOK_CHECK: ScorePair = S(50, -1);
-const SAFE_QUEEN_CHECK: ScorePair = S(29, 13);
-const KING_ATTACKER_WEIGHT: [ScorePair; 4] = [S(15, -4), S(10, -1), S(10, -17), S(1, 13)];
-const KING_ATTACKS: [ScorePair; 14] = [
-    S(-24, 9),
-    S(-29, 7),
-    S(-32, 5),
-    S(-30, 11),
-    S(-21, 8),
-    S(-4, 4),
-    S(23, -7),
-    S(57, -21),
-    S(102, -41),
-    S(139, -57),
-    S(187, -71),
-    S(260, -113),
-    S(265, -95),
-    S(257, -86),
-];
-
-const THREAT_BY_PAWN: [ScorePair; 6] = [
-    S(4, -20),
-    S(66, 29),
-    S(60, 60),
-    S(81, 24),
-    S(72, -2),
-    S(0, 0),
+    [S(-138,-200), S(-28,6), S(-12,18), S(6,25), S(18,38), S(22,37), S(29,43), S(41,43), S(63,-11), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0)],
+    [S(-67,-154), S(-42,-93), S(-50,-29), S(-36,18), S(-24,27), S(-22,53), S(-20,58), S(-13,55), S(-11,57), S(3,43), S(-2,51), S(50,-9), S(26,22), S(210,-96), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0)],
+    [S(-363,-202), S(-46,25), S(-26,-58), S(-21,-15), S(-11,7), S(-1,24), S(9,30), S(13,34), S(21,33), S(27,41), S(32,40), S(28,45), S(63,30), S(59,32), S(216,-67), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0)],
+    [S(-276,-261), S(-276,-261), S(-631,-323), S(-121,476), S(-46,-128), S(-34,18), S(-33,98), S(-27,91), S(-26,101), S(-22,102), S(-26,138), S(-19,130), S(-16,128), S(-19,152), S(-21,145), S(-22,138), S(-22,142), S(-14,110), S(-20,93), S(0,92), S(-5,81), S(21,23), S(100,-64), S(149,-116), S(268,-193), S(116,-179), S(661,-395), S(361,-337)],
 ];
 #[rustfmt::skip]
+const PASSED_PAWN: [ScorePair; 8] = [S(0,0), S(-3,16), S(-10,40), S(-17,66), S(7,83), S(26,103), S(53,146), S(0,0)];
+#[rustfmt::skip]
+const PAWN_PHALANX: [ScorePair; 8] = [S(0,0), S(4,12), S(9,16), S(16,23), S(36,65), S(74,221), S(623,546), S(0,0)];
+#[rustfmt::skip]
+const DEFENDED_PAWN: [ScorePair; 8] = [S(0,0), S(0,0), S(14,18), S(13,12), S(13,15), S(53,27), S(359,-56), S(0,0)];
+#[rustfmt::skip]
+const SAFE_KNIGHT_CHECK: ScorePair = S(21,-14);
+#[rustfmt::skip]
+const SAFE_BISHOP_CHECK: ScorePair = S(17,18);
+#[rustfmt::skip]
+const SAFE_ROOK_CHECK: ScorePair = S(93,-16);
+#[rustfmt::skip]
+const SAFE_QUEEN_CHECK: ScorePair = S(30,35);
+#[rustfmt::skip]
+const KING_ATTACKER_WEIGHT: [ScorePair; 4] = [S(11,22), S(-5,23), S(20,10), S(-10,70)];
+#[rustfmt::skip]
+const KING_ATTACKS: [ScorePair; 14] = [S(-60,51), S(-52,-3), S(-48,2), S(-38,7), S(-10,-13), S(19,-19), S(65,-46), S(108,-75), S(200,-112), S(165,-55), S(284,-199), S(309,-110), S(289,-251), S(219,-171)];
+#[rustfmt::skip]
+const THREAT_BY_PAWN: [ScorePair; 6] = [S(-5,-71), S(117,109), S(121,158), S(111,241), S(-23,912), S(0,0)];
+#[rustfmt::skip]
 const THREAT_BY_KNIGHT: [[ScorePair; 6]; 2] = [
-	[S(   4,   28), S(  15,   38), S(  35,   43), S(  73,   13), S(  54,  -29), S(   0,    0)],
-	[S(  -8,    9), S(   6,   38), S(  29,   29), S(  64,   33), S(  60,   -1), S(   0,    0)]
+    [S(10,67), S(11,-276), S(88,82), S(91,134), S(24,530), S(0,0)],
+    [S(-8,15), S(-25,-323), S(40,49), S(63,84), S(6,332), S(0,0)],
 ];
 #[rustfmt::skip]
 const THREAT_BY_BISHOP: [[ScorePair; 6]; 2] = [
-	[S(  -2,   34), S(  39,   32), S( -14,   36), S(  68,   15), S(  70,   43), S(   0,    0)],
-	[S(  -4,    5), S(  17,   22), S( -25,  -12), S(  44,   44), S(  47,  109), S(   0,    0)]
+    [S(13,56), S(86,66), S(17,20), S(65,186), S(112,206), S(0,0)],
+    [S(1,10), S(27,45), S(-17,-20), S(57,135), S(58,231), S(0,0)],
 ];
 #[rustfmt::skip]
 const THREAT_BY_ROOK: [[ScorePair; 6]; 2] = [
-	[S(  -1,   40), S(  16,   57), S(  25,   53), S( -11,  -28), S(  59,   14), S(   0,    0)],
-	[S(  -7,    7), S(   2,   15), S(  13,    3), S( -12,  -66), S(  39,   64), S(   0,    0)]
+    [S(6,80), S(81,89), S(104,87), S(48,-86), S(88,220), S(0,0)],
+    [S(-4,24), S(20,18), S(33,16), S(-8,-148), S(72,305), S(0,0)],
 ];
 #[rustfmt::skip]
 const THREAT_BY_QUEEN: [[ScorePair; 6]; 2] = [
-	[S(   7,    4), S(  24,   18), S(  10,   42), S(  14,    1), S(  10,  -56), S( 102,   51)],
-	[S(  -3,   12), S(   1,    8), S(  -5,   14), S(  -4,    3), S( -16,  -74), S( 118,   52)]
+    [S(21,26), S(67,30), S(117,51), S(116,2), S(21,16), S(0,0)],
+    [S(-4,7), S(-1,-9), S(-1,34), S(3,-7), S(-24,-18), S(0,0)],
 ];
+#[rustfmt::skip]
+const TEMPO: i32 = 44;
 
-struct EvalData {
+pub struct EvalParams {}
+
+impl EvalValues for EvalParams {
+    type ScoreType = i32;
+    type ScorePairType = ScorePair;
+
+    fn material(pt: PieceType) -> Self::ScorePairType {
+        MATERIAL[pt as usize]
+    }
+
+    fn psqt(c: Color, pt: PieceType, sq: Square) -> Self::ScorePairType {
+        PSQT[pt as usize][sq.relative_sq(c).flip().value() as usize]
+    }
+
+    fn mobility(pt: PieceType, mob: u32) -> Self::ScorePairType {
+        MOBILITY[pt as usize - PieceType::Knight as usize][mob as usize]
+    }
+
+    fn passed_pawn(rank: u8) -> Self::ScorePairType {
+        PASSED_PAWN[rank as usize]
+    }
+
+    fn pawn_phalanx(rank: u8) -> Self::ScorePairType {
+        PAWN_PHALANX[rank as usize]
+    }
+
+    fn defended_pawn(rank: u8) -> Self::ScorePairType {
+        DEFENDED_PAWN[rank as usize]
+    }
+
+    fn safe_knight_check() -> Self::ScorePairType {
+        SAFE_KNIGHT_CHECK
+    }
+
+    fn safe_bishop_check() -> Self::ScorePairType {
+        SAFE_BISHOP_CHECK
+    }
+
+    fn safe_rook_check() -> Self::ScorePairType {
+        SAFE_ROOK_CHECK
+    }
+
+    fn safe_queen_check() -> Self::ScorePairType {
+        SAFE_QUEEN_CHECK
+    }
+
+    fn king_attacker_weight(pt: PieceType) -> Self::ScorePairType {
+        KING_ATTACKER_WEIGHT[pt as usize - PieceType::Knight as usize]
+    }
+
+    fn king_attacks(attacks: u32) -> Self::ScorePairType {
+        KING_ATTACKS[attacks as usize]
+    }
+
+    fn threat_by_pawn(pt: PieceType) -> Self::ScorePairType {
+        THREAT_BY_PAWN[pt as usize]
+    }
+
+    fn threat_by_knight(pt: PieceType, defended: bool) -> Self::ScorePairType {
+        THREAT_BY_KNIGHT[defended as usize][pt as usize]
+    }
+
+    fn threat_by_bishop(pt: PieceType, defended: bool) -> Self::ScorePairType {
+        THREAT_BY_BISHOP[defended as usize][pt as usize]
+    }
+
+    fn threat_by_rook(pt: PieceType, defended: bool) -> Self::ScorePairType {
+        THREAT_BY_ROOK[defended as usize][pt as usize]
+    }
+
+    fn threat_by_queen(pt: PieceType, defended: bool) -> Self::ScorePairType {
+        THREAT_BY_QUEEN[defended as usize][pt as usize]
+    }
+
+    fn tempo() -> Self::ScoreType {
+        TEMPO
+    }
+}
+
+struct EvalData<ScorePairType: EvalScorePairType> {
     attacked: [Bitboard; 2],
     attacked_by: [[Bitboard; 6]; 2],
     attacked_by_2: [Bitboard; 2],
     king_ring: [Bitboard; 2],
-    king_attack_weight: [ScorePair; 2],
+    king_attack_weight: [ScorePairType; 2],
     king_attacks: [i32; 2],
 }
 
-impl Default for EvalData {
+impl<ScorePairType: EvalScorePairType> Default for EvalData<ScorePairType> {
     fn default() -> Self {
         Self {
             attacked: [Bitboard::NONE; 2],
             attacked_by: [[Bitboard::NONE; 6]; 2],
             attacked_by_2: [Bitboard::NONE; 2],
             king_ring: [Bitboard::NONE; 2],
-            king_attack_weight: [S(0, 0); 2],
+            king_attack_weight: [ScorePairType::default(), ScorePairType::default()],
             king_attacks: [0; 2],
         }
     }
 }
 
-fn evaluate_piece(
+fn evaluate_piece<Params: EvalValues>(
     board: &Board,
     pt: PieceType,
     color: Color,
-    eval_data: &mut EvalData,
-) -> ScorePair {
-    let mut eval = S(0, 0);
+    eval_data: &mut EvalData<Params::ScorePairType>,
+) -> Params::ScorePairType {
+    let mut eval = Params::ScorePairType::default();
 
     let opp_pawns = board.colored_pieces(Piece::new(!color, PieceType::Pawn));
     let mobility_area = !attacks::pawn_attacks_bb(!color, opp_pawns);
@@ -287,7 +389,7 @@ fn evaluate_piece(
 
         let attacks = attacks::piece_attacks(pt, sq, board.occ());
         let mobility = (attacks & mobility_area).popcount();
-        eval += MOBILITY[pt as usize - PieceType::Knight as usize][mobility as usize];
+        eval += Params::mobility(pt, mobility);
 
         eval_data.attacked_by_2[color as usize] |= attacks & eval_data.attacked[color as usize];
         eval_data.attacked[color as usize] |= attacks;
@@ -295,16 +397,19 @@ fn evaluate_piece(
 
         let king_ring_attacks = eval_data.king_ring[!color as usize] & attacks;
         if king_ring_attacks.any() {
-            eval_data.king_attack_weight[color as usize] +=
-                KING_ATTACKER_WEIGHT[pt as usize - PieceType::Knight as usize];
+            eval_data.king_attack_weight[color as usize] += Params::king_attacker_weight(pt);
             eval_data.king_attacks[color as usize] += king_ring_attacks.popcount() as i32;
         }
     }
     eval
 }
 
-fn evaluate_kings(board: &Board, color: Color, eval_data: &EvalData) -> ScorePair {
-    let mut eval = S(0, 0);
+fn evaluate_kings<Params: EvalValues>(
+    board: &Board,
+    color: Color,
+    eval_data: &EvalData<Params::ScorePairType>,
+) -> Params::ScorePairType {
+    let mut eval = Params::ScorePairType::default();
 
     let their_king = board.king_sq(!color);
 
@@ -326,19 +431,23 @@ fn evaluate_kings(board: &Board, color: Color, eval_data: &EvalData) -> ScorePai
     let safe = !board.colors(color)
         & (!eval_data.attacked[!color as usize] | (weak & eval_data.attacked_by_2[color as usize]));
 
-    eval += SAFE_KNIGHT_CHECK * (knight_checks & safe).popcount() as i32;
-    eval += SAFE_BISHOP_CHECK * (bishop_checks & safe).popcount() as i32;
-    eval += SAFE_ROOK_CHECK * (rook_checks & safe).popcount() as i32;
-    eval += SAFE_QUEEN_CHECK * (queen_checks & safe).popcount() as i32;
+    eval += Params::safe_knight_check() * (knight_checks & safe).popcount() as i32;
+    eval += Params::safe_bishop_check() * (bishop_checks & safe).popcount() as i32;
+    eval += Params::safe_rook_check() * (rook_checks & safe).popcount() as i32;
+    eval += Params::safe_queen_check() * (queen_checks & safe).popcount() as i32;
 
-    eval += eval_data.king_attack_weight[color as usize];
-    eval += KING_ATTACKS[eval_data.king_attacks[color as usize].min(13) as usize];
+    eval += eval_data.king_attack_weight[color as usize].clone();
+    eval += Params::king_attacks(eval_data.king_attacks[color as usize].min(13) as u32);
 
     return eval;
 }
 
-fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScorePair {
-    let mut eval = S(0, 0);
+fn evaluate_threats<Params: EvalValues>(
+    board: &Board,
+    color: Color,
+    eval_data: &EvalData<Params::ScorePairType>,
+) -> Params::ScorePairType {
+    let mut eval = Params::ScorePairType::default();
 
     let defended_bb = eval_data.attacked_by_2[!color as usize]
         | eval_data.attacked_by[!color as usize][PieceType::Pawn as usize]
@@ -348,7 +457,7 @@ fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScoreP
         eval_data.attacked_by[color as usize][PieceType::Pawn as usize] & board.colors(!color);
     while pawn_threats.any() {
         let threatened = board.piece_at(pawn_threats.poplsb()).unwrap().piece_type();
-        eval += THREAT_BY_PAWN[threatened as usize];
+        eval += Params::threat_by_pawn(threatened);
     }
 
     let mut knight_threats =
@@ -357,7 +466,7 @@ fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScoreP
         let threat = knight_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
         let defended = defended_bb.has(threat);
-        eval += THREAT_BY_KNIGHT[defended as usize][threatened as usize];
+        eval += Params::threat_by_knight(threatened, defended);
     }
 
     let mut bishop_threats =
@@ -366,7 +475,7 @@ fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScoreP
         let threat = bishop_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
         let defended = defended_bb.has(threat);
-        eval += THREAT_BY_BISHOP[defended as usize][threatened as usize];
+        eval += Params::threat_by_bishop(threatened, defended);
     }
 
     let mut rook_threats =
@@ -375,7 +484,7 @@ fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScoreP
         let threat = rook_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
         let defended = defended_bb.has(threat);
-        eval += THREAT_BY_ROOK[defended as usize][threatened as usize];
+        eval += Params::threat_by_rook(threatened, defended);
     }
 
     let mut queen_threats =
@@ -384,14 +493,14 @@ fn evaluate_threats(board: &Board, color: Color, eval_data: &EvalData) -> ScoreP
         let threat = queen_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
         let defended = defended_bb.has(threat);
-        eval += THREAT_BY_QUEEN[defended as usize][threatened as usize];
+        eval += Params::threat_by_queen(threatened, defended);
     }
 
     eval
 }
 
-fn evaluate_pawns(board: &Board, color: Color) -> ScorePair {
-    let mut eval = S(0, 0);
+fn evaluate_pawns<Params: EvalValues>(board: &Board, color: Color) -> Params::ScorePairType {
+    let mut eval = Params::ScorePairType::default();
     let our_pawns = board.colored_pieces(Piece::new(color, PieceType::Pawn));
     let their_pawns = board.colored_pieces(Piece::new(!color, PieceType::Pawn));
 
@@ -401,24 +510,24 @@ fn evaluate_pawns(board: &Board, color: Color) -> ScorePair {
         let relative_rank = sq.relative_sq(color).rank();
         let stoppers = their_pawns & attacks::passed_pawn_span(color, sq);
         if stoppers.empty() {
-            eval += PASSED_PAWN[relative_rank as usize];
+            eval += Params::passed_pawn(relative_rank);
         }
     }
 
     let mut phalanxes = our_pawns & our_pawns.west();
     while phalanxes.any() {
-        eval += PAWN_PHALANX[phalanxes.poplsb().relative_sq(color).rank() as usize];
+        eval += Params::pawn_phalanx(phalanxes.poplsb().relative_sq(color).rank());
     }
     let mut defended = our_pawns & attacks::pawn_attacks_bb(color, our_pawns);
     while defended.any() {
-        eval += DEFENDED_PAWN[defended.poplsb().relative_sq(color).rank() as usize];
+        eval += Params::defended_pawn(defended.poplsb().relative_sq(color).rank());
     }
     eval
 }
 
-pub fn eval(board: &Board) -> i32 {
+pub fn eval_impl<Params: EvalValues>(board: &Board) -> Params::ScoreType {
     let stm = board.stm();
-    let mut eval = S(0, 0);
+    let mut eval = Params::ScorePairType::default();
     for pt in [
         PieceType::Pawn,
         PieceType::Knight,
@@ -431,15 +540,11 @@ pub fn eval(board: &Board) -> i32 {
         let mut nstm_bb = board.colored_pieces(Piece::new(!stm, pt));
 
         while stm_bb.any() {
-            let sq = stm_bb.poplsb().relative_sq(stm).flip();
-            eval += MATERIAL[pt as usize];
-            eval += PSQT[pt as usize][sq.value() as usize]
+            eval += Params::material(pt) + Params::psqt(stm, pt, stm_bb.poplsb());
         }
 
         while nstm_bb.any() {
-            let sq = nstm_bb.poplsb().relative_sq(!stm).flip();
-            eval -= MATERIAL[pt as usize];
-            eval -= PSQT[pt as usize][sq.value() as usize];
+            eval -= Params::material(pt) + Params::psqt(!stm, pt, nstm_bb.poplsb());
         }
     }
 
@@ -461,24 +566,30 @@ pub fn eval(board: &Board) -> i32 {
     eval_data.king_ring[Color::Black as usize] =
         (bking_atks | bking_atks.south()) & !Bitboard::from_square(board.king_sq(Color::Black));
 
-    eval += evaluate_piece(board, PieceType::Knight, stm, &mut eval_data)
-        - evaluate_piece(board, PieceType::Knight, !stm, &mut eval_data);
-    eval += evaluate_piece(board, PieceType::Bishop, stm, &mut eval_data)
-        - evaluate_piece(board, PieceType::Bishop, !stm, &mut eval_data);
-    eval += evaluate_piece(board, PieceType::Rook, stm, &mut eval_data)
-        - evaluate_piece(board, PieceType::Rook, !stm, &mut eval_data);
-    eval += evaluate_piece(board, PieceType::Queen, stm, &mut eval_data)
-        - evaluate_piece(board, PieceType::Queen, !stm, &mut eval_data);
+    eval += evaluate_piece::<Params>(board, PieceType::Knight, stm, &mut eval_data)
+        - evaluate_piece::<Params>(board, PieceType::Knight, !stm, &mut eval_data);
+    eval += evaluate_piece::<Params>(board, PieceType::Bishop, stm, &mut eval_data)
+        - evaluate_piece::<Params>(board, PieceType::Bishop, !stm, &mut eval_data);
+    eval += evaluate_piece::<Params>(board, PieceType::Rook, stm, &mut eval_data)
+        - evaluate_piece::<Params>(board, PieceType::Rook, !stm, &mut eval_data);
+    eval += evaluate_piece::<Params>(board, PieceType::Queen, stm, &mut eval_data)
+        - evaluate_piece::<Params>(board, PieceType::Queen, !stm, &mut eval_data);
 
-    eval += evaluate_kings(board, stm, &eval_data) - evaluate_kings(board, !stm, &eval_data);
-    eval += evaluate_threats(board, stm, &eval_data) - evaluate_threats(board, !stm, &eval_data);
+    eval += evaluate_kings::<Params>(board, stm, &eval_data)
+        - evaluate_kings::<Params>(board, !stm, &eval_data);
+    eval += evaluate_threats::<Params>(board, stm, &eval_data)
+        - evaluate_threats::<Params>(board, !stm, &eval_data);
 
-    eval += evaluate_pawns(board, stm) - evaluate_pawns(board, !stm);
+    eval += evaluate_pawns::<Params>(board, stm) - evaluate_pawns::<Params>(board, !stm);
 
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
         + 2 * board.pieces(PieceType::Rook).popcount()
         + board.pieces(PieceType::Bishop).popcount()
         + board.pieces(PieceType::Knight).popcount()) as i32;
 
-    (eval.mg() * phase.min(24) + eval.eg() * (24 - phase.min(24))) / 24 + 20
+    (eval.mg() * phase.min(24) + eval.eg() * (24 - phase.min(24))) / 24 + Params::tempo()
+}
+
+pub fn eval(board: &Board) -> i32 {
+    eval_impl::<EvalParams>(board)
 }
