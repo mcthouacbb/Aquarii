@@ -139,7 +139,7 @@ pub enum EvalFeature {
 use EvalFeature::*;
 
 impl EvalFeature {
-    pub const TOTAL_FEATURES: u32 = 19;
+    pub const TOTAL_FEATURES: u32 = 21;
 
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
