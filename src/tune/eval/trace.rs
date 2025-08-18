@@ -130,13 +130,14 @@ pub enum EvalFeature {
     ThreatByBishop,
     ThreatByRook,
     ThreatByQueen,
+    PushThreat,
     Tempo,
 }
 
 use EvalFeature::*;
 
 impl EvalFeature {
-    pub const TOTAL_FEATURES: u32 = 18;
+    pub const TOTAL_FEATURES: u32 = 19;
 
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
@@ -161,6 +162,7 @@ impl EvalFeature {
             ThreatByBishop => 2 * 2 * 2 * 6,
             ThreatByRook => 2 * 2 * 2 * 6,
             ThreatByQueen => 2 * 2 * 2 * 6,
+            PushThreat => 2 * 2,
             Tempo => 1,
         }
     }
@@ -274,6 +276,7 @@ impl EvalFeature {
             ThreatByBishop => Self::format_threat_by_bishop(params),
             ThreatByRook => Self::format_threat_by_rook(params),
             ThreatByQueen => Self::format_threat_by_queen(params),
+            PushThreat => Self::format_push_threat(params),
             Tempo => Self::format_tempo(params),
         }
     }
@@ -390,6 +393,12 @@ impl EvalFeature {
     fn format_threat_by_queen(params: &Vec<f32>) -> String {
         "const THREAT_BY_QUEEN: [[[ScorePair; 6]; 2]; 2] = ".to_owned()
             + Self::format_array_3D_pair(params, ThreatByQueen.ft_offset(), 2, 2, 6).as_str()
+    }
+
+    fn format_push_threat(params: &Vec<f32>) -> String {
+        "const PUSH_THREAT: [ScorePair; 2] = ".to_owned()
+            + Self::format_array_1D_pair(params, PushThreat.ft_offset(), PushThreat.ft_cnt() / 2)
+                .as_str()
     }
 
     fn format_tempo(params: &Vec<f32>) -> String {
@@ -565,6 +574,10 @@ impl EvalValues for EvalTrace {
         SparseTracePair::pair(
             ThreatByQueen.ft_offset() + 2 * (2 * 6 * stm as u32 + 6 * defended as u32 + pt as u32),
         )
+    }
+
+    fn push_threat(stm: bool) -> Self::ScorePairType {
+        SparseTracePair::pair(PushThreat.ft_offset() + 2 * stm as u32)
     }
 
     fn tempo() -> Self::ScoreType {
