@@ -224,6 +224,10 @@ impl PolicyData {
         self.attacked_by[pt as usize] |= attacks;
     }
 
+    fn attacked(&self) -> Bitboard {
+        self.attacked
+    }
+
     fn attacked_by(&self, pt: PieceType) -> Bitboard {
         self.attacked_by[pt as usize]
     }
@@ -255,7 +259,7 @@ pub fn get_policy_impl<Params: PolicyValues>(
     };
 
     let mut threat_evasion = Params::Value::default();
-    if moving_piece.piece_type() != PieceType::King {
+    if moving_piece.piece_type() != PieceType::King && data.attacked().has(mv.from_sq()) {
         for pt in [
             PieceType::Pawn,
             PieceType::Knight,
