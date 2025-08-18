@@ -36,8 +36,8 @@ impl PolicyFeature {
             Self::ThreatEvasion => 5 * 5,
             // 6 piece types * 64 squares * 2 phases
             Self::PsqtScore => 6 * 64 * 2,
-            // 5 attackers * 5 victims
-            Self::Threat => 5 * 5,
+            // defended/undefended * 5 attackers * 5 victims
+            Self::Threat => 2 * 5 * 5,
             Self::PromoBonus => 2,
             Self::BadSeePenalty => 1,
             Self::CheckBonus => 1,
@@ -83,10 +83,39 @@ impl PolicyFeature {
 
     #[allow(non_snake_case)]
     fn format_array_2D(params: &Vec<f32>, offset: u32, size1: u32, size2: u32) -> String {
+        Self::format_array_2D_impl(params, offset, size1, size2, 0)
+    }
+
+    #[allow(non_snake_case)]
+    fn format_array_2D_impl(
+        params: &Vec<f32>,
+        offset: u32,
+        size1: u32,
+        size2: u32,
+        indents: usize,
+    ) -> String {
+        let mut result = "    ".repeat(indents) + "[\n";
+        for i in 0..size1 {
+            result += "    ".repeat(indents + 1).as_str();
+            result += Self::format_array_1D(params, offset + size2 * i, size2).as_str();
+            result += ",\n";
+        }
+        result + "    ".repeat(indents).as_str() + "]"
+    }
+
+    #[allow(non_snake_case)]
+    fn format_array_3D(
+        params: &Vec<f32>,
+        offset: u32,
+        size1: u32,
+        size2: u32,
+        size3: u32,
+    ) -> String {
         let mut result = "[\n".to_owned();
         for i in 0..size1 {
-            result += "    ";
-            result += Self::format_array_1D(params, offset + size2 * i, size2).as_str();
+            result +=
+                Self::format_array_2D_impl(params, offset + size2 * size3 * i, size2, size3, 1)
+                    .as_str();
             result += ",\n";
         }
         result + "]"
@@ -151,8 +180,8 @@ impl PolicyFeature {
     }
 
     fn format_threat(params: &Vec<f32>) -> String {
-        "const THREAT: [[f32; 5]; 5] = ".to_owned()
-            + Self::format_array_2D(params, Threat.ft_offset(), 5, 5).as_str()
+        "const THREAT: [[[f32; 5]; 5]; 2] = ".to_owned()
+            + Self::format_array_3D(params, Threat.ft_offset(), 2, 5, 5).as_str()
     }
 
     fn format_promo_bonus(params: &Vec<f32>) -> String {
@@ -229,10 +258,13 @@ impl PolicyValues for PolicyTrace {
         }
     }
 
-    fn threat(moving: PieceType, threatened: PieceType) -> Self::Value {
+    fn threat(defended: bool, moving: PieceType, threatened: PieceType) -> Self::Value {
         assert!(moving != PieceType::King && threatened != PieceType::King);
         SparseTrace::single(
-            Threat.ft_offset() + 5 * (moving as u32 - PieceType::Pawn as u32) + threatened as u32,
+            Threat.ft_offset()
+                + 5 * 5 * defended as u32
+                + 5 * (moving as u32 - PieceType::Pawn as u32)
+                + threatened as u32,
         )
     }
 

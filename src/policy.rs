@@ -33,7 +33,7 @@ pub trait PolicyValues {
     fn pawn_protected_penalty(pt: PieceType) -> Self::Value;
     fn threat_evasion(threat: PieceType, moving: PieceType) -> Self::Value;
     fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value;
-    fn threat(moving: PieceType, threatened: PieceType) -> Self::Value;
+    fn threat(defended: bool, moving: PieceType, threatened: PieceType) -> Self::Value;
     fn promo_bonus(pt: PieceType) -> Self::Value;
     fn bad_see_penalty() -> Self::Value;
     fn check_bonus() -> Self::Value;
@@ -120,12 +120,21 @@ const PSQT_SCORE: [[(f32, f32); 64]; 6] = [
     ],
 ];
 #[rustfmt::skip]
-const THREAT: [[f32; 5]; 5] = [
-    [-0.915, 0.763, 0.660, 0.350, 0.633],
-    [0.099, -0.021, 0.719, 0.666, 0.735],
-    [0.059, 0.627, -0.053, 0.629, 0.519],
-    [0.259, 0.541, 0.515, 0.041, 1.065],
-    [0.082, 0.283, 0.141, 0.133, -0.049],
+const THREAT: [[[f32; 5]; 5]; 2] = [
+    [
+        [-0.915, 0.763, 0.660, 0.350, 0.633],
+        [0.099, -0.021, 0.719, 0.666, 0.735],
+        [0.059, 0.627, -0.053, 0.629, 0.519],
+        [0.259, 0.541, 0.515, 0.041, 1.065],
+        [0.082, 0.283, 0.141, 0.133, -0.049],
+    ],
+    [
+        [-0.915, 0.763, 0.660, 0.350, 0.633],
+        [0.099, -0.021, 0.719, 0.666, 0.735],
+        [0.059, 0.627, -0.053, 0.629, 0.519],
+        [0.259, 0.541, 0.515, 0.041, 1.065],
+        [0.082, 0.283, 0.141, 0.133, -0.049],
+    ],
 ];
 #[rustfmt::skip]
 const PROMO_BONUS: [f32; 2] = [1.239, -1.630];
@@ -157,8 +166,8 @@ impl PolicyValues for PolicyParams {
             / 24.0
     }
 
-    fn threat(moving: PieceType, threatened: PieceType) -> Self::Value {
-        THREAT[moving as usize - PieceType::Pawn as usize][threatened as usize]
+    fn threat(defended: bool, moving: PieceType, threatened: PieceType) -> Self::Value {
+        THREAT[defended as usize][moving as usize - PieceType::Pawn as usize][threatened as usize]
     }
 
     fn promo_bonus(pt: PieceType) -> Self::Value {
@@ -181,6 +190,8 @@ impl PolicyValues for PolicyParams {
 pub struct PolicyData {
     attacked: Bitboard,
     attacked_by: [Bitboard; 6],
+    attacked_by_2: Bitboard,
+    defended: Bitboard,
 }
 
 impl PolicyData {
@@ -188,9 +199,18 @@ impl PolicyData {
         let mut result: PolicyData = Self {
             attacked: Bitboard::NONE,
             attacked_by: [Bitboard::NONE; 6],
+            attacked_by_2: Bitboard::NONE,
+            defended: Bitboard::NONE,
         };
 
         let stm = board.stm();
+
+        result.add_defenses(attacks::pawn_attacks_bb(
+            stm,
+            board.colored_pieces(Piece::new(stm, PieceType::Pawn)),
+        ));
+
+        result.add_defenses(attacks::king_attacks(board.king_sq(stm)));
 
         result.add_attacks(
             PieceType::Pawn,
@@ -208,6 +228,13 @@ impl PolicyData {
             PieceType::Rook,
             PieceType::Queen,
         ] {
+            let mut bb = board.colored_pieces(Piece::new(stm, pt));
+            while bb.any() {
+                let sq = bb.poplsb();
+                let attacks = attacks::piece_attacks(pt, sq, board.occ());
+                result.add_defenses(attacks);
+            }
+
             let mut bb = board.colored_pieces(Piece::new(!stm, pt));
             while bb.any() {
                 let sq = bb.poplsb();
@@ -220,8 +247,13 @@ impl PolicyData {
     }
 
     fn add_attacks(&mut self, pt: PieceType, attacks: Bitboard) {
+        self.attacked_by_2 |= self.attacked & attacks;
         self.attacked |= attacks;
         self.attacked_by[pt as usize] |= attacks;
+    }
+
+    fn add_defenses(&mut self, attacks: Bitboard) {
+        self.defended |= attacks;
     }
 
     fn attacked(&self) -> Bitboard {
@@ -230,6 +262,14 @@ impl PolicyData {
 
     fn attacked_by(&self, pt: PieceType) -> Bitboard {
         self.attacked_by[pt as usize]
+    }
+
+    fn attacked_by_2(&self) -> Bitboard {
+        self.attacked_by_2
+    }
+
+    fn defended(&self) -> Bitboard {
+        self.defended
     }
 }
 
@@ -303,10 +343,14 @@ pub fn get_policy_impl<Params: PolicyValues>(
 
             let mut threats =
                 attacks_after & board.colors(!board.stm()) & !board.pieces(PieceType::King);
+            let defended_bb =
+                data.attacked_by_2() | pawn_protected | (data.attacked() & !data.defended());
             let mut score = Params::Value::default();
             while threats.any() {
                 let threat = threats.poplsb();
+                let defended = defended_bb.has(threat);
                 score += Params::threat(
+                    defended,
                     moving_piece.piece_type(),
                     board.piece_at(threat).unwrap().piece_type(),
                 );
