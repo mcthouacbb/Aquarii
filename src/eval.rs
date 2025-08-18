@@ -147,128 +147,155 @@ pub trait EvalValues {
     fn safe_queen_check() -> Self::ScorePairType;
     fn king_attacker_weight(pt: PieceType) -> Self::ScorePairType;
     fn king_attacks(attacks: u32) -> Self::ScorePairType;
-    fn threat_by_pawn(pt: PieceType) -> Self::ScorePairType;
-    fn threat_by_knight(pt: PieceType, defended: bool) -> Self::ScorePairType;
-    fn threat_by_bishop(pt: PieceType, defended: bool) -> Self::ScorePairType;
-    fn threat_by_rook(pt: PieceType, defended: bool) -> Self::ScorePairType;
-    fn threat_by_queen(pt: PieceType, defended: bool) -> Self::ScorePairType;
+    fn threat_by_pawn(stm: bool, pt: PieceType) -> Self::ScorePairType;
+    fn threat_by_knight(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType;
+    fn threat_by_bishop(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType;
+    fn threat_by_rook(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType;
+    fn threat_by_queen(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType;
     fn tempo() -> Self::ScoreType;
 }
 
 #[rustfmt::skip]
-const MATERIAL: [ScorePair; 6] = [S(73,126), S(288,243), S(371,271), S(440,487), S(875,914), S(0,0)];
+const MATERIAL: [ScorePair; 6] = [S(78,126), S(318,238), S(406,273), S(483,495), S(975,950), S(0,0)];
 #[rustfmt::skip]
 const PSQT: [[ScorePair; 64]; 6] = [
     [
         S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0),
-        S(58,103), S(-35,105), S(63,71), S(64,9), S(25,37), S(-26,54), S(11,48), S(-37,101),
-        S(5,55), S(-10,53), S(13,10), S(46,-20), S(36,-30), S(20,-12), S(7,23), S(9,37),
-        S(-24,22), S(-17,8), S(-7,-15), S(8,-43), S(15,-39), S(6,-33), S(-4,-13), S(-3,-16),
-        S(-34,5), S(-31,6), S(-6,-28), S(7,-38), S(7,-53), S(11,-38), S(-9,-32), S(-17,-20),
-        S(-35,-5), S(-17,-17), S(-15,-26), S(-19,-23), S(-3,-34), S(-18,-24), S(19,-44), S(-13,-28),
-        S(-32,14), S(-5,-1), S(-15,-10), S(-22,-9), S(-14,-29), S(16,-18), S(31,-32), S(-8,-27),
+        S(60,105), S(-31,105), S(54,79), S(71,3), S(48,30), S(-52,71), S(17,50), S(-32,98),
+        S(10,53), S(-6,49), S(17,7), S(55,-29), S(42,-28), S(30,-17), S(11,24), S(10,38),
+        S(-28,21), S(-19,8), S(-9,-14), S(9,-42), S(12,-39), S(5,-29), S(-4,-13), S(-8,-14),
+        S(-36,6), S(-33,7), S(-8,-28), S(5,-36), S(6,-53), S(11,-38), S(-10,-31), S(-19,-19),
+        S(-39,-4), S(-20,-18), S(-15,-27), S(-21,-22), S(-4,-35), S(-18,-26), S(18,-45), S(-16,-27),
+        S(-38,15), S(-8,-3), S(-15,-13), S(-23,-10), S(-15,-26), S(17,-21), S(30,-33), S(-11,-30),
         S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0),
     ],
     [
-        S(-133,-30), S(-53,16), S(-80,-34), S(-24,-33), S(-10,-68), S(-166,-7), S(22,-60), S(-16,-119),
-        S(-44,16), S(2,13), S(7,-22), S(26,-8), S(14,4), S(-19,-2), S(6,-14), S(-55,18),
-        S(49,-31), S(-23,1), S(0,25), S(39,29), S(33,21), S(8,53), S(18,3), S(5,3),
-        S(46,-22), S(21,1), S(30,15), S(49,28), S(24,34), S(39,24), S(20,19), S(40,17),
-        S(9,-19), S(30,-25), S(22,42), S(11,47), S(21,53), S(27,34), S(13,12), S(25,25),
-        S(-11,-5), S(8,-28), S(-6,44), S(12,33), S(10,51), S(1,32), S(26,-17), S(0,6),
-        S(-64,-66), S(10,-25), S(-6,7), S(-4,26), S(10,-11), S(10,-9), S(-2,7), S(37,-35),
-        S(-74,-18), S(-12,23), S(-34,13), S(-8,-15), S(9,2), S(16,28), S(-5,-12), S(45,-90),
+        S(-168,-8), S(10,-10), S(-78,-19), S(-12,-39), S(-12,-68), S(-162,1), S(119,-87), S(-48,-113),
+        S(-38,18), S(5,10), S(-1,-17), S(46,-25), S(17,12), S(-6,-5), S(-24,3), S(-65,19),
+        S(48,-25), S(-30,-4), S(4,24), S(38,22), S(39,12), S(11,44), S(19,7), S(12,2),
+        S(47,-23), S(16,1), S(24,15), S(48,32), S(26,26), S(43,16), S(18,19), S(43,10),
+        S(8,-11), S(26,-25), S(16,41), S(10,46), S(23,51), S(24,32), S(6,15), S(23,24),
+        S(-14,1), S(9,-28), S(-10,43), S(8,31), S(7,43), S(-1,29), S(25,-13), S(-2,11),
+        S(-64,-68), S(5,-22), S(-6,-0), S(-4,25), S(8,-8), S(9,-4), S(-9,24), S(36,-34),
+        S(-106,3), S(-12,29), S(-41,23), S(-10,-21), S(17,-11), S(10,26), S(-5,-17), S(25,-85),
     ],
     [
-        S(6,-47), S(-32,27), S(-101,11), S(-40,-39), S(-122,-2), S(-193,28), S(-137,52), S(17,52),
-        S(30,-49), S(4,8), S(-52,14), S(-14,-12), S(-93,6), S(13,-2), S(-72,20), S(-42,15),
-        S(32,-48), S(55,-22), S(9,13), S(30,-32), S(39,2), S(-49,52), S(30,0), S(18,7),
-        S(51,-32), S(20,-8), S(29,-1), S(50,6), S(21,26), S(-13,21), S(15,2), S(47,-13),
-        S(35,-10), S(2,-20), S(26,-8), S(17,38), S(18,28), S(8,18), S(36,5), S(8,13),
-        S(20,-1), S(63,-17), S(8,-1), S(17,1), S(7,16), S(35,1), S(31,-37), S(23,1),
-        S(53,-6), S(10,1), S(33,-20), S(1,-14), S(19,-21), S(19,-28), S(31,-30), S(31,-41),
-        S(-28,55), S(12,7), S(9,-5), S(-58,15), S(-3,-37), S(-5,-7), S(-19,-0), S(-13,51),
+        S(-22,-43), S(-96,48), S(-46,-6), S(-20,-33), S(-105,-4), S(-121,10), S(-165,55), S(-10,49),
+        S(24,-50), S(-0,2), S(-62,14), S(11,-25), S(-55,-7), S(9,-5), S(-78,24), S(-51,9),
+        S(43,-57), S(57,-25), S(23,3), S(33,-39), S(50,-2), S(6,31), S(37,-8), S(29,9),
+        S(56,-34), S(12,4), S(28,5), S(43,9), S(16,30), S(-3,14), S(4,8), S(43,-9),
+        S(33,-13), S(8,-17), S(21,-3), S(17,36), S(19,28), S(-0,19), S(27,11), S(2,11),
+        S(14,7), S(60,-22), S(2,0), S(13,7), S(2,14), S(34,-0), S(24,-36), S(14,8),
+        S(44,5), S(5,5), S(29,-18), S(-3,-10), S(14,-17), S(19,-35), S(27,-29), S(23,-18),
+        S(-34,54), S(8,5), S(5,-1), S(-53,11), S(-1,-37), S(-9,-7), S(-19,6), S(-31,52),
     ],
     [
-        S(-6,40), S(124,-26), S(169,-59), S(52,-34), S(60,-27), S(32,-12), S(-41,42), S(4,33),
-        S(20,18), S(47,-10), S(93,-20), S(72,-10), S(115,-24), S(59,-10), S(2,12), S(-27,33),
-        S(-27,24), S(0,3), S(-2,7), S(28,-3), S(13,4), S(-26,11), S(22,6), S(-25,29),
-        S(6,2), S(-38,14), S(0,19), S(39,-11), S(2,-9), S(-20,18), S(-6,29), S(20,-16),
-        S(-22,-3), S(-38,10), S(7,16), S(-42,26), S(-1,-10), S(-29,5), S(-8,-3), S(-37,5),
-        S(-51,6), S(-5,-18), S(-21,-3), S(-59,25), S(1,-15), S(-16,-24), S(-29,13), S(-44,2),
-        S(-60,-6), S(-33,-8), S(-15,-14), S(-4,-31), S(-10,-37), S(-29,7), S(-12,-23), S(-72,-27),
-        S(-40,14), S(-28,10), S(-10,7), S(-8,8), S(19,-16), S(1,-4), S(-36,18), S(-28,-6),
+        S(3,31), S(145,-37), S(179,-68), S(100,-50), S(92,-42), S(47,-17), S(-34,42), S(-3,29),
+        S(13,19), S(45,-15), S(90,-20), S(79,-17), S(122,-28), S(60,-14), S(12,1), S(-44,38),
+        S(-28,21), S(12,-5), S(10,2), S(45,-9), S(10,3), S(1,3), S(27,3), S(-26,35),
+        S(11,0), S(-41,15), S(-3,18), S(35,-7), S(-6,-2), S(-25,16), S(-16,34), S(11,-7),
+        S(-29,7), S(-34,6), S(11,14), S(-61,36), S(1,-13), S(-34,5), S(-18,-6), S(-46,10),
+        S(-55,9), S(-5,-19), S(-33,1), S(-59,24), S(-3,-12), S(-27,-16), S(-33,14), S(-52,1),
+        S(-64,-2), S(-36,-1), S(-18,-8), S(-9,-28), S(-8,-28), S(-30,10), S(-18,-18), S(-81,-11),
+        S(-44,16), S(-32,11), S(-14,10), S(-13,8), S(10,-10), S(-7,-0), S(-46,23), S(-37,-1),
     ],
     [
-        S(26,12), S(22,15), S(-38,117), S(-63,91), S(114,-37), S(103,-19), S(-73,129), S(44,-22),
-        S(-7,-15), S(-38,41), S(-74,98), S(-22,54), S(4,55), S(-31,122), S(-5,-17), S(12,5),
-        S(-17,44), S(-17,32), S(-20,38), S(-47,96), S(-34,79), S(14,76), S(1,48), S(43,-22),
-        S(21,-15), S(16,26), S(-36,113), S(-25,106), S(-5,89), S(-30,56), S(4,13), S(35,-48),
-        S(5,-45), S(-12,-29), S(4,41), S(-9,46), S(-8,72), S(-12,20), S(8,23), S(20,-24),
-        S(9,-80), S(9,-36), S(20,-31), S(8,-27), S(7,-27), S(2,11), S(17,-51), S(17,-108),
-        S(-41,87), S(-3,-48), S(23,-99), S(20,-74), S(7,-18), S(38,-132), S(23,-71), S(-9,-120),
-        S(-7,9), S(17,-119), S(32,-124), S(22,-72), S(33,-130), S(8,-154), S(-40,-81), S(-80,30),
+        S(18,17), S(48,-25), S(-38,80), S(-25,62), S(77,-27), S(70,-11), S(-67,108), S(26,-27),
+        S(-2,-25), S(-29,16), S(-52,64), S(3,9), S(25,21), S(-31,108), S(1,-16), S(18,-1),
+        S(-12,36), S(-4,-10), S(-15,35), S(-46,118), S(-36,81), S(46,45), S(4,54), S(45,-40),
+        S(16,-17), S(13,24), S(-39,106), S(-27,101), S(-6,80), S(-20,49), S(9,8), S(37,-57),
+        S(1,-36), S(-10,-40), S(6,32), S(-9,47), S(-12,61), S(-14,31), S(13,9), S(22,-23),
+        S(2,-58), S(4,-24), S(14,-24), S(2,-8), S(1,-14), S(-4,25), S(9,-25), S(20,-130),
+        S(-42,79), S(-12,-24), S(16,-84), S(14,-54), S(2,-6), S(29,-90), S(25,-81), S(-16,-100),
+        S(-3,11), S(15,-116), S(25,-81), S(15,-47), S(29,-111), S(5,-139), S(-75,0), S(-81,54),
     ],
     [
-        S(88,-144), S(-229,-26), S(323,-63), S(183,-22), S(-138,152), S(-287,182), S(12,-22), S(115,-43),
-        S(-334,41), S(-23,27), S(-6,33), S(-259,135), S(-244,162), S(-384,127), S(13,18), S(-198,9),
-        S(32,1), S(-72,55), S(-175,70), S(-153,59), S(-16,30), S(-312,111), S(-349,146), S(-419,162),
-        S(-137,26), S(75,23), S(114,12), S(185,-50), S(391,-70), S(138,9), S(-20,51), S(-8,5),
-        S(58,-64), S(173,-26), S(69,-8), S(118,-8), S(208,-36), S(88,7), S(41,-8), S(-57,-4),
-        S(118,-56), S(108,-49), S(13,-4), S(75,-13), S(18,6), S(65,-13), S(90,-46), S(1,-28),
-        S(110,-78), S(65,-54), S(64,-32), S(32,-24), S(23,-16), S(38,-21), S(91,-42), S(79,-64),
-        S(13,-73), S(84,-61), S(65,-49), S(-14,-32), S(65,-83), S(26,-65), S(97,-70), S(70,-95),
+        S(119,-157), S(-200,-36), S(246,-63), S(223,-28), S(-166,151), S(-275,180), S(-30,-18), S(-16,-37),
+        S(-306,58), S(-9,24), S(42,35), S(-317,142), S(-257,160), S(-379,129), S(-42,36), S(-137,-6),
+        S(7,17), S(-104,53), S(-158,74), S(-130,52), S(-48,32), S(-301,107), S(-350,144), S(-409,163),
+        S(-87,17), S(125,19), S(97,15), S(200,-53), S(390,-71), S(149,3), S(-28,50), S(1,4),
+        S(60,-59), S(145,-22), S(81,-10), S(136,-15), S(222,-39), S(109,1), S(57,-10), S(-46,-6),
+        S(101,-46), S(116,-51), S(31,-7), S(73,-12), S(11,4), S(71,-14), S(99,-47), S(3,-28),
+        S(110,-76), S(62,-52), S(72,-35), S(31,-22), S(24,-16), S(37,-20), S(90,-42), S(80,-65),
+        S(5,-62), S(80,-60), S(61,-47), S(-18,-31), S(62,-82), S(24,-62), S(92,-69), S(69,-97),
     ],
 ];
 #[rustfmt::skip]
 const MOBILITY: [[ScorePair; 28]; 4] = [
-    [S(-138,-200), S(-28,6), S(-12,18), S(6,25), S(18,38), S(22,37), S(29,43), S(41,43), S(63,-11), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0)],
-    [S(-67,-154), S(-42,-93), S(-50,-29), S(-36,18), S(-24,27), S(-22,53), S(-20,58), S(-13,55), S(-11,57), S(3,43), S(-2,51), S(50,-9), S(26,22), S(210,-96), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0)],
-    [S(-363,-202), S(-46,25), S(-26,-58), S(-21,-15), S(-11,7), S(-1,24), S(9,30), S(13,34), S(21,33), S(27,41), S(32,40), S(28,45), S(63,30), S(59,32), S(216,-67), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0)],
-    [S(-276,-261), S(-276,-261), S(-631,-323), S(-121,476), S(-46,-128), S(-34,18), S(-33,98), S(-27,91), S(-26,101), S(-22,102), S(-26,138), S(-19,130), S(-16,128), S(-19,152), S(-21,145), S(-22,138), S(-22,142), S(-14,110), S(-20,93), S(0,92), S(-5,81), S(21,23), S(100,-64), S(149,-116), S(268,-193), S(116,-179), S(661,-395), S(361,-337)],
+    [S(-141,-255), S(-28,5), S(-10,22), S(4,30), S(18,44), S(23,45), S(29,53), S(42,55), S(63,1), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0)],
+    [S(-52,-164), S(-34,-91), S(-52,-25), S(-39,18), S(-27,30), S(-24,52), S(-22,59), S(-16,55), S(-11,56), S(4,39), S(-6,54), S(47,-11), S(32,26), S(201,-97), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0)],
+    [S(-387,-243), S(-80,54), S(-21,-52), S(-16,-15), S(-6,7), S(3,24), S(14,29), S(16,35), S(23,36), S(30,41), S(34,43), S(33,44), S(62,33), S(60,36), S(234,-70), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0), S(0,0)],
+    [S(-312,-267), S(-312,-267), S(-654,-309), S(-80,304), S(-60,-95), S(-45,32), S(-42,93), S(-35,92), S(-35,123), S(-30,114), S(-33,140), S(-25,143), S(-23,139), S(-27,161), S(-26,153), S(-29,152), S(-29,149), S(-22,123), S(-26,109), S(1,88), S(-4,87), S(23,23), S(89,-38), S(207,-135), S(251,-182), S(343,-299), S(578,-342), S(355,-291)],
 ];
 #[rustfmt::skip]
-const PASSED_PAWN: [ScorePair; 8] = [S(0,0), S(-3,16), S(-10,40), S(-17,66), S(7,83), S(26,103), S(53,146), S(0,0)];
+const PASSED_PAWN: [ScorePair; 8] = [S(0,0), S(1,12), S(-9,38), S(-16,64), S(10,81), S(23,104), S(57,147), S(0,0)];
 #[rustfmt::skip]
-const PAWN_PHALANX: [ScorePair; 8] = [S(0,0), S(4,12), S(9,16), S(16,23), S(36,65), S(74,221), S(623,546), S(0,0)];
+const PAWN_PHALANX: [ScorePair; 8] = [S(0,0), S(5,12), S(8,18), S(16,23), S(45,57), S(54,250), S(576,746), S(0,0)];
 #[rustfmt::skip]
-const DEFENDED_PAWN: [ScorePair; 8] = [S(0,0), S(0,0), S(14,18), S(13,12), S(13,15), S(53,27), S(359,-56), S(0,0)];
+const DEFENDED_PAWN: [ScorePair; 8] = [S(0,0), S(0,0), S(14,20), S(13,14), S(13,14), S(52,29), S(388,-45), S(0,0)];
 #[rustfmt::skip]
-const SAFE_KNIGHT_CHECK: ScorePair = S(21,-14);
+const SAFE_KNIGHT_CHECK: ScorePair = S(25,-18);
 #[rustfmt::skip]
-const SAFE_BISHOP_CHECK: ScorePair = S(17,18);
+const SAFE_BISHOP_CHECK: ScorePair = S(18,17);
 #[rustfmt::skip]
-const SAFE_ROOK_CHECK: ScorePair = S(93,-16);
+const SAFE_ROOK_CHECK: ScorePair = S(95,-19);
 #[rustfmt::skip]
-const SAFE_QUEEN_CHECK: ScorePair = S(30,35);
+const SAFE_QUEEN_CHECK: ScorePair = S(31,32);
 #[rustfmt::skip]
-const KING_ATTACKER_WEIGHT: [ScorePair; 4] = [S(11,22), S(-5,23), S(20,10), S(-10,70)];
+const KING_ATTACKER_WEIGHT: [ScorePair; 4] = [S(13,19), S(-4,21), S(22,9), S(-9,65)];
 #[rustfmt::skip]
-const KING_ATTACKS: [ScorePair; 14] = [S(-60,51), S(-52,-3), S(-48,2), S(-38,7), S(-10,-13), S(19,-19), S(65,-46), S(108,-75), S(200,-112), S(165,-55), S(284,-199), S(309,-110), S(289,-251), S(219,-171)];
+const KING_ATTACKS: [ScorePair; 14] = [S(-57,49), S(-50,-4), S(-46,2), S(-36,7), S(-9,-13), S(21,-18), S(66,-44), S(104,-72), S(191,-93), S(184,-74), S(319,-233), S(358,-176), S(210,-61), S(272,-274)];
 #[rustfmt::skip]
-const THREAT_BY_PAWN: [ScorePair; 6] = [S(-5,-71), S(117,109), S(121,158), S(111,241), S(-23,912), S(0,0)];
-#[rustfmt::skip]
-const THREAT_BY_KNIGHT: [[ScorePair; 6]; 2] = [
-    [S(10,67), S(11,-276), S(88,82), S(91,134), S(24,530), S(0,0)],
-    [S(-8,15), S(-25,-323), S(40,49), S(63,84), S(6,332), S(0,0)],
+const THREAT_BY_PAWN: [[ScorePair; 6]; 2] = [
+    [S(-13,-67), S(77,40), S(59,63), S(59,42), S(12,151), S(0,0)],
+    [S(-7,-51), S(204,167), S(235,201), S(244,416), S(445,1419), S(0,0)],
 ];
 #[rustfmt::skip]
-const THREAT_BY_BISHOP: [[ScorePair; 6]; 2] = [
-    [S(13,56), S(86,66), S(17,20), S(65,186), S(112,206), S(0,0)],
-    [S(1,10), S(27,45), S(-17,-20), S(57,135), S(58,231), S(0,0)],
+const THREAT_BY_KNIGHT: [[[ScorePair; 6]; 2]; 2] = [
+    [
+        [S(0,67), S(16,-180), S(45,37), S(67,31), S(41,136), S(0,0)],
+        [S(-9,17), S(-12,-184), S(33,51), S(57,28), S(21,213), S(0,0)],
+    ],
+    [
+        [S(20,69), S(49,-122), S(149,136), S(160,391), S(234,1293), S(0,0)],
+        [S(-8,15), S(-2,-184), S(49,44), S(88,211), S(193,804), S(0,0)],
+    ],
 ];
 #[rustfmt::skip]
-const THREAT_BY_ROOK: [[ScorePair; 6]; 2] = [
-    [S(6,80), S(81,89), S(104,87), S(48,-86), S(88,220), S(0,0)],
-    [S(-4,24), S(20,18), S(33,16), S(-8,-148), S(72,305), S(0,0)],
+const THREAT_BY_BISHOP: [[[ScorePair; 6]; 2]; 2] = [
+    [
+        [S(10,44), S(61,23), S(-25,-3), S(41,64), S(107,24), S(0,0)],
+        [S(3,9), S(27,40), S(-35,-3), S(32,105), S(57,168), S(0,0)],
+    ],
+    [
+        [S(27,62), S(161,131), S(97,24), S(226,420), S(435,1254), S(0,0)],
+        [S(-1,10), S(25,46), S(-36,-19), S(93,201), S(392,435), S(0,0)],
+    ],
 ];
 #[rustfmt::skip]
-const THREAT_BY_QUEEN: [[ScorePair; 6]; 2] = [
-    [S(21,26), S(67,30), S(117,51), S(116,2), S(21,16), S(0,0)],
-    [S(-4,7), S(-1,-9), S(-1,34), S(3,-7), S(-24,-18), S(0,0)],
+const THREAT_BY_ROOK: [[[ScorePair; 6]; 2]; 2] = [
+    [
+        [S(7,69), S(61,54), S(76,50), S(1,-220), S(103,35), S(0,0)],
+        [S(-6,34), S(14,29), S(38,22), S(-3,-225), S(122,64), S(0,0)],
+    ],
+    [
+        [S(6,91), S(110,187), S(155,194), S(150,177), S(540,1318), S(0,0)],
+        [S(-5,16), S(23,7), S(34,8), S(-5,-248), S(281,703), S(0,0)],
+    ],
 ];
 #[rustfmt::skip]
-const TEMPO: i32 = 44;
+const THREAT_BY_QUEEN: [[[ScorePair; 6]; 2]; 2] = [
+    [
+        [S(16,-6), S(39,13), S(47,81), S(79,-8), S(-58,-190), S(0,0)],
+        [S(-6,14), S(-3,4), S(13,13), S(9,-26), S(-120,-139), S(0,0)],
+    ],
+    [
+        [S(24,70), S(127,42), S(175,127), S(293,212), S(454,857), S(0,0)],
+        [S(-1,-3), S(-7,-2), S(-11,37), S(-2,5), S(-93,-201), S(0,0)],
+    ],
+];
+#[rustfmt::skip]
+const TEMPO: i32 = 26;
 
 pub struct EvalParams {}
 
@@ -324,24 +351,24 @@ impl EvalValues for EvalParams {
         KING_ATTACKS[attacks as usize]
     }
 
-    fn threat_by_pawn(pt: PieceType) -> Self::ScorePairType {
-        THREAT_BY_PAWN[pt as usize]
+    fn threat_by_pawn(stm: bool, pt: PieceType) -> Self::ScorePairType {
+        THREAT_BY_PAWN[stm as usize][pt as usize]
     }
 
-    fn threat_by_knight(pt: PieceType, defended: bool) -> Self::ScorePairType {
-        THREAT_BY_KNIGHT[defended as usize][pt as usize]
+    fn threat_by_knight(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType {
+        THREAT_BY_KNIGHT[stm as usize][defended as usize][pt as usize]
     }
 
-    fn threat_by_bishop(pt: PieceType, defended: bool) -> Self::ScorePairType {
-        THREAT_BY_BISHOP[defended as usize][pt as usize]
+    fn threat_by_bishop(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType {
+        THREAT_BY_BISHOP[stm as usize][defended as usize][pt as usize]
     }
 
-    fn threat_by_rook(pt: PieceType, defended: bool) -> Self::ScorePairType {
-        THREAT_BY_ROOK[defended as usize][pt as usize]
+    fn threat_by_rook(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType {
+        THREAT_BY_ROOK[stm as usize][defended as usize][pt as usize]
     }
 
-    fn threat_by_queen(pt: PieceType, defended: bool) -> Self::ScorePairType {
-        THREAT_BY_QUEEN[defended as usize][pt as usize]
+    fn threat_by_queen(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType {
+        THREAT_BY_QUEEN[stm as usize][defended as usize][pt as usize]
     }
 
     fn tempo() -> Self::ScoreType {
@@ -447,6 +474,7 @@ fn evaluate_threats<Params: EvalValues>(
     color: Color,
     eval_data: &EvalData<Params::ScorePairType>,
 ) -> Params::ScorePairType {
+    let stm = color == board.stm();
     let mut eval = Params::ScorePairType::default();
 
     let defended_bb = eval_data.attacked_by_2[!color as usize]
@@ -457,7 +485,7 @@ fn evaluate_threats<Params: EvalValues>(
         eval_data.attacked_by[color as usize][PieceType::Pawn as usize] & board.colors(!color);
     while pawn_threats.any() {
         let threatened = board.piece_at(pawn_threats.poplsb()).unwrap().piece_type();
-        eval += Params::threat_by_pawn(threatened);
+        eval += Params::threat_by_pawn(stm, threatened);
     }
 
     let mut knight_threats =
@@ -466,7 +494,7 @@ fn evaluate_threats<Params: EvalValues>(
         let threat = knight_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
         let defended = defended_bb.has(threat);
-        eval += Params::threat_by_knight(threatened, defended);
+        eval += Params::threat_by_knight(stm, threatened, defended);
     }
 
     let mut bishop_threats =
@@ -475,7 +503,7 @@ fn evaluate_threats<Params: EvalValues>(
         let threat = bishop_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
         let defended = defended_bb.has(threat);
-        eval += Params::threat_by_bishop(threatened, defended);
+        eval += Params::threat_by_bishop(stm, threatened, defended);
     }
 
     let mut rook_threats =
@@ -484,7 +512,7 @@ fn evaluate_threats<Params: EvalValues>(
         let threat = rook_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
         let defended = defended_bb.has(threat);
-        eval += Params::threat_by_rook(threatened, defended);
+        eval += Params::threat_by_rook(stm, threatened, defended);
     }
 
     let mut queen_threats =
@@ -493,7 +521,7 @@ fn evaluate_threats<Params: EvalValues>(
         let threat = queen_threats.poplsb();
         let threatened = board.piece_at(threat).unwrap().piece_type();
         let defended = defended_bb.has(threat);
-        eval += Params::threat_by_queen(threatened, defended);
+        eval += Params::threat_by_queen(stm, threatened, defended);
     }
 
     eval
