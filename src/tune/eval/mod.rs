@@ -1,7 +1,5 @@
 use std::fs::File;
 
-use crate::chess::Board;
-
 mod data;
 mod trace;
 mod tune;
