@@ -12,7 +12,7 @@ use crate::{
 pub enum PolicyFeature {
     CapBonus,
     PawnProtectedPenalty,
-    PawnThreatEvasion,
+    ThreatEvasion,
     PsqtScore,
     Threat,
     PromoBonus,
@@ -33,7 +33,7 @@ impl PolicyFeature {
         match self {
             Self::CapBonus => 5,
             Self::PawnProtectedPenalty => 5,
-            Self::PawnThreatEvasion => 5,
+            Self::ThreatEvasion => 5 * 5,
             // 6 piece types * 64 squares * 2 phases
             Self::PsqtScore => 6 * 64 * 2,
             // 5 attackers * 5 victims
@@ -96,7 +96,7 @@ impl PolicyFeature {
         match feature {
             Self::CapBonus => Self::format_cap_bonus(params),
             Self::PawnProtectedPenalty => Self::format_pawn_protected_penalty(params),
-            Self::PawnThreatEvasion => Self::format_pawn_threat_evasion(params),
+            Self::ThreatEvasion => Self::pawn_threat_evasion(params),
             Self::PsqtScore => Self::format_psqt_score(params),
             Self::Threat => Self::format_threat(params),
             Self::PromoBonus => Self::format_promo_bonus(params),
@@ -120,14 +120,9 @@ impl PolicyFeature {
             .as_str()
     }
 
-    fn format_pawn_threat_evasion(params: &Vec<f32>) -> String {
-        "const PAWN_THREAT_EVASION: [f32; 5] = ".to_owned()
-            + Self::format_array_1D(
-                params,
-                PawnThreatEvasion.ft_offset(),
-                PawnThreatEvasion.ft_cnt(),
-            )
-            .as_str()
+    fn pawn_threat_evasion(params: &Vec<f32>) -> String {
+        "const THREAT_EVASION: [[f32; 5]; 5] = ".to_owned()
+            + Self::format_array_2D(params, ThreatEvasion.ft_offset(), 5, 5).as_str()
     }
 
     fn format_psqt_score(params: &Vec<f32>) -> String {
@@ -178,6 +173,7 @@ impl PolicyFeature {
     pub fn format_all_features(params: &Vec<f32>) -> String {
         let mut result = String::new();
         for feature in Self::iter() {
+            result += "#[rustfmt::skip]\n";
             result += Self::format_single_feature(feature, params).as_str();
             result += ";\n";
         }
@@ -216,16 +212,8 @@ impl PolicyValues for PolicyTrace {
         SparseTrace::single(idx)
     }
 
-    fn pawn_threat_evasion(pt: PieceType) -> Self::Value {
-        let idx = match pt {
-            PieceType::Pawn => PawnThreatEvasion.ft_offset(),
-            PieceType::Knight => PawnThreatEvasion.ft_offset() + 1,
-            PieceType::Bishop => PawnThreatEvasion.ft_offset() + 2,
-            PieceType::Rook => PawnThreatEvasion.ft_offset() + 3,
-            PieceType::Queen => PawnThreatEvasion.ft_offset() + 4,
-            _ => unreachable!(),
-        };
-        SparseTrace::single(idx)
+    fn threat_evasion(threat: PieceType, moving: PieceType) -> Self::Value {
+        SparseTrace::single(ThreatEvasion.ft_offset() + 5 * threat as u32 + moving as u32)
     }
 
     fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value {
@@ -265,8 +253,8 @@ impl PolicyValues for PolicyTrace {
     }
 }
 
-pub fn compute_coeffs(board: &Board, mv: Move) -> Vec<(u32, f32)> {
-    let trace = policy::get_policy_impl::<PolicyTrace>(board, mv);
+pub fn compute_coeffs(board: &Board, mv: Move, data: &policy::PolicyData) -> Vec<(u32, f32)> {
+    let trace = policy::get_policy_impl::<PolicyTrace>(board, mv, data);
     let mut result = Vec::new();
 
     for elem in trace.features {
