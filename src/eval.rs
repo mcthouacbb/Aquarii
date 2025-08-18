@@ -139,6 +139,8 @@ pub trait EvalValues {
     fn psqt(c: Color, pt: PieceType, sq: Square) -> Self::ScorePairType;
     fn mobility(pt: PieceType, mob: u32) -> Self::ScorePairType;
     fn passed_pawn(rank: u8) -> Self::ScorePairType;
+    fn our_passer_dist(dist: i32) -> Self::ScorePairType;
+    fn their_passer_dist(dist: i32) -> Self::ScorePairType;
     fn pawn_phalanx(rank: u8) -> Self::ScorePairType;
     fn defended_pawn(rank: u8) -> Self::ScorePairType;
     fn safe_knight_check() -> Self::ScorePairType;
@@ -231,6 +233,11 @@ const MOBILITY: [[ScorePair; 28]; 4] = [
 #[rustfmt::skip]
 const PASSED_PAWN: [ScorePair; 8] = [S(0,0), S(-3,14), S(-12,38), S(-16,64), S(6,83), S(24,104), S(56,148), S(0,0)];
 #[rustfmt::skip]
+const OUR_PASSER_DIST: [ScorePair; 8] = [S(0, 0); 8];
+#[rustfmt::skip]
+const THEIR_PASSER_DIST: [ScorePair; 8] = [S(0, 0); 8];
+
+#[rustfmt::skip]
 const PAWN_PHALANX: [ScorePair; 8] = [S(0,0), S(6,12), S(9,16), S(16,24), S(42,65), S(44,266), S(564,747), S(0,0)];
 #[rustfmt::skip]
 const DEFENDED_PAWN: [ScorePair; 8] = [S(0,0), S(0,0), S(14,19), S(13,13), S(15,13), S(55,29), S(411,-66), S(0,0)];
@@ -320,6 +327,14 @@ impl EvalValues for EvalParams {
 
     fn passed_pawn(rank: u8) -> Self::ScorePairType {
         PASSED_PAWN[rank as usize]
+    }
+
+    fn our_passer_dist(dist: i32) -> Self::ScorePairType {
+        OUR_PASSER_DIST[dist as usize]
+    }
+
+    fn their_passer_dist(dist: i32) -> Self::ScorePairType {
+        THEIR_PASSER_DIST[dist as usize]
     }
 
     fn pawn_phalanx(rank: u8) -> Self::ScorePairType {
@@ -562,6 +577,10 @@ fn evaluate_pawns<Params: EvalValues>(board: &Board, color: Color) -> Params::Sc
         let stoppers = their_pawns & attacks::passed_pawn_span(color, sq);
         if stoppers.empty() {
             eval += Params::passed_pawn(relative_rank);
+            let our_passer_dist = Square::chebyshev(board.king_sq(color), sq);
+            let their_passer_dist = Square::chebyshev(board.king_sq(!color), sq);
+            eval += Params::our_passer_dist(our_passer_dist)
+                + Params::their_passer_dist(their_passer_dist);
         }
     }
 

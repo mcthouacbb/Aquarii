@@ -117,6 +117,8 @@ pub enum EvalFeature {
     Psqt,
     Mobility,
     PassedPawn,
+    OurPasserDist,
+    TheirPasserDist,
     PawnPhalanx,
     DefendedPawn,
     SafeKnightCheck,
@@ -149,6 +151,8 @@ impl EvalFeature {
             Psqt => 2 * 6 * 64,
             Mobility => 2 * 4 * 28,
             PassedPawn => 2 * 8,
+            OurPasserDist => 2 * 8,
+            TheirPasserDist => 2 * 8,
             PawnPhalanx => 2 * 8,
             DefendedPawn => 2 * 8,
             SafeKnightCheck => 2,
@@ -263,6 +267,8 @@ impl EvalFeature {
             Psqt => Self::format_psqt(params),
             Mobility => Self::format_mobility(params),
             PassedPawn => Self::format_passed_pawn(params),
+            OurPasserDist => Self::format_our_passer_dist(params),
+            TheirPasserDist => Self::format_their_passer_dist(params),
             PawnPhalanx => Self::format_pawn_phalanx(params),
             DefendedPawn => Self::format_defended_pawn(params),
             SafeKnightCheck => Self::format_safe_knight_check(params),
@@ -316,6 +322,26 @@ impl EvalFeature {
         "const PASSED_PAWN: [ScorePair; 8] = ".to_owned()
             + Self::format_array_1D_pair(params, PassedPawn.ft_offset(), PassedPawn.ft_cnt() / 2)
                 .as_str()
+    }
+
+    fn format_our_passer_dist(params: &Vec<f32>) -> String {
+        "const OUR_PASSER_DIST: [ScorePair; 8] = ".to_owned()
+            + Self::format_array_1D_pair(
+                params,
+                OurPasserDist.ft_offset(),
+                OurPasserDist.ft_cnt() / 2,
+            )
+            .as_str()
+    }
+
+    fn format_their_passer_dist(params: &Vec<f32>) -> String {
+        "const THEIR_PASSER_DIST: [ScorePair; 8] = ".to_owned()
+            + Self::format_array_1D_pair(
+                params,
+                TheirPasserDist.ft_offset(),
+                TheirPasserDist.ft_cnt() / 2,
+            )
+            .as_str()
     }
 
     fn format_pawn_phalanx(params: &Vec<f32>) -> String {
@@ -512,6 +538,14 @@ impl EvalValues for EvalTrace {
 
     fn passed_pawn(rank: u8) -> Self::ScorePairType {
         SparseTracePair::pair(PassedPawn.ft_offset() + 2 * rank as u32)
+    }
+
+    fn our_passer_dist(dist: i32) -> Self::ScorePairType {
+        SparseTracePair::pair(OurPasserDist.ft_offset() + 2 * dist as u32)
+    }
+
+    fn their_passer_dist(dist: i32) -> Self::ScorePairType {
+        SparseTracePair::pair(TheirPasserDist.ft_offset() + 2 * dist as u32)
     }
 
     fn pawn_phalanx(rank: u8) -> Self::ScorePairType {
