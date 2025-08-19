@@ -83,7 +83,7 @@ impl MCTS {
         sigmoid(eval as f32, Self::EVAL_SCALE)
     }
 
-    fn simulate(&self) -> (f32, GameResult) {
+    fn simulate(&self, ply: i32) -> (f32, GameResult) {
         let mut moves = MoveList::new();
         movegen(self.position.board(), &mut moves);
 
@@ -93,7 +93,7 @@ impl MCTS {
             } else {
                 GameResult::Drawn
             }
-        } else if self.position.is_drawn() {
+        } else if self.position.is_drawn(ply) {
             GameResult::Drawn
         } else {
             GameResult::NonTerminal
@@ -176,7 +176,7 @@ impl MCTS {
     fn perform_one_impl(&mut self, node_idx: NodeIndex, ply: u32) -> Option<(f32, Option<i32>)> {
         let root = node_idx == self.tree.root_node();
         if self.tree[node_idx].is_terminal() || self.tree[node_idx].visits() == 0 {
-            let (score, game_result) = self.simulate();
+            let (score, game_result) = self.simulate(ply as i32);
 
             let node = &mut self.tree[node_idx];
             node.set_game_result(game_result);

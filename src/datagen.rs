@@ -133,7 +133,7 @@ fn game_result(pos: &Position) -> GameResult {
         } else {
             GameResult::Drawn
         }
-    } else if pos.is_drawn() {
+    } else if pos.is_drawn(0) {
         GameResult::Drawn
     } else {
         GameResult::NonTerminal
