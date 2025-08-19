@@ -120,6 +120,7 @@ pub enum EvalFeature {
     OurPasserDist,
     TheirPasserDist,
     PassedBlocked,
+    PassedSafeAdv,
     PawnPhalanx,
     DefendedPawn,
     SafeKnightCheck,
@@ -140,7 +141,7 @@ pub enum EvalFeature {
 use EvalFeature::*;
 
 impl EvalFeature {
-    pub const TOTAL_FEATURES: u32 = 22;
+    pub const TOTAL_FEATURES: u32 = 23;
 
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
@@ -155,6 +156,7 @@ impl EvalFeature {
             OurPasserDist => 2 * 8,
             TheirPasserDist => 2 * 8,
             PassedBlocked => 2 * 4,
+            PassedSafeAdv => 2 * 4,
             PawnPhalanx => 2 * 8,
             DefendedPawn => 2 * 8,
             SafeKnightCheck => 2,
@@ -272,6 +274,7 @@ impl EvalFeature {
             OurPasserDist => Self::format_our_passer_dist(params),
             TheirPasserDist => Self::format_their_passer_dist(params),
             PassedBlocked => Self::format_passed_blocked(params),
+            PassedSafeAdv => Self::format_passed_safe_adv(params),
             PawnPhalanx => Self::format_pawn_phalanx(params),
             DefendedPawn => Self::format_defended_pawn(params),
             SafeKnightCheck => Self::format_safe_knight_check(params),
@@ -353,6 +356,16 @@ impl EvalFeature {
                 params,
                 PassedBlocked.ft_offset(),
                 PassedBlocked.ft_cnt() / 2,
+            )
+            .as_str()
+    }
+
+    fn format_passed_safe_adv(params: &Vec<f32>) -> String {
+        "const PASSED_SAFE_ADV: [ScorePair; 4] = ".to_owned()
+            + Self::format_array_1D_pair(
+                params,
+                PassedSafeAdv.ft_offset(),
+                PassedSafeAdv.ft_cnt() / 2,
             )
             .as_str()
     }
@@ -563,6 +576,10 @@ impl EvalValues for EvalTrace {
 
     fn passed_blocked(rank: u8) -> Self::ScorePairType {
         SparseTracePair::pair(PassedBlocked.ft_offset() + 2 * (rank as u32 - 3))
+    }
+
+    fn passed_safe_adv(rank: u8) -> Self::ScorePairType {
+        SparseTracePair::pair(PassedSafeAdv.ft_offset() + 2 * (rank as u32 - 3))
     }
 
     fn pawn_phalanx(rank: u8) -> Self::ScorePairType {
