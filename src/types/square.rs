@@ -44,12 +44,16 @@ impl Square {
     pub const fn relative_sq(self, c: Color) -> Self {
         match c {
             Color::White => self,
-            Color::Black => self.flip(),
+            Color::Black => self.flip_vertical(),
         }
     }
 
-    pub const fn flip(self) -> Self {
+    pub const fn flip_vertical(self) -> Self {
         Self::from_raw(self.value() ^ 56)
+    }
+
+    pub const fn flip_horizontal(self) -> Self {
+        Self::from_raw(self.value() ^ 7)
     }
 
     pub const fn chebyshev(a: Self, b: Self) -> i32 {

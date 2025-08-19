@@ -220,8 +220,9 @@ impl PolicyValues for PolicyTrace {
         let mg_weight = phase as f32 / 24.0;
         let eg_weight = 1.0 - mg_weight;
 
-        let mg_offset =
-            PsqtScore.ft_offset() + pt as u32 * 64 * 2 + sq.relative_sq(c).flip() as u32 * 2;
+        let mg_offset = PsqtScore.ft_offset()
+            + pt as u32 * 64 * 2
+            + sq.relative_sq(c).flip_vertical() as u32 * 2;
         let eg_offset = mg_offset + 1;
 
         SparseTrace {

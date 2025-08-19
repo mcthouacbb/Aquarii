@@ -152,8 +152,9 @@ impl PolicyValues for PolicyParams {
     }
 
     fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value {
-        (PSQT_SCORE[pt as usize][sq.relative_sq(c).flip() as usize].0 * phase as f32
-            + PSQT_SCORE[pt as usize][sq.relative_sq(c).flip() as usize].1 * (24 - phase) as f32)
+        (PSQT_SCORE[pt as usize][sq.relative_sq(c).flip_vertical() as usize].0 * phase as f32
+            + PSQT_SCORE[pt as usize][sq.relative_sq(c).flip_vertical() as usize].1
+                * (24 - phase) as f32)
             / 24.0
     }
 

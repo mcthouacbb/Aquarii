@@ -503,6 +503,13 @@ impl EvalFeature {
         );
         Self::normalize_range(&mut new, PieceType::King, Psqt.ft_offset() + 2 * 5 * 64, 64);
 
+        for rank in 0..8 {
+            for file in 4..8 {
+                new[(Psqt.ft_offset() + 2 * (5 * 64 + rank * 8 + file)) as usize] = 0.0;
+                new[(Psqt.ft_offset() + 2 * (5 * 64 + rank * 8 + file) + 1) as usize] = 0.0;
+            }
+        }
+
         Self::normalize_range(&mut new, PieceType::Knight, Mobility.ft_offset(), 9);
         Self::normalize_range(
             &mut new,
@@ -552,7 +559,7 @@ impl EvalValues for EvalTrace {
 
     fn psqt(c: Color, pt: PieceType, sq: Square) -> Self::ScorePairType {
         SparseTracePair::pair(
-            Psqt.ft_offset() + 2 * (64 * pt as u32 + sq.relative_sq(c).flip() as u32),
+            Psqt.ft_offset() + 2 * (64 * pt as u32 + sq.relative_sq(c).flip_vertical() as u32),
         )
     }
 
