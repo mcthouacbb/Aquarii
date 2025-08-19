@@ -119,6 +119,7 @@ pub enum EvalFeature {
     PassedPawn,
     OurPasserDist,
     TheirPasserDist,
+    PassedBlocked,
     PawnPhalanx,
     DefendedPawn,
     SafeKnightCheck,
@@ -153,6 +154,7 @@ impl EvalFeature {
             PassedPawn => 2 * 8,
             OurPasserDist => 2 * 8,
             TheirPasserDist => 2 * 8,
+            PassedBlocked => 2 * 4,
             PawnPhalanx => 2 * 8,
             DefendedPawn => 2 * 8,
             SafeKnightCheck => 2,
@@ -269,6 +271,7 @@ impl EvalFeature {
             PassedPawn => Self::format_passed_pawn(params),
             OurPasserDist => Self::format_our_passer_dist(params),
             TheirPasserDist => Self::format_their_passer_dist(params),
+            PassedBlocked => Self::format_passed_blocked(params),
             PawnPhalanx => Self::format_pawn_phalanx(params),
             DefendedPawn => Self::format_defended_pawn(params),
             SafeKnightCheck => Self::format_safe_knight_check(params),
@@ -340,6 +343,16 @@ impl EvalFeature {
                 params,
                 TheirPasserDist.ft_offset(),
                 TheirPasserDist.ft_cnt() / 2,
+            )
+            .as_str()
+    }
+
+    fn format_passed_blocked(params: &Vec<f32>) -> String {
+        "const PASSED_BLOCKED: [ScorePair; 4] = ".to_owned()
+            + Self::format_array_1D_pair(
+                params,
+                PassedBlocked.ft_offset(),
+                PassedBlocked.ft_cnt() / 2,
             )
             .as_str()
     }
@@ -546,6 +559,10 @@ impl EvalValues for EvalTrace {
 
     fn their_passer_dist(dist: i32) -> Self::ScorePairType {
         SparseTracePair::pair(TheirPasserDist.ft_offset() + 2 * dist as u32)
+    }
+
+    fn passed_blocked(rank: u8) -> Self::ScorePairType {
+        SparseTracePair::pair(PassedBlocked.ft_offset() + 2 * (rank as u32 - 3))
     }
 
     fn pawn_phalanx(rank: u8) -> Self::ScorePairType {

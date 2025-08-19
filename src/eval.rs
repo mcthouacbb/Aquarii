@@ -141,6 +141,7 @@ pub trait EvalValues {
     fn passed_pawn(rank: u8) -> Self::ScorePairType;
     fn our_passer_dist(dist: i32) -> Self::ScorePairType;
     fn their_passer_dist(dist: i32) -> Self::ScorePairType;
+    fn passed_blocked(rank: u8) -> Self::ScorePairType;
     fn pawn_phalanx(rank: u8) -> Self::ScorePairType;
     fn defended_pawn(rank: u8) -> Self::ScorePairType;
     fn safe_knight_check() -> Self::ScorePairType;
@@ -236,6 +237,8 @@ const PASSED_PAWN: [ScorePair; 8] = [S(0,0), S(5,-67), S(-7,-31), S(-25,15), S(-
 const OUR_PASSER_DIST: [ScorePair; 8] = [S(0,0), S(-28,60), S(-15,39), S(2,10), S(2,4), S(6,16), S(31,12), S(18,14)];
 #[rustfmt::skip]
 const THEIR_PASSER_DIST: [ScorePair; 8] = [S(0,0), S(-19,-62), S(21,-12), S(5,26), S(1,47), S(-11,63), S(1,52), S(-43,76)];
+#[rustfmt::skip]
+const PASSED_BLOCKED: [ScorePair; 4] = [S(0, 0); 4];
 #[rustfmt::skip]
 const PAWN_PHALANX: [ScorePair; 8] = [S(0,0), S(6,11), S(8,17), S(14,22), S(45,59), S(53,240), S(562,698), S(0,0)];
 #[rustfmt::skip]
@@ -334,6 +337,10 @@ impl EvalValues for EvalParams {
 
     fn their_passer_dist(dist: i32) -> Self::ScorePairType {
         THEIR_PASSER_DIST[dist as usize]
+    }
+
+    fn passed_blocked(rank: u8) -> Self::ScorePairType {
+        PASSED_BLOCKED[(rank - 3) as usize]
     }
 
     fn pawn_phalanx(rank: u8) -> Self::ScorePairType {
@@ -565,6 +572,8 @@ fn evaluate_threats<Params: EvalValues>(
 }
 
 fn evaluate_pawns<Params: EvalValues>(board: &Board, color: Color) -> Params::ScorePairType {
+    const RANK_4: u8 = 3;
+
     let mut eval = Params::ScorePairType::default();
     let our_pawns = board.colored_pieces(Piece::new(color, PieceType::Pawn));
     let their_pawns = board.colored_pieces(Piece::new(!color, PieceType::Pawn));
@@ -572,6 +581,11 @@ fn evaluate_pawns<Params: EvalValues>(board: &Board, color: Color) -> Params::Sc
     let mut tmp = our_pawns;
     while tmp.any() {
         let sq = tmp.poplsb();
+        let push_sq = if color == Color::White {
+            sq + 8
+        } else {
+            sq - 8
+        };
         let relative_rank = sq.relative_sq(color).rank();
         let stoppers = their_pawns & attacks::passed_pawn_span(color, sq);
         if stoppers.empty() {
@@ -580,6 +594,12 @@ fn evaluate_pawns<Params: EvalValues>(board: &Board, color: Color) -> Params::Sc
             let their_passer_dist = Square::chebyshev(board.king_sq(!color), sq);
             eval += Params::our_passer_dist(our_passer_dist)
                 + Params::their_passer_dist(their_passer_dist);
+
+            if relative_rank >= RANK_4 {
+                if board.occ().has(push_sq) {
+                    eval += Params::passed_blocked(relative_rank);
+                }
+            }
         }
     }
 
