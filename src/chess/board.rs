@@ -424,11 +424,12 @@ impl Board {
             | (attacks::rook_attacks(sq, occ) & hvs)
     }
 
-    pub fn is_drawn(&self, keys: &Vec<ZobristKey>) -> bool {
+    pub fn is_drawn(&self, keys: &Vec<ZobristKey>, ply: i32) -> bool {
         if self.half_move_clock >= 100 {
             return true;
         }
         let mut count = 1;
+        let mut ply_dist = 4;
         for &hash in keys
             .iter()
             .rev()
@@ -438,10 +439,11 @@ impl Board {
         {
             if hash == self.zkey() {
                 count += 1;
-                if count == 3 {
+                if count == 3 || (count == 2 && ply_dist <= ply) {
                     return true;
                 }
             }
+            ply_dist += 2;
         }
         return false;
     }

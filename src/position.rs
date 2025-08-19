@@ -35,7 +35,7 @@ impl Position {
         self.board.make_move(mv);
     }
 
-    pub fn is_drawn(&self) -> bool {
-        self.board.is_drawn(&self.keys)
+    pub fn is_drawn(&self, depth: i32) -> bool {
+        self.board.is_drawn(&self.keys, depth)
     }
 }
