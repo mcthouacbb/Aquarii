@@ -142,6 +142,7 @@ pub trait EvalValues {
     fn our_passer_dist(dist: i32) -> Self::ScorePairType;
     fn their_passer_dist(dist: i32) -> Self::ScorePairType;
     fn passed_blocked(rank: u8) -> Self::ScorePairType;
+    fn passed_safe_adv(rank: u8) -> Self::ScorePairType;
     fn pawn_phalanx(rank: u8) -> Self::ScorePairType;
     fn defended_pawn(rank: u8) -> Self::ScorePairType;
     fn safe_knight_check() -> Self::ScorePairType;
@@ -239,6 +240,8 @@ const OUR_PASSER_DIST: [ScorePair; 8] = [S(0,0), S(-24,62), S(-14,41), S(6,11), 
 const THEIR_PASSER_DIST: [ScorePair; 8] = [S(0,0), S(7,-48), S(24,-12), S(7,27), S(3,49), S(-13,66), S(4,49), S(-37,73)];
 #[rustfmt::skip]
 const PASSED_BLOCKED: [ScorePair; 4] = [S(-25,-5), S(4,-33), S(16,-66), S(-135,-128)];
+#[rustfmt::skip]
+const PASSED_SAFE_ADV: [ScorePair; 4] = [S(0, 0); 4];
 #[rustfmt::skip]
 const PAWN_PHALANX: [ScorePair; 8] = [S(0,0), S(5,12), S(9,18), S(14,25), S(39,60), S(91,212), S(641,686), S(0,0)];
 #[rustfmt::skip]
@@ -341,6 +344,10 @@ impl EvalValues for EvalParams {
 
     fn passed_blocked(rank: u8) -> Self::ScorePairType {
         PASSED_BLOCKED[(rank - 3) as usize]
+    }
+
+    fn passed_safe_adv(rank: u8) -> Self::ScorePairType {
+        PASSED_SAFE_ADV[(rank - 3) as usize]
     }
 
     fn pawn_phalanx(rank: u8) -> Self::ScorePairType {
@@ -571,7 +578,11 @@ fn evaluate_threats<Params: EvalValues>(
     eval
 }
 
-fn evaluate_pawns<Params: EvalValues>(board: &Board, color: Color) -> Params::ScorePairType {
+fn evaluate_pawns<Params: EvalValues>(
+    board: &Board,
+    color: Color,
+    eval_data: &EvalData<Params::ScorePairType>,
+) -> Params::ScorePairType {
     const RANK_4: u8 = 3;
 
     let mut eval = Params::ScorePairType::default();
@@ -598,6 +609,10 @@ fn evaluate_pawns<Params: EvalValues>(board: &Board, color: Color) -> Params::Sc
             if relative_rank >= RANK_4 {
                 if board.occ().has(push_sq) {
                     eval += Params::passed_blocked(relative_rank);
+                }
+
+                if !eval_data.attacked[!color as usize].has(push_sq) {
+                    eval += Params::passed_safe_adv(relative_rank);
                 }
             }
         }
@@ -669,7 +684,8 @@ pub fn eval_impl<Params: EvalValues>(board: &Board) -> Params::ScoreType {
     eval += evaluate_threats::<Params>(board, stm, &eval_data)
         - evaluate_threats::<Params>(board, !stm, &eval_data);
 
-    eval += evaluate_pawns::<Params>(board, stm) - evaluate_pawns::<Params>(board, !stm);
+    eval += evaluate_pawns::<Params>(board, stm, &eval_data)
+        - evaluate_pawns::<Params>(board, !stm, &eval_data);
 
     let phase = (4 * board.pieces(PieceType::Queen).popcount()
         + 2 * board.pieces(PieceType::Rook).popcount()
