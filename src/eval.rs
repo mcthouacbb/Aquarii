@@ -151,6 +151,7 @@ pub trait EvalValues {
     fn safe_queen_check() -> Self::ScorePairType;
     fn king_attacker_weight(pt: PieceType) -> Self::ScorePairType;
     fn king_attacks(attacks: u32) -> Self::ScorePairType;
+    fn pawn_shield(edge_dist: u8, rank: u8) -> Self::ScorePairType;
     fn threat_by_pawn(stm: bool, pt: PieceType) -> Self::ScorePairType;
     fn threat_by_knight(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType;
     fn threat_by_bishop(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType;
@@ -258,6 +259,8 @@ const SAFE_QUEEN_CHECK: ScorePair = S(30,35);
 const KING_ATTACKER_WEIGHT: [ScorePair; 4] = [S(11,24), S(-6,27), S(16,20), S(-12,74)];
 #[rustfmt::skip]
 const KING_ATTACKS: [ScorePair; 14] = [S(-62,54), S(-53,1), S(-48,8), S(-36,8), S(-8,-11), S(25,-18), S(67,-46), S(111,-79), S(203,-109), S(193,-78), S(321,-228), S(348,-186), S(200,-163), S(314,-371)];
+#[rustfmt::skip]
+const PAWN_SHIELD: [[ScorePair; 8]; 4] = [[S(0, 0); 8]; 4];
 #[rustfmt::skip]
 const THREAT_BY_PAWN: [[ScorePair; 6]; 2] = [
     [S(-14,-66), S(79,38), S(61,58), S(58,60), S(16,161), S(0,0)],
@@ -382,6 +385,10 @@ impl EvalValues for EvalParams {
         KING_ATTACKS[attacks as usize]
     }
 
+    fn pawn_shield(edge_dist: u8, rank: u8) -> Self::ScorePairType {
+        PAWN_SHIELD[edge_dist as usize][rank as usize]
+    }
+
     fn threat_by_pawn(stm: bool, pt: PieceType) -> Self::ScorePairType {
         THREAT_BY_PAWN[stm as usize][pt as usize]
     }
@@ -466,6 +473,30 @@ fn evaluate_piece<Params: EvalValues>(
     eval
 }
 
+fn evaluate_king_pawn_file<Params: EvalValues>(
+    board: &Board,
+    color: Color,
+    their_king: Square,
+    file: u8,
+) -> Params::ScorePairType {
+    let edge_dist = file.min(7 - file);
+
+    let their_pawns = board.colored_pieces(Piece::new(!color, PieceType::Pawn));
+    let file_pawns = their_pawns & Bitboard::file(file);
+    let rank = if file_pawns.any() {
+        if color == Color::White {
+            file_pawns.msb()
+        } else {
+            file_pawns.lsb()
+        }
+        .relative_sq(!color)
+        .rank()
+    } else {
+        0
+    };
+    return Params::pawn_shield(edge_dist, rank);
+}
+
 fn evaluate_kings<Params: EvalValues>(
     board: &Board,
     color: Color,
@@ -474,6 +505,11 @@ fn evaluate_kings<Params: EvalValues>(
     let mut eval = Params::ScorePairType::default();
 
     let their_king = board.king_sq(!color);
+
+    let middle_file = their_king.file().clamp(1, 6);
+    for file in (middle_file - 1)..=(middle_file + 1) {
+        eval += evaluate_king_pawn_file::<Params>(board, color, their_king, file);
+    }
 
     let rook_check_squares = attacks::rook_attacks(their_king, board.occ());
     let bishop_check_squares = attacks::bishop_attacks(their_king, board.occ());
