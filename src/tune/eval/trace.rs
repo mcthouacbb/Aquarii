@@ -129,6 +129,7 @@ pub enum EvalFeature {
     SafeQueenCheck,
     KingAttackerWeight,
     KingAttacks,
+    PawnShield,
     ThreatByPawn,
     ThreatByKnight,
     ThreatByBishop,
@@ -141,7 +142,7 @@ pub enum EvalFeature {
 use EvalFeature::*;
 
 impl EvalFeature {
-    pub const TOTAL_FEATURES: u32 = 23;
+    pub const TOTAL_FEATURES: u32 = 24;
 
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
@@ -165,6 +166,7 @@ impl EvalFeature {
             SafeQueenCheck => 2,
             KingAttackerWeight => 2 * 4,
             KingAttacks => 2 * 14,
+            PawnShield => 2 * 4 * 8,
             ThreatByPawn => 2 * 2 * 6,
             ThreatByKnight => 2 * 2 * 2 * 6,
             ThreatByBishop => 2 * 2 * 2 * 6,
@@ -283,6 +285,7 @@ impl EvalFeature {
             SafeQueenCheck => Self::format_safe_queen_check(params),
             KingAttackerWeight => Self::format_king_attacker_weight(params),
             KingAttacks => Self::format_king_attacks(params),
+            PawnShield => Self::format_pawn_shield(params),
             ThreatByPawn => Self::format_threat_by_pawn(params),
             ThreatByKnight => Self::format_threat_by_knight(params),
             ThreatByBishop => Self::format_threat_by_bishop(params),
@@ -420,6 +423,11 @@ impl EvalFeature {
         "const KING_ATTACKS: [ScorePair; 14] = ".to_owned()
             + Self::format_array_1D_pair(params, KingAttacks.ft_offset(), KingAttacks.ft_cnt() / 2)
                 .as_str()
+    }
+
+    fn format_pawn_shield(params: &Vec<f32>) -> String {
+        "const PAWN_SHIELD: [[ScorePair; 8]; 4] = ".to_owned()
+            + Self::format_array_2D_pair(params, PawnShield.ft_offset(), 4, 8).as_str()
     }
 
     fn format_threat_by_pawn(params: &Vec<f32>) -> String {
@@ -614,6 +622,10 @@ impl EvalValues for EvalTrace {
 
     fn king_attacks(attacks: u32) -> Self::ScorePairType {
         SparseTracePair::pair(KingAttacks.ft_offset() + 2 * attacks)
+    }
+
+    fn pawn_shield(edge_dist: u8, rank: u8) -> Self::ScorePairType {
+        SparseTracePair::pair(PawnShield.ft_offset() + 2 * (8 * edge_dist as u32 + rank as u32))
     }
 
     fn threat_by_pawn(stm: bool, pt: PieceType) -> Self::ScorePairType {
