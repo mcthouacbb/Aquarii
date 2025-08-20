@@ -625,7 +625,7 @@ impl EvalValues for EvalTrace {
     }
 
     fn pawn_shield(edge_dist: u8, rank: u8) -> Self::ScorePairType {
-        SparseTracePair::pair(PawnShield.ft_offset() + 8 * edge_dist as u32 + rank as u32)
+        SparseTracePair::pair(PawnShield.ft_offset() + 2 * (8 * edge_dist as u32 + rank as u32))
     }
 
     fn threat_by_pawn(stm: bool, pt: PieceType) -> Self::ScorePairType {
