@@ -152,6 +152,7 @@ pub trait EvalValues {
     fn king_attacker_weight(pt: PieceType) -> Self::ScorePairType;
     fn king_attacks(attacks: u32) -> Self::ScorePairType;
     fn pawn_shield(edge_dist: u8, rank: u8) -> Self::ScorePairType;
+    fn pawn_storm(edge_dist: u8, rank: u8) -> Self::ScorePairType;
     fn threat_by_pawn(stm: bool, pt: PieceType) -> Self::ScorePairType;
     fn threat_by_knight(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType;
     fn threat_by_bishop(stm: bool, pt: PieceType, defended: bool) -> Self::ScorePairType;
@@ -266,6 +267,8 @@ const PAWN_SHIELD: [[ScorePair; 8]; 4] = [
     [S(31,2), S(-24,-1), S(6,-16), S(6,0), S(-20,17), S(-7,8), S(-66,5), S(0,0)],
     [S(23,-1), S(-13,-2), S(1,-8), S(-0,-3), S(4,-5), S(34,-18), S(83,-17), S(0,0)],
 ];
+#[rustfmt::skip]
+const PAWN_STORM: [[ScorePair; 8]; 4] = [[S(0, 0); 8]; 4];
 #[rustfmt::skip]
 const THREAT_BY_PAWN: [[ScorePair; 6]; 2] = [
     [S(-15,-57), S(77,39), S(62,61), S(44,54), S(15,177), S(0,0)],
@@ -394,6 +397,10 @@ impl EvalValues for EvalParams {
         PAWN_SHIELD[edge_dist as usize][rank as usize]
     }
 
+    fn pawn_storm(edge_dist: u8, rank: u8) -> Self::ScorePairType {
+        PAWN_STORM[edge_dist as usize][rank as usize]
+    }
+
     fn threat_by_pawn(stm: bool, pt: PieceType) -> Self::ScorePairType {
         THREAT_BY_PAWN[stm as usize][pt as usize]
     }
@@ -488,7 +495,7 @@ fn evaluate_king_pawn_file<Params: EvalValues>(
 
     let their_pawns = board.colored_pieces(Piece::new(!color, PieceType::Pawn));
     let file_pawns = their_pawns & Bitboard::file(file);
-    let rank = if file_pawns.any() {
+    let shield_rank = if file_pawns.any() {
         if color == Color::White {
             file_pawns.msb()
         } else {
@@ -499,7 +506,21 @@ fn evaluate_king_pawn_file<Params: EvalValues>(
     } else {
         0
     };
-    return Params::pawn_shield(edge_dist, rank);
+
+    let our_pawns = board.colored_pieces(Piece::new(!color, PieceType::Pawn));
+    let file_pawns = our_pawns & Bitboard::file(file);
+    let storm_rank = if file_pawns.any() {
+        if color == Color::White {
+            file_pawns.msb()
+        } else {
+            file_pawns.lsb()
+        }
+        .relative_sq(!color)
+        .rank()
+    } else {
+        0
+    };
+    return Params::pawn_shield(edge_dist, shield_rank) + Params::pawn_storm(edge_dist, storm_rank);
 }
 
 fn evaluate_kings<Params: EvalValues>(
