@@ -12,6 +12,7 @@ use crate::{
         Board, Move,
     },
     policy,
+    search::MCTS,
 };
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -55,7 +56,7 @@ impl Score {
             Self::Win(dist) => format!("mate {}", (*dist + 1) / 2),
             Self::Draw => format!("cp 0"),
             Self::Loss(dist) => format!("mate -{}", *dist / 2),
-            Self::Normal(score) => format!("cp {}", sigmoid_inv(*score, 400.0).round()),
+            Self::Normal(score) => format!("cp {}", sigmoid_inv(*score, MCTS::EVAL_SCALE).round()),
         }
     }
 }
@@ -66,7 +67,9 @@ impl fmt::Display for Score {
             Self::Win(dist) => write!(f, "win {} plies", *dist),
             Self::Draw => write!(f, "draw"),
             Self::Loss(dist) => write!(f, "loss {} plies", *dist),
-            Self::Normal(score) => write!(f, "cp {}", sigmoid_inv(*score, 400.0).round()),
+            Self::Normal(score) => {
+                write!(f, "cp {}", sigmoid_inv(*score, MCTS::EVAL_SCALE).round())
+            }
         }
     }
 }
