@@ -54,8 +54,8 @@ pub struct MCTS {
 }
 
 impl MCTS {
-    const ROOT_CPUCT: f32 = 0.5 * 1.66393528;
-    const CPUCT: f32 = 0.5 * 1.06066017;
+    const ROOT_CPUCT: f32 = 0.75 * 1.66393528;
+    const CPUCT: f32 = 0.75 * 1.06066017;
     pub const EVAL_SCALE: f32 = 187.5;
 
     pub fn new() -> Self {
