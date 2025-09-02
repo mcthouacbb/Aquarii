@@ -33,6 +33,7 @@ pub trait PolicyValues {
     fn pawn_protected_penalty(pt: PieceType) -> Self::Value;
     fn threat_evasion(threat: PieceType, moving: PieceType) -> Self::Value;
     fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value;
+    fn passed_pawn_push(rank: u8, phase: i32) -> Self::Value;
     fn threat(moving: PieceType, threatened: PieceType) -> Self::Value;
     fn promo_bonus(pt: PieceType) -> Self::Value;
     fn bad_see_penalty() -> Self::Value;
@@ -120,6 +121,8 @@ const PSQT_SCORE: [[(f32, f32); 64]; 6] = [
     ],
 ];
 #[rustfmt::skip]
+const PASSED_PAWN_PUSH: [(f32, f32); 8] = [S(0.000, 0.000); 8];
+#[rustfmt::skip]
 const THREAT: [[f32; 5]; 5] = [
     [-0.915, 0.763, 0.660, 0.350, 0.633],
     [0.099, -0.021, 0.719, 0.666, 0.735],
@@ -154,6 +157,12 @@ impl PolicyValues for PolicyParams {
     fn psqt_score(c: Color, pt: PieceType, sq: Square, phase: i32) -> Self::Value {
         (PSQT_SCORE[pt as usize][sq.relative_sq(c).flip() as usize].0 * phase as f32
             + PSQT_SCORE[pt as usize][sq.relative_sq(c).flip() as usize].1 * (24 - phase) as f32)
+            / 24.0
+    }
+
+    fn passed_pawn_push(rank: u8, phase: i32) -> Self::Value {
+        (PASSED_PAWN_PUSH[rank as usize].0 * phase as f32
+            + PASSED_PAWN_PUSH[rank as usize].1 * (24 - phase) as f32)
             / 24.0
     }
 
@@ -291,6 +300,17 @@ pub fn get_policy_impl<Params: PolicyValues>(
         Params::Value::default()
     };
 
+    let their_pawns = board.colored_pieces(Piece::new(!board.stm(), PieceType::Pawn));
+    let mut pawn_score = Params::Value::default();
+    if moving_piece.piece_type() == PieceType::Pawn && !data.attacked().has(mv.to_sq()) {
+        let sq = mv.to_sq();
+        let rank = sq.relative_sq(board.stm()).rank();
+        let stoppers = their_pawns & attacks::passed_pawn_span(board.stm(), mv.to_sq());
+        if stoppers.empty() {
+            pawn_score += Params::passed_pawn_push(rank, phase);
+        }
+    }
+
     let threat_score =
         if mv.kind() == MoveKind::None && moving_piece.piece_type() != PieceType::King {
             let occ_after = board.occ()
@@ -335,7 +355,7 @@ pub fn get_policy_impl<Params: PolicyValues>(
         Params::Value::default()
     };
 
-    cap_bonus + promo_bonus + threat_evasion + bad_see_penalty + check_bonus
+    cap_bonus + promo_bonus + threat_evasion + bad_see_penalty + check_bonus + pawn_score
         - pawn_protected_penalty
         + psqt / 50.0
         + threat_score

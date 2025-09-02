@@ -14,6 +14,7 @@ pub enum PolicyFeature {
     PawnProtectedPenalty,
     ThreatEvasion,
     PsqtScore,
+    PassedPawnPush,
     Threat,
     PromoBonus,
     BadSeePenalty,
@@ -23,7 +24,7 @@ pub enum PolicyFeature {
 use PolicyFeature::*;
 
 impl PolicyFeature {
-    pub const TOTAL_FEATURES: u32 = 8;
+    pub const TOTAL_FEATURES: u32 = 9;
 
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
@@ -36,6 +37,7 @@ impl PolicyFeature {
             Self::ThreatEvasion => 5 * 5,
             // 6 piece types * 64 squares * 2 phases
             Self::PsqtScore => 6 * 64 * 2,
+            Self::PassedPawnPush => 2 * 8,
             // 5 attackers * 5 victims
             Self::Threat => 5 * 5,
             Self::PromoBonus => 2,
@@ -98,6 +100,7 @@ impl PolicyFeature {
             Self::PawnProtectedPenalty => Self::format_pawn_protected_penalty(params),
             Self::ThreatEvasion => Self::pawn_threat_evasion(params),
             Self::PsqtScore => Self::format_psqt_score(params),
+            Self::PassedPawnPush => Self::format_passed_pawn_push(params),
             Self::Threat => Self::format_threat(params),
             Self::PromoBonus => Self::format_promo_bonus(params),
             Self::BadSeePenalty => Self::format_bad_see_penalty(params),
@@ -146,6 +149,23 @@ impl PolicyFeature {
                 result += "\n";
             }
             result += "    ],\n";
+        }
+        result + "]"
+    }
+
+    fn format_passed_pawn_push(params: &Vec<f32>) -> String {
+        let mut result = "const PASSED_PAWN_PUSH: [(f32, f32); 8] = [\n    ".to_owned();
+        for rank in 0..8 {
+            let mg_offset = PassedPawnPush.ft_offset() + 2 * rank;
+            let eg_offset = mg_offset + 1;
+            result += format!(
+                "S({:.3}, {:.3})",
+                params[mg_offset as usize], params[eg_offset as usize]
+            )
+            .as_str();
+            if rank != 7 {
+                result += ", ";
+            }
         }
         result + "]"
     }
@@ -222,6 +242,18 @@ impl PolicyValues for PolicyTrace {
 
         let mg_offset =
             PsqtScore.ft_offset() + pt as u32 * 64 * 2 + sq.relative_sq(c).flip() as u32 * 2;
+        let eg_offset = mg_offset + 1;
+
+        SparseTrace {
+            features: HashMap::from([(mg_offset, mg_weight), (eg_offset, eg_weight)]),
+        }
+    }
+
+    fn passed_pawn_push(rank: u8, phase: i32) -> Self::Value {
+        let mg_weight = phase as f32 / 24.0;
+        let eg_weight = 1.0 - mg_weight;
+
+        let mg_offset = PassedPawnPush.ft_offset() + 2 * (rank as u32);
         let eg_offset = mg_offset + 1;
 
         SparseTrace {
