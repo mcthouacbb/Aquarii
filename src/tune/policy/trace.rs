@@ -167,7 +167,7 @@ impl PolicyFeature {
                 result += ", ";
             }
         }
-        result + "]"
+        result + "\n]"
     }
 
     fn format_threat(params: &Vec<f32>) -> String {
