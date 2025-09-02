@@ -81,7 +81,7 @@ pub fn datagen_thread(thread_id: i32) {
     loop {
         let game = run_game(&mut search, &mut rng);
         let (num_value_positions, value_data) = serialize_value(&game, &mut rng);
-        let (num_policy_positions, policy_data) = serialize_policy(&game);
+        let (num_policy_positions, policy_data) = serialize_policy(&game, &mut rng);
         value_file
             .write_all(value_data.as_bytes())
             .expect("Unable to write value data");
@@ -131,7 +131,7 @@ fn serialize_value(game: &Game, rng: &mut XorShiftRng) -> (i32, String) {
     (num_positions, value)
 }
 
-fn serialize_policy(game: &Game) -> (i32, String) {
+fn serialize_policy(game: &Game, rng: &mut XorShiftRng) -> (i32, String) {
     let mut policy = String::new();
     let mut num_positions = 0;
     let selected: Vec<_> = game.points.choose_multiple(rng, 10).cloned().collect();
