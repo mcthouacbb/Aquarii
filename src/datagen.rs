@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write, thread, time::Instant};
 
-use rand::Rng;
+use rand::{seq::IndexedRandom, Rng};
 use rand_core::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
 
@@ -11,7 +11,7 @@ use crate::{
     },
     position::Position,
     search::{SearchLimits, MCTS},
-    tree::{GameResult, MateScore, Score},
+    tree::{GameResult, Score},
     types::Color,
 };
 
@@ -73,12 +73,15 @@ pub fn datagen_thread(thread_id: i32) {
 
     let mut rng = XorShiftRng::seed_from_u64(seed);
     let mut games = 0;
-    let mut positions = 0;
-    let mut total_positions = 0;
+    let mut value_positions = 0;
+    let mut policy_positions = 0;
+    let mut total_value_positions = 0;
+    let mut total_policy_positions = 0;
     let mut start_time = Instant::now();
     loop {
         let game = run_game(&mut search, &mut rng);
-        let (num_positions, value_data, policy_data) = serialize(&game);
+        let (num_value_positions, value_data) = serialize_value(&game, &mut rng);
+        let (num_policy_positions, policy_data) = serialize_policy(&game);
         value_file
             .write_all(value_data.as_bytes())
             .expect("Unable to write value data");
@@ -88,30 +91,50 @@ pub fn datagen_thread(thread_id: i32) {
             .expect("Unable to write policy data");
 
         games += 1;
-        positions += num_positions;
-        total_positions += num_positions;
+        value_positions += num_value_positions;
+        total_value_positions += num_value_positions;
+        policy_positions += num_policy_positions;
+        total_policy_positions += num_policy_positions;
         if games % 32 == 0 {
             println!(
-                "Thread {} wrote {} total games and {} total positions. {} positions in last 32 games in {} seconds",
+                "Value datagen: Thread {} wrote {} total games and {} total positions. {} positions in last 32 games in {} seconds",
                 thread_id,
                 games,
-                total_positions,
-                positions,
+                total_value_positions,
+                value_positions,
+                start_time.elapsed().as_secs_f32()
+            );
+            println!(
+                "Policy datagen: Thread {} wrote {} total games and {} total positions. {} positions in last 32 games in {} seconds",
+                thread_id,
+                games,
+                total_policy_positions,
+                policy_positions,
                 start_time.elapsed().as_secs_f32()
             );
             start_time = Instant::now();
-            positions = 0;
+            value_positions = 0;
+            policy_positions = 0;
         }
     }
 }
 
-fn serialize(game: &Game) -> (i32, String, String) {
+fn serialize_value(game: &Game, rng: &mut XorShiftRng) -> (i32, String) {
     let mut value = String::new();
+    let mut num_positions = 0;
+    let selected: Vec<_> = game.points.choose_multiple(rng, 10).cloned().collect();
+    for pt in &selected {
+        value += format!("{} | {} | {}\n", pt.fen, pt.score, game.wdl.as_f32()).as_str();
+
+        num_positions += 1;
+    }
+    (num_positions, value)
+}
+
+fn serialize_policy(game: &Game) -> (i32, String) {
     let mut policy = String::new();
     let mut num_positions = 0;
     for pt in &game.points {
-        value += format!("{} | {} | {}\n", pt.fen, pt.score, game.wdl.as_f32()).as_str();
-
         policy += pt.fen.as_str();
         for (_mv, frac) in &pt.visit_dist {
             policy += format!(" | {}", frac).as_str();
@@ -120,7 +143,7 @@ fn serialize(game: &Game) -> (i32, String, String) {
 
         num_positions += 1;
     }
-    (num_positions, value, policy)
+    (num_positions, policy)
 }
 
 fn game_result(pos: &Position) -> GameResult {
@@ -173,6 +196,10 @@ fn run_game(search: &mut MCTS, rng: &mut XorShiftRng) -> Game {
             Score::Loss(_) => 0.0,
             Score::Normal(wdl) => wdl,
         };
+        if game.points.len() == 0 && results.score.to_cp().abs() > 300.0 {
+            pos = init_opening(rng);
+            continue;
+        }
         if pos.board().stm() == Color::Black {
             datapt_score = 1.0 - datapt_score;
         }

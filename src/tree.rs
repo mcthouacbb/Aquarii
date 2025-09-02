@@ -59,6 +59,15 @@ impl Score {
             Self::Normal(score) => format!("cp {}", sigmoid_inv(*score, MCTS::EVAL_SCALE).round()),
         }
     }
+
+    pub fn to_cp(&self) -> f32 {
+        match self {
+            Self::Win(_) => f32::INFINITY,
+            Self::Draw => 0.0,
+            Self::Loss(_) => -f32::INFINITY,
+            Self::Normal(score) => sigmoid_inv(*score, MCTS::EVAL_SCALE),
+        }
+    }
 }
 
 impl fmt::Display for Score {
