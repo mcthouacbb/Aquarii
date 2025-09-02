@@ -46,7 +46,7 @@ struct Game {
     wdl: WDL,
 }
 
-const NUM_THREADS: i32 = 2;
+const NUM_THREADS: i32 = 6;
 
 pub fn run_datagen() {
     let mut handles = Vec::new();
@@ -134,7 +134,8 @@ fn serialize_value(game: &Game, rng: &mut XorShiftRng) -> (i32, String) {
 fn serialize_policy(game: &Game) -> (i32, String) {
     let mut policy = String::new();
     let mut num_positions = 0;
-    for pt in &game.points {
+    let selected: Vec<_> = game.points.choose_multiple(rng, 10).cloned().collect();
+    for pt in &selected {
         policy += pt.fen.as_str();
         for (_mv, frac) in &pt.visit_dist {
             policy += format!(" | {}", frac).as_str();
