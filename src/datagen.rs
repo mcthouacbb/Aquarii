@@ -46,13 +46,16 @@ struct Game {
     wdl: WDL,
 }
 
-const NUM_THREADS: i32 = 2;
-
-pub fn run_datagen() {
+pub fn run_datagen(num_threads: i32, gen_value: bool) {
+    println!(
+        "Running {} datagen with {} threads",
+        if gen_value { "value" } else { "policy" },
+        num_threads
+    );
     let mut handles = Vec::new();
-    for i in 0..NUM_THREADS {
+    for i in 0..num_threads {
         handles.push(thread::spawn(move || {
-            datagen_thread(i);
+            datagen_thread(i, gen_value);
         }));
     }
     for handle in handles {
@@ -60,61 +63,49 @@ pub fn run_datagen() {
     }
 }
 
-pub fn datagen_thread(thread_id: i32) {
+pub fn datagen_thread(thread_id: i32, gen_value: bool) {
     let mut search = MCTS::new();
     let seed = rand::rng().next_u64();
     println!("Thread {} RNG seed: {}", thread_id, seed);
 
-    let value_filename = format!("datagen{}.value.txt", thread_id);
-    let mut value_file = File::create(value_filename).expect("Unable to create value data file");
-
-    let policy_filename = format!("datagen{}.policy.txt", thread_id);
-    let mut policy_file = File::create(policy_filename).expect("Unable to create policy data file");
+    let filename = if gen_value {
+        format!("datagen{}.value.txt", thread_id)
+    } else {
+        format!("datagen{}.policy.txt", thread_id)
+    };
+    let mut data_file = File::create(filename).expect("Unable to create data file");
 
     let mut rng = XorShiftRng::seed_from_u64(seed);
     let mut games = 0;
-    let mut value_positions = 0;
-    let mut policy_positions = 0;
-    let mut total_value_positions = 0;
-    let mut total_policy_positions = 0;
+    let mut positions = 0;
+    let mut total_positions = 0;
     let mut start_time = Instant::now();
     loop {
         let game = run_game(&mut search, &mut rng);
-        let (num_value_positions, value_data) = serialize_value(&game, &mut rng);
-        let (num_policy_positions, policy_data) = serialize_policy(&game);
-        value_file
-            .write_all(value_data.as_bytes())
-            .expect("Unable to write value data");
-
-        policy_file
-            .write_all(policy_data.as_bytes())
-            .expect("Unable to write policy data");
+        let (num_positions, data) = if gen_value {
+            serialize_value(&game, &mut rng)
+        } else {
+            serialize_policy(&game)
+        };
+        data_file
+            .write_all(data.as_bytes())
+            .expect("Unable to write data");
 
         games += 1;
-        value_positions += num_value_positions;
-        total_value_positions += num_value_positions;
-        policy_positions += num_policy_positions;
-        total_policy_positions += num_policy_positions;
+        positions += num_positions;
+        total_positions += num_positions;
         if games % 32 == 0 {
             println!(
-                "Value datagen: Thread {} wrote {} total games and {} total positions. {} positions in last 32 games in {} seconds",
+                "{} datagen: Thread {} wrote {} total games and {} total positions. {} positions in last 32 games in {} seconds",
+                if gen_value { "value" } else { "policy" },
                 thread_id,
                 games,
-                total_value_positions,
-                value_positions,
-                start_time.elapsed().as_secs_f32()
-            );
-            println!(
-                "Policy datagen: Thread {} wrote {} total games and {} total positions. {} positions in last 32 games in {} seconds",
-                thread_id,
-                games,
-                total_policy_positions,
-                policy_positions,
+                total_positions,
+                positions,
                 start_time.elapsed().as_secs_f32()
             );
             start_time = Instant::now();
-            value_positions = 0;
-            policy_positions = 0;
+            positions = 0;
         }
     }
 }

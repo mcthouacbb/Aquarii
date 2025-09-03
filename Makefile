@@ -10,3 +10,6 @@ endif
 
 default:
 	cargo rustc --release --bin aquarii -- -C target-cpu=native --emit link=$(EXE)$(EXE_SUFFIX)
+
+datagen:
+	cargo rustc --release --features datagen --bin aquarii -- -C target-cpu=native --emit link=$(EXE)-datagen$(EXE_SUFFIX)

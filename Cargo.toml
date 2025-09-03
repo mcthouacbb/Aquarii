@@ -3,6 +3,9 @@ name = "aquarii"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+datagen = []
+
 [dependencies]
 arrayvec = "0.7.4"
 rand = "0.9.1"

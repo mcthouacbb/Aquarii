@@ -81,7 +81,13 @@ fn main() {
     }
 
     if args.len() == 2 && args[1] == "datagen" {
-        datagen::run_datagen();
+        let num_threads = args[2].parse::<u32>().unwrap_or(1);
+        let gen_value = match args[3].as_str() {
+            "value" => true,
+            "policy" => false,
+            _ => panic!("Invalid value data type"),
+        };
+        datagen::run_datagen(num_threads as i32, gen_value);
         return;
     }
 

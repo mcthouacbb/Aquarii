@@ -54,7 +54,11 @@ pub struct MCTS {
 }
 
 impl MCTS {
+    #[cfg(not(feature = "datagen"))]
     const ROOT_CPUCT: f32 = 1.66393528;
+    #[cfg(feature = "datagen")]
+    const ROOT_CPUCT: f32 = 3.5;
+
     const CPUCT: f32 = 1.06066017;
     pub const EVAL_SCALE: f32 = 187.5;
 
