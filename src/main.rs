@@ -87,7 +87,6 @@ fn main() {
             "policy" => false,
             _ => panic!("Invalid value data type"),
         };
-        println!("wtf?");
         datagen::run_datagen(num_threads as i32, gen_value);
         return;
     }
