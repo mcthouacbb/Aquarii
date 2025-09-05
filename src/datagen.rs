@@ -46,7 +46,7 @@ struct Game {
     wdl: WDL,
 }
 
-const NUM_THREADS: i32 = 2;
+const NUM_THREADS: i32 = 8;
 
 pub fn run_datagen() {
     let mut handles = Vec::new();
@@ -159,7 +159,7 @@ fn init_opening(rng: &mut XorShiftRng) -> Position {
 
 fn run_game(search: &mut MCTS, rng: &mut XorShiftRng) -> Game {
     let mut limits = SearchLimits::new();
-    limits.max_nodes = 5000;
+    limits.max_nodes = 20000;
 
     let mut pos = init_opening(rng);
 

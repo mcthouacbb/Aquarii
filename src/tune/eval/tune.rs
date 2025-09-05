@@ -35,8 +35,9 @@ pub fn error_total(params: &Vec<f32>, dataset: &Dataset, scale: f32) -> f32 {
 fn material_error(dataset: &Dataset, k: f32) -> f32 {
     let mut total = 0.0;
     for pos in &dataset.positions {
+        let target = pos.score;
         let material = 1.0 / (1.0 + (-pos.default_material as f32 * k).exp());
-        total += (material - pos.wdl) * (material - pos.wdl);
+        total += (material - target) * (material - target);
     }
     total / dataset.positions.len() as f32
 }
@@ -71,7 +72,8 @@ pub fn compute_eval_scale(dataset: &Dataset) -> f32 {
 
 pub fn compute_single_grad(params: &Vec<f32>, grads: &mut Vec<f32>, pos: &Position, scale: f32) {
     let eval = eval_eval_wdl(params, pos, scale);
-    let grad_base = (eval - pos.wdl) * eval * (1.0 - eval);
+    let target = pos.score;
+    let grad_base = (eval - target) * eval * (1.0 - eval);
 
     for coeff in &pos.coeffs {
         grads[coeff.index as usize] += grad_base * coeff.value;
@@ -95,7 +97,7 @@ pub fn optimize(mut params: Vec<f32>, dataset: &Dataset) {
     // const LR: f32 = 0.05;
     const BATCH_SIZE: u32 = 65536;
     // let BATCH_SIZE: u32 = dataset.positions.len() as u32;
-    const SUPERBATCH_SIZE: u32 = 6104;
+    const SUPERBATCH_SIZE: u32 = 1000;
 
     let eval_scale = compute_eval_scale(dataset);
     println!("Eval scale: {}", eval_scale);
