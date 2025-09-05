@@ -10,6 +10,7 @@ pub struct Board {
     checkers: Bitboard,
     diag_pinned: Bitboard,
     hv_pinned: Bitboard,
+    discovered: Bitboard,
     check_squares: [Bitboard; 5],
     castling_rooks: CastlingRooks,
     stm: Color,
@@ -330,6 +331,19 @@ impl Board {
             && self.check_squares[moved_piece as usize].has(mv.to_sq());
     }
 
+    pub fn gives_discovered_check(&self, mv: Move) -> bool {
+        // not gonna bother with these
+        if mv.kind() == MoveKind::Castle || mv.kind() == MoveKind::Enpassant {
+            return false;
+        }
+
+        if !self.discovered.has(mv.from_sq()) {
+            return false;
+        }
+
+        return !attacks::line_through(mv.to_sq(), mv.from_sq()).has(self.king_sq(!self.stm()));
+    }
+
     pub fn stm(&self) -> Color {
         self.stm
     }
@@ -498,6 +512,7 @@ impl Board {
             checkers: Bitboard::NONE,
             diag_pinned: Bitboard::NONE,
             hv_pinned: Bitboard::NONE,
+            discovered: Bitboard::NONE,
             check_squares: [Bitboard::NONE; 5],
             castling_rooks: CastlingRooks::DEFAULT,
             stm: Color::White,
@@ -574,6 +589,27 @@ impl Board {
             let between = attacks::line_between(king_sq, attacker) & block_mask;
             if between.one() {
                 self.hv_pinned |= between;
+            }
+        }
+
+        // this includes enemy pieces as potential discoveries but they are ignored so it is fine
+        self.discovered = Bitboard::NONE;
+        let opp_king_sq = self.king_sq(!self.stm());
+        let queens = self.colored_pieces(Piece::new(self.stm(), PieceType::Queen));
+        let rooks = self.colored_pieces(Piece::new(self.stm(), PieceType::Rook));
+        let bishops = self.colored_pieces(Piece::new(self.stm(), PieceType::Bishop));
+        let mut attackers = (attacks::bishop_attacks(opp_king_sq, Bitboard::NONE)
+            & (bishops | queens))
+            | (attacks::rook_attacks(opp_king_sq, Bitboard::NONE) & (rooks | queens));
+
+        let block_mask = self.occ() ^ attackers;
+
+        while attackers.any() {
+            let attacker = attackers.poplsb();
+
+            let between = attacks::line_between(opp_king_sq, attacker) & block_mask;
+            if between.one() {
+                self.discovered |= between;
             }
         }
 

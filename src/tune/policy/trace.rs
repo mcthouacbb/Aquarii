@@ -18,13 +18,14 @@ pub enum PolicyFeature {
     Threat,
     PromoBonus,
     BadSeePenalty,
-    CheckBonus,
+    DirectCheckBonus,
+    DiscoveredCheckBonus,
 }
 
 use PolicyFeature::*;
 
 impl PolicyFeature {
-    pub const TOTAL_FEATURES: u32 = 9;
+    pub const TOTAL_FEATURES: u32 = 10;
 
     fn from_raw(raw: u32) -> Self {
         unsafe { std::mem::transmute(raw) }
@@ -42,7 +43,8 @@ impl PolicyFeature {
             Self::Threat => 5 * 5,
             Self::PromoBonus => 2,
             Self::BadSeePenalty => 1,
-            Self::CheckBonus => 1,
+            Self::DirectCheckBonus => 1,
+            Self::DiscoveredCheckBonus => 1,
         }
     }
 
@@ -104,7 +106,8 @@ impl PolicyFeature {
             Self::Threat => Self::format_threat(params),
             Self::PromoBonus => Self::format_promo_bonus(params),
             Self::BadSeePenalty => Self::format_bad_see_penalty(params),
-            Self::CheckBonus => Self::format_check_bonus(params),
+            Self::DirectCheckBonus => Self::format_direct_check_bonus(params),
+            Self::DiscoveredCheckBonus => Self::format_discovered_check_bonus(params),
         }
     }
 
@@ -185,9 +188,14 @@ impl PolicyFeature {
             + Self::format_single(params, BadSeePenalty.ft_offset()).as_str()
     }
 
-    fn format_check_bonus(params: &Vec<f32>) -> String {
-        "const CHECK_BONUS: f32 = ".to_owned()
-            + Self::format_single(params, CheckBonus.ft_offset()).as_str()
+    fn format_direct_check_bonus(params: &Vec<f32>) -> String {
+        "const DIRECT_CHECK_BONUS: f32 = ".to_owned()
+            + Self::format_single(params, DirectCheckBonus.ft_offset()).as_str()
+    }
+
+    fn format_discovered_check_bonus(params: &Vec<f32>) -> String {
+        "const DISCOVERED_CHECK_BONUS: f32 = ".to_owned()
+            + Self::format_single(params, DiscoveredCheckBonus.ft_offset()).as_str()
     }
 
     pub fn format_all_features(params: &Vec<f32>) -> String {
@@ -280,8 +288,12 @@ impl PolicyValues for PolicyTrace {
         SparseTrace::single(BadSeePenalty.ft_offset())
     }
 
-    fn check_bonus() -> Self::Value {
-        SparseTrace::single(CheckBonus.ft_offset())
+    fn direct_check_bonus() -> Self::Value {
+        SparseTrace::single(DirectCheckBonus.ft_offset())
+    }
+
+    fn discovered_check_bonus() -> Self::Value {
+        SparseTrace::single(DiscoveredCheckBonus.ft_offset())
     }
 }
 

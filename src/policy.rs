@@ -37,7 +37,8 @@ pub trait PolicyValues {
     fn threat(moving: PieceType, threatened: PieceType) -> Self::Value;
     fn promo_bonus(pt: PieceType) -> Self::Value;
     fn bad_see_penalty() -> Self::Value;
-    fn check_bonus() -> Self::Value;
+    fn direct_check_bonus() -> Self::Value;
+    fn discovered_check_bonus() -> Self::Value;
 }
 
 #[allow(non_snake_case)]
@@ -137,7 +138,9 @@ const PROMO_BONUS: [f32; 2] = [0.229, -2.504];
 #[rustfmt::skip]
 const BAD_SEE_PENALTY: f32 = -2.908;
 #[rustfmt::skip]
-const CHECK_BONUS: f32 = 0.722;
+const DIRECT_CHECK_BONUS: f32 = 0.722;
+#[rustfmt::skip]
+const DISCOVERED_CHECK_BONUS: f32 = 0.000;
 
 pub struct PolicyParams {}
 
@@ -183,8 +186,12 @@ impl PolicyValues for PolicyParams {
         BAD_SEE_PENALTY
     }
 
-    fn check_bonus() -> Self::Value {
-        CHECK_BONUS
+    fn direct_check_bonus() -> Self::Value {
+        DIRECT_CHECK_BONUS
+    }
+
+    fn discovered_check_bonus() -> Self::Value {
+        DISCOVERED_CHECK_BONUS
     }
 }
 
@@ -351,13 +358,25 @@ pub fn get_policy_impl<Params: PolicyValues>(
         Params::Value::default()
     };
 
-    let check_bonus = if board.gives_direct_check(mv) {
-        Params::check_bonus()
+    let direct_check_bonus = if board.gives_direct_check(mv) {
+        Params::direct_check_bonus()
     } else {
         Params::Value::default()
     };
 
-    cap_bonus + promo_bonus + threat_evasion + bad_see_penalty + check_bonus + pawn_score
+    let discovered_check_bonus = if board.gives_discovered_check(mv) {
+        Params::discovered_check_bonus()
+    } else {
+        Params::Value::default()
+    };
+
+    cap_bonus
+        + promo_bonus
+        + threat_evasion
+        + bad_see_penalty
+        + direct_check_bonus
+        + discovered_check_bonus
+        + pawn_score
         - pawn_protected_penalty
         + psqt / 50.0
         + threat_score
