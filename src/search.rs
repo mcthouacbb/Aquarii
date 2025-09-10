@@ -197,7 +197,7 @@ impl MCTS {
             if self.tree[node_idx].child_count() == 0 {
                 self.tree.expand_node(node_idx, self.position.board())?;
             }
-            self.tree.fetch_children(node_idx);
+            self.tree.fetch_children(node_idx)?;
 
             let node = &self.tree[node_idx];
 
