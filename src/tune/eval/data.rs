@@ -45,7 +45,7 @@ fn load_data_file(file: &File, positions: &mut Vec<Position>) {
     for line in lines {
         let parts: Vec<&str> = line.split(" | ").collect();
         let fen = parts[0];
-        let board = Board::from_fen(fen).expect("Invalid fen string in policy data");
+        let board = Board::from_fen(fen).expect("Invalid fen string in value data");
         if board.checkers().any() {
             continue;
         }
