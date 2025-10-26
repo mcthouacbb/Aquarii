@@ -56,7 +56,7 @@ fn load_data_file(file: &File, positions: &mut Vec<Position>) {
             default_material: trace::compute_default_material(&board),
         };
 
-        pos.score = parts[1].parse::<f32>().expect("Could not parse score");
+        pos.score = 0.0;//parts[1].parse::<f32>().expect("Could not parse score");
         pos.wdl = parts[2].parse::<f32>().expect("Could not parse score");
 
         // make stm relative

@@ -141,7 +141,7 @@ impl Board {
                     }
                 }
                 _ => {
-                    return None;
+                    // return None;
                 }
             }
         }
