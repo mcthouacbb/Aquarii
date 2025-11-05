@@ -472,6 +472,24 @@ impl Board {
         self.zkey
     }
 
+    // TODO: incremental
+    pub fn pawn_key(&self) -> ZobristKey {
+        let mut key = ZobristKey::new();
+
+        let mut white_pawns = self.colored_pieces(Piece::WhitePawn);
+        while white_pawns.any() {
+            let sq = white_pawns.poplsb();
+            key.toggle_piece(Piece::WhitePawn, sq);
+        }
+
+        let mut black_pawns = self.colored_pieces(Piece::BlackPawn);
+        while black_pawns.any() {
+            let sq = black_pawns.poplsb();
+            key.toggle_piece(Piece::BlackPawn, sq);
+        }
+        key
+    }
+
     pub fn recompute_zkey(&self) -> ZobristKey {
         let mut key = ZobristKey::new();
         for i in 0..64 {

@@ -2,9 +2,11 @@ use std::{num::NonZeroI16, time::Instant};
 
 use crate::{
     chess::{
+        board,
         movegen::{movegen, MoveList},
-        Move,
+        Board, Move, MoveKind,
     },
+    corr_hist::CorrHist,
     eval,
     position::Position,
     tree::{GameResult, MateScore, Node, NodeIndex, Score, Tree},
@@ -48,6 +50,7 @@ impl SearchLimits {
 pub struct MCTS {
     iters: u32,
     tree: Tree,
+    pawn_corrhist: CorrHist,
     root_position: Position,
     position: Position,
     nodes: u32,
@@ -62,6 +65,7 @@ impl MCTS {
         Self {
             tree: Tree::new(24),
             iters: 0,
+            pawn_corrhist: CorrHist::new(),
             root_position: Position::new(),
             position: Position::new(),
             nodes: 0,
@@ -74,6 +78,7 @@ impl MCTS {
 
     pub fn new_game(&mut self) {
         self.tree.clear();
+        self.pawn_corrhist = CorrHist::new();
     }
 
     fn eval_wdl(&self) -> f32 {
@@ -173,6 +178,20 @@ impl MCTS {
         }
     }
 
+    fn correct_static_eval(&mut self, node_idx: NodeIndex) {
+        let node = &mut self.tree[node_idx];
+        let new_corr = self
+            .pawn_corrhist
+            .get_corr(self.position.board().pawn_key()); // ?
+        node.update_correction(new_corr);
+    }
+
+    fn update_corrhist(&mut self, board: &Board, node_idx: NodeIndex) {
+        let node = &self.tree[node_idx];
+        self.pawn_corrhist
+            .update_corr(board.pawn_key(), node.q(), node.static_eval());
+    }
+
     fn perform_one_impl(&mut self, node_idx: NodeIndex, ply: u32) -> Option<(f32, Option<i32>)> {
         let root = node_idx == self.tree.root_node();
         if self.tree[node_idx].is_terminal() || self.tree[node_idx].visits() == 0 {
@@ -180,7 +199,8 @@ impl MCTS {
 
             let node = &mut self.tree[node_idx];
             node.set_game_result(game_result);
-            node.add_score(score);
+            node.set_static_eval(score);
+            self.correct_static_eval(node_idx);
 
             self.nodes += ply + 1;
 
@@ -198,13 +218,26 @@ impl MCTS {
                 self.tree.expand_node(node_idx, self.position.board())?;
             }
             self.tree.fetch_children(node_idx)?;
+            self.correct_static_eval(node_idx);
 
             let node = &self.tree[node_idx];
 
             let mut best_uct = -1f32;
             let mut best_child_idx = self.tree.root_node();
+
+            let mut best_visits = -1f32;
+            let mut best_visits_idx = self.tree.root_node();
             for child_idx in node.child_indices() {
                 let child = &self.tree[child_idx];
+                let visits = if child.visits() == 0 {
+                    child.policy()
+                } else {
+                    child.visits() as f32
+                };
+                if visits > best_visits {
+                    best_visits = visits;
+                    best_visits_idx = child_idx;
+                }
                 let q = if child.visits() == 0 {
                     if root {
                         1000.0
@@ -226,6 +259,12 @@ impl MCTS {
                 }
             }
 
+            let best_visits_move = self.tree[best_visits_idx].parent_move();
+            let old_board = self.position.board().clone();
+            let update_corrhist = old_board.piece_at(best_visits_move.to_sq()).is_none()
+                && best_visits_move.kind() != MoveKind::Promotion
+                && best_visits_move.kind() != MoveKind::Enpassant;
+
             self.position
                 .make_move(self.tree[best_child_idx].parent_move());
             let (child_score, mut child_mate_dist) =
@@ -241,9 +280,10 @@ impl MCTS {
 
             let score = 1.0 - child_score;
 
-            let node = &mut self.tree[node_idx];
-
-            node.add_score(score);
+            self.tree[node_idx].add_score(score);
+            if update_corrhist {
+                self.update_corrhist(&old_board, node_idx);
+            }
 
             Some((score, child_mate_dist))
         }
