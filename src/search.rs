@@ -263,7 +263,8 @@ impl MCTS {
             let old_board = self.position.board().clone();
             let update_corrhist = old_board.piece_at(best_visits_move.to_sq()).is_none()
                 && best_visits_move.kind() != MoveKind::Promotion
-                && best_visits_move.kind() != MoveKind::Enpassant;
+                && best_visits_move.kind() != MoveKind::Enpassant
+                && node.visits() > 384;
 
             self.position
                 .make_move(self.tree[best_child_idx].parent_move());
