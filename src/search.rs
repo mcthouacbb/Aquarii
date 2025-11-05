@@ -182,8 +182,8 @@ impl MCTS {
         let node = &mut self.tree[node_idx];
         let new_corr = self
             .pawn_corrhist
-            .get_corr(self.position.board().pawn_key()); // ?
-        node.update_correction(new_corr);
+            .get_corr(self.position.board().pawn_key());
+        node.update_correction(new_corr * 0.4);
     }
 
     fn update_corrhist(&mut self, board: &Board, node_idx: NodeIndex) {
@@ -218,7 +218,7 @@ impl MCTS {
                 self.tree.expand_node(node_idx, self.position.board())?;
             }
             self.tree.fetch_children(node_idx)?;
-            self.correct_static_eval(node_idx);
+            //self.correct_static_eval(node_idx);
 
             let node = &self.tree[node_idx];
 
