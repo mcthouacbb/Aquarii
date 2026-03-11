@@ -3,11 +3,20 @@ use std::{fs::File, io::Write, thread, time::Instant};
 use rand::Rng;
 use rand_core::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
+use viriformat::{
+    chess::{
+        board::{Board as VfBoard, GameOutcome},
+        chessmove::{Move as VfMove, MoveFlags as VfMoveFlags},
+        piece::PieceType as VfPieceType,
+        types::Square as VfSquare,
+    },
+    dataformat::Game as VfGame,
+};
 
 use crate::{
     chess::{
         movegen::{self, MoveList},
-        Move,
+        Move, MoveKind,
     },
     position::Position,
     score::{GameResult, Score},
@@ -15,10 +24,11 @@ use crate::{
     types::Color,
 };
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 struct DataPoint {
     fen: String,
     visit_dist: Vec<(Move, f32)>,
+    best_move: Move,
     score: f32,
 }
 
@@ -65,7 +75,7 @@ pub fn datagen_thread(thread_id: i32) {
     let seed = rand::rng().next_u64();
     println!("Thread {} RNG seed: {}", thread_id, seed);
 
-    let value_filename = format!("datagen{}.value.txt", thread_id);
+    let value_filename = format!("datagen{}.value.bin", thread_id);
     let mut value_file = File::create(value_filename).expect("Unable to create value data file");
 
     let policy_filename = format!("datagen{}.policy.txt", thread_id);
@@ -79,9 +89,7 @@ pub fn datagen_thread(thread_id: i32) {
     loop {
         let game = run_game(&mut search, &mut rng);
         let (num_positions, value_data, policy_data) = serialize(&game);
-        value_file
-            .write_all(value_data.as_bytes())
-            .expect("Unable to write value data");
+        value_data.serialise_into(&mut value_file).unwrap();
 
         policy_file
             .write_all(policy_data.as_bytes())
@@ -105,12 +113,43 @@ pub fn datagen_thread(thread_id: i32) {
     }
 }
 
-fn serialize(game: &Game) -> (i32, String, String) {
-    let mut value = String::new();
+fn move_to_vf(mv: Move) -> VfMove {
+    let from_sq = VfSquare::new(mv.from_sq().value()).unwrap();
+    let to_sq = VfSquare::new(mv.to_sq().value()).unwrap();
+    match mv.kind() {
+        MoveKind::None => VfMove::new(from_sq, to_sq),
+        MoveKind::Castle => VfMove::new_with_flags(from_sq, to_sq, VfMoveFlags::Castle),
+        MoveKind::Enpassant => VfMove::new_with_flags(from_sq, to_sq, VfMoveFlags::EnPassant),
+        MoveKind::Promotion => VfMove::new_with_promo(
+            from_sq,
+            to_sq,
+            VfPieceType::new(mv.promo_piece() as u8).unwrap(),
+        ),
+    }
+}
+
+fn wdl_to_vf(wdl: WDL) -> GameOutcome {
+    match wdl {
+        WDL::WhiteWin => GameOutcome::WhiteWin(viriformat::chess::board::WinType::Mate),
+        // DrawType might be wrong but this is not even used anyways so it doesn't matter
+        WDL::Draw => GameOutcome::Draw(viriformat::chess::board::DrawType::Repetition),
+        WDL::BlackWin => GameOutcome::BlackWin(viriformat::chess::board::WinType::Mate),
+    }
+}
+
+fn serialize(game: &Game) -> (i32, viriformat::dataformat::Game, String) {
+    let mut initial_pos = VfBoard::new();
+    initial_pos
+        .set_from_fen(&game.points[0].fen, false)
+        .unwrap();
+
+    let mut value = VfGame::new(&initial_pos);
+    value.set_outcome(wdl_to_vf(game.wdl));
+
     let mut policy = String::new();
     let mut num_positions = 0;
     for pt in &game.points {
-        value += format!("{} | {} | {}\n", pt.fen, pt.score, game.wdl.as_f32()).as_str();
+        value.add_move(move_to_vf(pt.best_move), pt.score as i16);
 
         policy += pt.fen.as_str();
         for (_mv, frac) in &pt.visit_dist {
@@ -180,6 +219,7 @@ fn run_game(search: &mut MCTS, rng: &mut XorShiftRng) -> Game {
         game.points.push(DataPoint {
             fen: pos.board().to_fen(),
             visit_dist: results.visit_dist,
+            best_move: results.best_move,
             score: datapt_score,
         });
 
