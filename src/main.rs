@@ -7,6 +7,7 @@ mod eval;
 mod perft;
 mod policy;
 mod position;
+mod score;
 mod search;
 mod tree;
 mod tune;

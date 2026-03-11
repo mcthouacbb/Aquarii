@@ -1,4 +1,3 @@
-use core::fmt;
 use std::{
     num::NonZeroI16,
     ops::{Index, IndexMut},
@@ -12,64 +11,8 @@ use crate::{
         Board, Move,
     },
     policy,
+    score::{GameResult, MateScore, Score},
 };
-
-#[derive(PartialEq, Eq, Clone, Copy)]
-#[repr(u8)]
-pub enum GameResult {
-    NonTerminal,
-    Mated,
-    Drawn,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum MateScore {
-    Loss(u16),
-    Win(u16),
-}
-
-fn sigmoid_inv(x: f32, scale: f32) -> f32 {
-    scale * (x / (1.0 - x)).ln()
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum Score {
-    Win(u16),
-    Draw,
-    Loss(u16),
-    Normal(f32),
-}
-
-impl Score {
-    pub fn flip(&self) -> Self {
-        match self {
-            Self::Win(dist) => Self::Loss(*dist),
-            Self::Draw => Self::Draw,
-            Self::Loss(dist) => Self::Win(*dist),
-            Self::Normal(score) => Self::Normal(1.0 - score),
-        }
-    }
-
-    pub fn uci_str(&self) -> String {
-        match self {
-            Self::Win(dist) => format!("mate {}", (*dist + 1) / 2),
-            Self::Draw => format!("cp 0"),
-            Self::Loss(dist) => format!("mate -{}", *dist / 2),
-            Self::Normal(score) => format!("cp {}", sigmoid_inv(*score, 400.0).round()),
-        }
-    }
-}
-
-impl fmt::Display for Score {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Win(dist) => write!(f, "win {} plies", *dist),
-            Self::Draw => write!(f, "draw"),
-            Self::Loss(dist) => write!(f, "loss {} plies", *dist),
-            Self::Normal(score) => write!(f, "cp {}", sigmoid_inv(*score, 400.0).round()),
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NodeIndex(u32);
@@ -367,24 +310,34 @@ impl Tree {
         Some(())
     }
 
+    fn compute_policies<T: Iterator<Item = Move>>(
+        board: &Board,
+        moves: T,
+        pst: f32,
+    ) -> ArrayVec<f32, 256> {
+        let mut policies = ArrayVec::<f32, 256>::new();
+        let mut max_policy = 0f32;
+        let data = policy::PolicyData::new(board);
+        for mv in moves {
+            let policy = policy::get_policy(board, mv, &data) / pst;
+            max_policy = max_policy.max(policy);
+            policies.push(policy);
+        }
+
+        softmax(&mut policies, max_policy);
+
+        policies
+    }
+
     pub fn expand_node(&mut self, node_idx: NodeIndex, board: &Board) -> Option<()> {
         let mut moves = MoveList::new();
         movegen::movegen(board, &mut moves);
 
         let first_child_idx = self.alloc_nodes(moves.len() as u32)?;
 
-        let tmp = if node_idx.index() == 0 { 3.0 } else { 1.0 };
+        let pst = if node_idx.index() == 0 { 3.0 } else { 1.0 };
 
-        let mut policies = ArrayVec::<f32, 256>::new();
-        let mut max_policy = 0f32;
-        let data = policy::PolicyData::new(board);
-        for mv in moves.iter() {
-            let policy = policy::get_policy(board, *mv, &data) / tmp;
-            max_policy = max_policy.max(policy);
-            policies.push(policy);
-        }
-
-        softmax(&mut policies, max_policy);
+        let policies = Self::compute_policies(board, moves.iter().map(|&mv| mv), pst);
 
         let node = &mut self[node_idx];
         node.first_child_idx = first_child_idx;
@@ -399,23 +352,19 @@ impl Tree {
     }
 
     pub fn relabel_policies(&mut self, node_idx: NodeIndex, board: &Board) {
-        let mut policies = ArrayVec::<f32, 256>::new();
-        let mut max_policy = 0f32;
-
-        let tmp = if node_idx == self.root_node() {
+        let pst = if node_idx == self.root_node() {
             3.0
         } else {
             1.0
         };
 
-        let data = policy::PolicyData::new(board);
-        for child_idx in self[node_idx].child_indices() {
-            let policy = policy::get_policy(board, self[child_idx].parent_move, &data) / tmp;
-            max_policy = max_policy.max(policy);
-            policies.push(policy);
-        }
-
-        softmax(&mut policies, max_policy);
+        let policies = Self::compute_policies(
+            board,
+            self[node_idx]
+                .child_indices()
+                .map(|child_idx| self[child_idx].parent_move),
+            pst,
+        );
 
         for (i, child_idx) in self[node_idx].child_indices().enumerate() {
             self[child_idx].policy = policies[i];
