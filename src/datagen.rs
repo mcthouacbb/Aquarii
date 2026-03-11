@@ -1,4 +1,13 @@
-use std::{fs::File, io::Write, thread, time::Instant};
+use std::{
+    fs::File,
+    io::{BufReader, ErrorKind, Write},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread,
+    time::Instant,
+};
 
 use rand::Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -60,17 +69,24 @@ const NUM_THREADS: i32 = 8;
 
 pub fn run_datagen() {
     let mut handles = Vec::new();
+    let stop = Arc::new(AtomicBool::new(false));
     for i in 0..NUM_THREADS {
+        let stop_ref = stop.clone();
         handles.push(thread::spawn(move || {
-            datagen_thread(i);
+            datagen_thread(i, &stop_ref);
         }));
     }
+
+    let stop_ref = stop.clone();
+    ctrlc::set_handler(move || stop_ref.store(true, Ordering::SeqCst))
+        .expect("Error setting Ctrl+C handler");
+
     for handle in handles {
         let _ = handle.join();
     }
 }
 
-pub fn datagen_thread(thread_id: i32) {
+pub fn datagen_thread(thread_id: i32, stop: &Arc<AtomicBool>) {
     let mut search = MCTS::new();
     let seed = rand::rng().next_u64();
     println!("Thread {} RNG seed: {}", thread_id, seed);
@@ -86,7 +102,7 @@ pub fn datagen_thread(thread_id: i32) {
     let mut positions = 0;
     let mut total_positions = 0;
     let mut start_time = Instant::now();
-    loop {
+    while !stop.load(Ordering::SeqCst) {
         let game = run_game(&mut search, &mut rng);
         let (num_positions, value_data, policy_data) = serialize(&game);
         value_data.serialise_into(&mut value_file).unwrap();
@@ -111,6 +127,11 @@ pub fn datagen_thread(thread_id: i32) {
             positions = 0;
         }
     }
+
+    println!(
+        "Thread {} finished writing {} total games and {} total positions",
+        thread_id, games, total_positions
+    );
 }
 
 fn move_to_vf(mv: Move) -> VfMove {
@@ -198,7 +219,7 @@ fn init_opening(rng: &mut XorShiftRng) -> Position {
 
 fn run_game(search: &mut MCTS, rng: &mut XorShiftRng) -> Game {
     let mut limits = SearchLimits::new();
-    limits.max_nodes = 20000;
+    limits.max_nodes = 5000;
 
     let mut pos = init_opening(rng);
 
