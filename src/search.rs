@@ -74,6 +74,7 @@ impl MCTS {
 
     pub fn new_game(&mut self) {
         self.tree.clear();
+        self.history.clear();
     }
 
     fn eval_wdl(&self) -> f32 {
@@ -251,7 +252,7 @@ impl MCTS {
             self.history.update(
                 &board_before,
                 self.tree[best_child_idx].parent_move(),
-                child_score,
+                score,
             );
 
             Some((score, child_mate_dist))
@@ -380,6 +381,7 @@ impl MCTS {
             );
         } else {
             self.tree.clear();
+            self.history.clear();
             self.tree.add_root_node();
             self.tree
                 .expand_node(

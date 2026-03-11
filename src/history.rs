@@ -3,7 +3,7 @@ use crate::{
     score::sigmoid_inv,
 };
 
-const BONUS_SCALE: f32 = 400.0;
+const BONUS_SCALE: f32 = 100.0;
 pub const MAX_HISTORY: i16 = 8192;
 
 pub struct History {
