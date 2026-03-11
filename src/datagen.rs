@@ -10,8 +10,8 @@ use crate::{
         Move,
     },
     position::Position,
+    score::{GameResult, Score},
     search::{SearchLimits, MCTS},
-    tree::{GameResult, MateScore, Score},
     types::Color,
 };
 

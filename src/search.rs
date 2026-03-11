@@ -6,13 +6,11 @@ use crate::{
         Move,
     },
     eval,
+    history::History,
     position::Position,
-    tree::{GameResult, MateScore, Node, NodeIndex, Score, Tree},
+    score::{sigmoid, GameResult, MateScore, Score},
+    tree::{Node, NodeIndex, Tree},
 };
-
-fn sigmoid(x: f32, scale: f32) -> f32 {
-    1.0 / (1.0 + (-x / scale).exp())
-}
 
 #[derive(Copy, Clone)]
 pub struct SearchLimits {
@@ -48,6 +46,7 @@ impl SearchLimits {
 pub struct MCTS {
     iters: u32,
     tree: Tree,
+    history: History,
     root_position: Position,
     position: Position,
     nodes: u32,
@@ -60,8 +59,9 @@ impl MCTS {
 
     pub fn new() -> Self {
         Self {
-            tree: Tree::new(24),
             iters: 0,
+            tree: Tree::new(24),
+            history: History::new(),
             root_position: Position::new(),
             position: Position::new(),
             nodes: 0,
@@ -195,7 +195,8 @@ impl MCTS {
         } else {
             // node can't be terminal here, must be unexpanded
             if self.tree[node_idx].child_count() == 0 {
-                self.tree.expand_node(node_idx, self.position.board())?;
+                self.tree
+                    .expand_node(node_idx, self.position.board(), &self.history)?;
             }
             self.tree.fetch_children(node_idx)?;
 
@@ -226,6 +227,8 @@ impl MCTS {
                 }
             }
 
+            let board_before = self.position.board().clone();
+
             self.position
                 .make_move(self.tree[best_child_idx].parent_move());
             let (child_score, mut child_mate_dist) =
@@ -244,6 +247,12 @@ impl MCTS {
             let node = &mut self.tree[node_idx];
 
             node.add_score(score);
+
+            self.history.update(
+                &board_before,
+                self.tree[best_child_idx].parent_move(),
+                score,
+            );
 
             Some((score, child_mate_dist))
         }
@@ -364,13 +373,20 @@ impl MCTS {
 
         if new_root_idx != NodeIndex::NULL && self.tree[new_root_idx].child_count() > 0 {
             self.tree.set_as_root(new_root_idx);
-            self.tree
-                .relabel_policies(self.tree.root_node(), &self.root_position.board());
+            self.tree.relabel_policies(
+                self.tree.root_node(),
+                &self.root_position.board(),
+                &self.history,
+            );
         } else {
             self.tree.clear();
             self.tree.add_root_node();
             self.tree
-                .expand_node(self.tree.root_node(), self.root_position.board())
+                .expand_node(
+                    self.tree.root_node(),
+                    self.root_position.board(),
+                    &self.history,
+                )
                 .expect("Cannot expand root node in tree");
             let eval = self.eval_wdl();
             let root = self.tree.root_node();
