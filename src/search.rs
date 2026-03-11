@@ -7,12 +7,9 @@ use crate::{
     },
     eval,
     position::Position,
-    tree::{GameResult, MateScore, Node, NodeIndex, Score, Tree},
+    score::{sigmoid, GameResult, MateScore, Score},
+    tree::{Node, NodeIndex, Tree},
 };
-
-fn sigmoid(x: f32, scale: f32) -> f32 {
-    1.0 / (1.0 + (-x / scale).exp())
-}
 
 #[derive(Copy, Clone)]
 pub struct SearchLimits {
