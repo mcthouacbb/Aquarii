@@ -252,7 +252,7 @@ impl MCTS {
             self.history.update(
                 &board_before,
                 self.tree[best_child_idx].parent_move(),
-                score,
+                child_score,
             );
 
             Some((score, child_mate_dist))
