@@ -1,6 +1,6 @@
 use std::{
-    fs::File,
-    io::{BufReader, ErrorKind, Write},
+    fs::{self, File},
+    io::{self, BufReader, ErrorKind, Write},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -86,6 +86,30 @@ pub fn run_datagen() {
 
     for handle in handles {
         let _ = handle.join();
+    }
+
+    let mut combined_value_file = File::create_new("datagen.value.bin").unwrap();
+    for i in 0..NUM_THREADS {
+        let mut thread_value_file = File::open(format!("datagen{}.value.bin", i)).unwrap();
+        io::copy(&mut thread_value_file, &mut combined_value_file).unwrap();
+    }
+
+    println!("Finished combining value files into datagen.value.bin");
+
+    for i in 0..NUM_THREADS {
+        fs::remove_file(format!("datagen{}.value.bin", i)).unwrap();
+    }
+
+    let mut combined_policy_file = File::create_new("datagen.policy.txt").unwrap();
+    for i in 0..NUM_THREADS {
+        let mut thread_policy_file = File::open(format!("datagen{}.policy.txt", i)).unwrap();
+        io::copy(&mut thread_policy_file, &mut combined_policy_file).unwrap();
+    }
+
+    println!("Finished combining policy files into datagen.policy.txt");
+
+    for i in 0..NUM_THREADS {
+        fs::remove_file(format!("datagen{}.policy.txt", i)).unwrap();
     }
 }
 
