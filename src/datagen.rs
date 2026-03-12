@@ -9,7 +9,10 @@ use std::{
     time::Instant,
 };
 
-use rand::Rng;
+use rand::{
+    seq::{IndexedRandom, SliceRandom},
+    Rng,
+};
 use rand_core::{RngCore, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use viriformat::{
@@ -19,18 +22,18 @@ use viriformat::{
         piece::PieceType as VfPieceType,
         types::Square as VfSquare,
     },
-    dataformat::Game as VfGame,
+    dataformat::{Game as VfGame, WDL as VfWDL},
 };
 
 use crate::{
     chess::{
         movegen::{self, MoveList},
-        Move, MoveKind,
+        Board, Move, MoveKind,
     },
     position::Position,
-    score::{GameResult, Score},
+    score::{sigmoid, sigmoid_inv, GameResult, Score},
     search::{SearchLimits, MCTS},
-    types::Color,
+    types::{Color, PieceType, Square},
 };
 
 #[derive(Debug, Clone)]
@@ -86,7 +89,97 @@ pub fn run_datagen() {
     }
 }
 
-pub fn datagen_thread(thread_id: i32, stop: &Arc<AtomicBool>) {
+pub fn extract_fens(in_filename: &str, out_filename: &str) {
+    let value_file = match File::open(in_filename) {
+        Ok(file) => file,
+        Err(err) => {
+            println!("Error opening file '{}': {}", in_filename, err);
+            return;
+        }
+    };
+
+    let mut reader = BufReader::new(value_file);
+
+    let mut games = Vec::new();
+
+    loop {
+        match VfGame::deserialise_from(&mut reader, Vec::new()) {
+            Ok(game) => {
+                games.push(game);
+            }
+            Err(err) => {
+                if err.kind() == ErrorKind::UnexpectedEof {
+                    break;
+                } else {
+                    println!("Encountered viriformat error: {}", err);
+                }
+            }
+        }
+    }
+
+    const PPG: usize = 10;
+
+    println!(
+        "Finished loading {} games from file '{}'",
+        games.len(),
+        in_filename
+    );
+    println!("Extracting {} positions per game", PPG);
+
+    let mut positions = Vec::new();
+    let mut rng = XorShiftRng::seed_from_u64(rand::rng().next_u64());
+
+    for game in games {
+        let mut game_positions = Vec::new();
+
+        let mut position = Board::from_fen(game.initial_position().to_string().as_str()).unwrap();
+        for &(mv, score) in &game.moves {
+            game_positions.push((position.to_fen(), score, wdl_from_vf(game.outcome())));
+            position.make_move(move_from_vf(mv));
+        }
+
+        positions.extend(
+            game_positions
+                .choose_multiple(&mut rng, PPG)
+                .map(|pos| pos.clone()),
+        );
+    }
+
+    println!("Finished extracing {} positions", positions.len());
+    println!("Shuffling positions");
+
+    positions.shuffle(&mut rng);
+
+    let mut fens_file = match File::create_new(out_filename) {
+        Ok(file) => file,
+        Err(err) => {
+            println!("Error opening output file '{}': {}", out_filename, err);
+            return;
+        }
+    };
+
+    for (fen, score, wdl) in &positions {
+        let result = write!(
+            fens_file,
+            "{} | {} | {}\n",
+            fen,
+            sigmoid(score.get() as f32, 400.0),
+            wdl.as_f32()
+        );
+        if let Err(err) = result {
+            println!("Error writing to output file '{}': {}", out_filename, err);
+            return;
+        }
+    }
+
+    println!(
+        "Finished writing {} positions to file '{}'",
+        positions.len(),
+        out_filename
+    );
+}
+
+fn datagen_thread(thread_id: i32, stop: &Arc<AtomicBool>) {
     let mut search = MCTS::new();
     let seed = rand::rng().next_u64();
     println!("Thread {} RNG seed: {}", thread_id, seed);
@@ -158,6 +251,33 @@ fn wdl_to_vf(wdl: WDL) -> GameOutcome {
     }
 }
 
+fn move_from_vf(mv: VfMove) -> Move {
+    let from_sq = Square::from_raw(mv.from().index() as u8);
+    let to_sq = Square::from_raw(mv.to().index() as u8);
+
+    if mv.is_castle() {
+        Move::castle(from_sq, to_sq)
+    } else if mv.is_ep() {
+        Move::enpassant(from_sq, to_sq)
+    } else if mv.is_promo() {
+        Move::promo(
+            from_sq,
+            to_sq,
+            PieceType::from_raw(mv.promotion_type().unwrap().index() as u8),
+        )
+    } else {
+        Move::normal(from_sq, to_sq)
+    }
+}
+
+fn wdl_from_vf(wdl: VfWDL) -> WDL {
+    match wdl {
+        VfWDL::Win => WDL::WhiteWin,
+        VfWDL::Draw => WDL::Draw,
+        VfWDL::Loss => WDL::BlackWin,
+    }
+}
+
 fn serialize(game: &Game) -> (i32, viriformat::dataformat::Game, String) {
     let mut initial_pos = VfBoard::new();
     initial_pos
@@ -170,7 +290,10 @@ fn serialize(game: &Game) -> (i32, viriformat::dataformat::Game, String) {
     let mut policy = String::new();
     let mut num_positions = 0;
     for pt in &game.points {
-        value.add_move(move_to_vf(pt.best_move), pt.score as i16);
+        value.add_move(
+            move_to_vf(pt.best_move),
+            sigmoid_inv(pt.score, 400.0) as i16,
+        );
 
         policy += pt.fen.as_str();
         for (_mv, frac) in &pt.visit_dist {

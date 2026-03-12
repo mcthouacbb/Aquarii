@@ -86,6 +86,11 @@ fn main() {
         return;
     }
 
+    if args.len() == 4 && args[1] == "extract" {
+        datagen::extract_fens(args[2].as_str(), args[3].as_str());
+        return;
+    }
+
     if args.len() >= 2 && args[1] == "tunepolicy" {
         tune::policy::main(&args[2..args.len()]);
         return;
